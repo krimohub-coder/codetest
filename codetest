@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB V4 - KOMPAKT (FUNKTIONIERT SICHER)
+-- KRIMO HUB V4 - ROBUST (KEINE NIL FEHLER)
 -- ============================================================
 
 -- 1. GLOBALS
@@ -18,15 +18,19 @@ local UserInputService = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
 
--- 2. PERSISTENZ
+-- 2. PERSISTENZ (MIT PCALL)
 local CONFIG_PATH = "KrimoHub_config.json"
-local hasFS = (writefile and readfile and isfile) and true or false
+local hasFS = false
+pcall(function()
+    hasFS = (writefile and readfile and isfile) and true or false
+end)
+
 local config = { panelX = nil, panelY = nil }
 
 local function loadConfig()
     if not hasFS then return end
-    if not isfile(CONFIG_PATH) then return end
     pcall(function()
+        if not isfile(CONFIG_PATH) then return end
         local data = HttpService:JSONDecode(readfile(CONFIG_PATH))
         if type(data) == "table" then
             for k, v in pairs(data) do config[k] = v end
@@ -132,18 +136,6 @@ local SAB_DB = {
     ["code 8"] = "KEYBOARD",
     ["code 9"] = "ESCAPE",
     ["code 10"] = "RAINBOW",
-    ["first machine"] = "RAINBOW MACHINE",
-    ["1st machine"] = "RAINBOW MACHINE",
-    ["second machine"] = "BUBBLEGUM MACHINE",
-    ["2nd machine"] = "BUBBLEGUM MACHINE",
-    ["third machine"] = "FUSE MACHINE",
-    ["3rd machine"] = "FUSE MACHINE",
-    ["fourth machine"] = "CRAFT MACHINE",
-    ["4th machine"] = "CRAFT MACHINE",
-    ["fifth machine"] = "WITCH FUSE",
-    ["5th machine"] = "WITCH FUSE",
-    ["sixth machine"] = "BRAINROT DEALER",
-    ["6th machine"] = "BRAINROT DEALER",
 }
 
 local function answerQuestion(text)
@@ -451,7 +443,7 @@ local function buildHistoryGUI()
     end)
 end
 
--- 9. RETYPE INVALID LOGIK
+-- 9. RETYPE INVALID LOGIK (OHNE GETCONNECTIONS)
 local function isBoxVisible(box)
     if not box or not box.Parent then return false end
     local current = box
@@ -540,21 +532,7 @@ local function handleRedemptionFeedback(text)
     clearPendingSubmission()
 end
 
--- 10. SUBMIT
-local function fireSignal(sig)
-    if not sig then return end
-    pcall(function()
-        if getconnections then
-            for _, c in ipairs(getconnections(sig)) do
-                if c.Fire then c:Fire() end
-            end
-        end
-    end)
-    if firesignal then
-        pcall(function() firesignal(sig) end)
-    end
-end
-
+-- 10. SUBMIT (SICHER OHNE GETCONNECTIONS)
 local function doSubmit()
     if submitCooldown then return false end
     submitCooldown = true
@@ -563,15 +541,23 @@ local function doSubmit()
     local fullCode = table.concat(collectedCodes)
     if fullCode == "" then return false
     rememberPendingSubmission(CodeTextBox, fullCode)
+    
+    -- Versuche ConfirmButton zu klicken
     if ConfirmButton and ConfirmButton.Parent then
         pcall(function()
-            fireSignal(ConfirmButton.MouseButton1Click)
-            fireSignal(ConfirmButton.Activated)
             ConfirmButton:CaptureFocus()
             ConfirmButton:ReleaseFocus(true)
+            -- Simuliere Klick
+            if ConfirmButton.MouseButton1Click then
+                -- Versuche verschiedene Methoden
+                pcall(function() ConfirmButton.MouseButton1Click:Fire() end)
+                pcall(function() ConfirmButton.Activated:Fire() end)
+            end
         end)
         return true
     end
+    
+    -- Alternative: Suche nach Submit-Button
     local PlayerGui = LocalPlayer:FindFirstChild("PlayerGui")
     if PlayerGui then
         for _, obj in ipairs(PlayerGui:GetDescendants()) do
@@ -579,10 +565,12 @@ local function doSubmit()
                 local txt = (obj:IsA("TextButton") and obj.Text or ""):lower()
                 if txt:find("submit") or txt:find("redeem") or txt:find("confirm") or txt:find("einlösen") then
                     pcall(function()
-                        fireSignal(obj.MouseButton1Click)
-                        fireSignal(obj.Activated)
                         obj:CaptureFocus()
                         obj:ReleaseFocus(true)
+                        if obj.MouseButton1Click then
+                            pcall(function() obj.MouseButton1Click:Fire() end)
+                            pcall(function() obj.Activated:Fire() end)
+                        end
                     end)
                     return true
                 end
