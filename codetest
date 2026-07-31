@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB V4 - FIXED RETYPE INVALID + GUI OPTIMIERT
+-- KRIMO HUB V4 - RETYPE INVALID FIX (SPEICHERT ALLE WÖRTER)
 -- ============================================================
 
 -- 1. GLOBALS
@@ -45,8 +45,8 @@ local Announcements = nil
 local CodeTextBox = nil
 local ConfirmButton = nil
 
--- RETYPE INVALID VARIABLES (FIXED)
-local pendingRejectedText = nil      -- SPEICHERT DEN KOMPLETTEN CODE-STRING
+-- RETYPE INVALID VARIABLES
+local pendingRejectedText = nil      -- SPEICHERT DEN KOMPLETTEN CODE
 local pendingRejectedBox = nil
 local pendingRejectedUntil = 0
 local pendingRejectedToken = 0
@@ -85,7 +85,7 @@ local AddedCount = 0
 local history = {}          -- { word, time }
 local lastAddedWord = ""    -- für Duplikatschutz
 local submitCooldown = false
-local lastSubmittedCode = "" -- für Retype Invalid
+local lastSubmittedFullCode = "" -- SPEICHERT DEN KOMPLETTEN CODE
 
 -- 5. RIDDLE DATABASE
 local SAB_DB = {
@@ -547,7 +547,10 @@ local function buildHistoryGUI()
     end)
 end
 
--- 9. RETYPE INVALID LOGIK (FIXED - SPEICHERT KOMPLETTEN CODE)
+-- ============================================================
+-- 9. RETYPE INVALID LOGIK (FIXED - SPEICHERT ALLE WÖRTER)
+-- ============================================================
+
 local function isBoxVisible(box)
     if not box or not box.Parent then return false end
     local current = box
@@ -575,17 +578,23 @@ local function clearPendingSubmission()
     pendingRejectedText = nil
     pendingRejectedBox = nil
     pendingRejectedUntil = 0
+    lastSubmittedFullCode = ""
 end
 
--- FIX: Speichert den KOMPLETTEN Code-String, nicht nur das letzte Wort
+-- SPEICHERT DEN KOMPLETTEN CODE (ALLE GESAMMELTEN WÖRTER)
 local function rememberPendingSubmission(box, fullCodeText)
     if not _G.RetypeInvalidEnabled then return end
     if not fullCodeText or fullCodeText == "" then return end
+    
+    print("[Retype] Speichere vollständigen Code: " .. fullCodeText) -- Debug
+    
     pendingRejectedToken = pendingRejectedToken + 1
     local token = pendingRejectedToken
-    pendingRejectedText = fullCodeText  -- SPEICHERT DEN GESAMTEN CODE
+    pendingRejectedText = fullCodeText  -- KOMPLETTER CODE
     pendingRejectedBox = box
     pendingRejectedUntil = os.clock() + 8
+    lastSubmittedFullCode = fullCodeText
+    
     task.delay(8, function()
         if token == pendingRejectedToken then
             clearPendingSubmission()
@@ -593,15 +602,18 @@ local function rememberPendingSubmission(box, fullCodeText)
     end)
 end
 
--- FIX: Stellt den KOMPLETTEN Code wieder her
+-- STELLT DEN KOMPLETTEN CODE WIEDER HER
 local function restoreRejectedText(box, previousText)
     if not _G.RetypeInvalidEnabled then return false end
     if not previousText or previousText == "" then return false end
+    
+    print("[Retype] Stelle vollständigen Code wieder her: " .. previousText) -- Debug
+    
     RunService.Heartbeat:Wait()
     local repasteBox = getAceCodeBox() or box
     if not repasteBox or not isBoxVisible(repasteBox) then return false end
     local restored = pcall(function()
-        repasteBox.Text = previousText  -- STELLT DEN GESAMTEN CODE WIEDER HER
+        repasteBox.Text = previousText  -- KOMPLETTER CODE
     end)
     return restored
 end
@@ -623,13 +635,16 @@ local function handleRedemptionFeedback(text)
         or lower:find("not found", 1, true)
         or lower:find("rejected", 1, true)
     if not rejected then return end
+    
+    print("[Retype] Invalid erkannt! Stelle Code wieder her: " .. pendingRejectedText)
+    
     local previousText = pendingRejectedText
     local previousBox = pendingRejectedBox
     local restored = restoreRejectedText(previousBox, previousText)
     clearPendingSubmission()
 end
 
--- 10. SUBMIT (MERKT SICH DEN KOMPLETTEN CODE FÜR RETYPE)
+-- 10. SUBMIT
 local function fireSignal(sig)
     if not sig then return end
     pcall(function()
@@ -651,12 +666,13 @@ local function triggerSubmit()
     
     setupPaths()
     
-    -- MERK DIR DEN KOMPLETTEN CODE (ALLE GESAMMELTEN WÖRTER)
+    -- KOMPLETTEN CODE aus allen gesammelten Wörtern zusammensetzen
     local fullCode = table.concat(collectedCodes)
     if fullCode ~= "" then
-        lastSubmittedCode = fullCode
+        print("[Retype] Gesammelte Codes: " .. table.concat(collectedCodes, " + "))
+        print("[Retype] Vollständiger Code zum Submitten: " .. fullCode)
+        lastSubmittedFullCode = fullCode
         rememberPendingSubmission(CodeTextBox, fullCode)
-        print("[Retype] Gespeicherter vollständiger Code: " .. fullCode) -- Debug
     end
     
     if ConfirmButton and ConfirmButton.Parent then
@@ -875,11 +891,12 @@ local function resetCodes()
     table.clear(collectedCodes)
     AddedCount = 0
     lastAddedWord = ""
+    lastSubmittedFullCode = ""
     refreshMainGUI()
     if CodeTextBox then CodeTextBox.Text = "" end
 end
 
--- 17. GUI BAUEN (SCHWARZ + BLAU - OPTIMIERTE POSITIONEN)
+-- 17. GUI BAUEN (OPTIMIERTE POSITIONEN)
 local function buildGUI()
     local old = CoreGui:FindFirstChild("KrimoHubGui")
     if old then old:Destroy() end
@@ -989,7 +1006,7 @@ local function buildGUI()
     ContentFrame.ZIndex = 5
     ContentFrame.Parent = MainFrame
     
-    -- ======== ROW 1: Auto Type | Auto Submit (optimierte Positionen) ========
+    -- ======== ROW 1: Auto Type | Auto Submit ========
     local rowBg = Instance.new("Frame")
     rowBg.Size = UDim2.new(1, -24, 0, 32)
     rowBg.Position = UDim2.new(0, 12, 0, 4)
@@ -1001,7 +1018,7 @@ local function buildGUI()
     do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 6) co.Parent = rowBg end
     do local st = Instance.new("UIStroke") st.Color = Color3.fromRGB(60, 150, 255) st.Thickness = 1 st.Transparency = 0.3 st.Parent = rowBg end
     
-    -- Auto Type (links) - Label + Button
+    -- Auto Type
     local awLabel = Instance.new("TextLabel")
     awLabel.Size = UDim2.new(0, 65, 1, 0)
     awLabel.Position = UDim2.new(0, 6, 0, 0)
@@ -1039,7 +1056,7 @@ local function buildGUI()
         end
     end)
     
-    -- Strich (Trenner)
+    -- Strich
     local divider = Instance.new("TextLabel")
     divider.Size = UDim2.new(0, 12, 1, 0)
     divider.Position = UDim2.new(0, 116, 0, 0)
@@ -1053,7 +1070,7 @@ local function buildGUI()
     divider.ZIndex = 10
     divider.Parent = rowBg
     
-    -- Auto Submit (rechts) - Label + Button
+    -- Auto Submit
     local asLabel = Instance.new("TextLabel")
     asLabel.Size = UDim2.new(0, 75, 1, 0)
     asLabel.Position = UDim2.new(0, 134, 0, 0)
@@ -1480,4 +1497,4 @@ pcall(buildGUI)
 pcall(startAnnouncementWatcher)
 pcall(startPlayerGuiScanner)
 pcall(startFeedbackWatcher)
-print("[KrimoHub V4] Fertig!")
+print("[KrimoHub V4] Fertig! Retype Invalid speichert jetzt den vollständigen Code.")
