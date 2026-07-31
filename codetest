@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB V4 - RETYPE FIX (SPEICHERT WORTLISTE)
+-- KRIMO HUB V4 - FINAL FIX (RETYPE + TIMER + RESET)
 -- ============================================================
 
 -- 1. GLOBALS
@@ -46,13 +46,13 @@ local CodeTextBox = nil
 local ConfirmButton = nil
 
 -- RETYPE INVALID VARIABLES
-local pendingRejectedText = nil      -- gespeicherter vollständiger Code-String
-local pendingRejectedWordList = nil  -- Liste der Wörter, die den Code bilden
+local pendingRejectedText = nil
+local pendingRejectedWordList = nil
 local pendingRejectedBox = nil
 local pendingRejectedUntil = 0
 local pendingRejectedToken = 0
 
--- TIMER FÜR AUTO SUBMIT
+-- TIMER
 local submitTimer = nil
 local SUBMIT_DELAY = 0.6
 
@@ -547,7 +547,7 @@ local function buildHistoryGUI()
     end)
 end
 
--- 9. RETYPE INVALID LOGIK (MIT WORTLISTE)
+-- 9. RETYPE INVALID LOGIK (MIT WORTLISTE UND RESET)
 local function isBoxVisible(box)
     if not box or not box.Parent then return false end
     local current = box
@@ -578,7 +578,6 @@ local function clearPendingSubmission()
     pendingRejectedUntil = 0
 end
 
--- Speichert den vollständigen Code und die Wortliste
 local function rememberPendingSubmission(box, fullCodeText, wordList)
     if not _G.RetypeInvalidEnabled then return end
     if not fullCodeText or fullCodeText == "" then return end
@@ -595,7 +594,7 @@ local function rememberPendingSubmission(box, fullCodeText, wordList)
     end)
 end
 
--- Stellt den Code wieder her und setzt collectedCodes auf die gespeicherte Wortliste
+-- WICHTIG: Bei invalid wird der Code repastet, aber collectedCodes GELEERT!
 local function restoreRejectedText(box, previousText, wordList)
     if not _G.RetypeInvalidEnabled then return false end
     if not previousText or previousText == "" then return false end
@@ -605,14 +604,16 @@ local function restoreRejectedText(box, previousText, wordList)
     local restored = pcall(function()
         repasteBox.Text = previousText
     end)
-    if restored and wordList then
-        -- collectedCodes auf die gespeicherte Wortliste zurücksetzen
+    if restored then
+        -- LEERE collectedCodes, damit der Zähler auf 0 geht
         table.clear(collectedCodes)
-        for _, w in ipairs(wordList) do
-            table.insert(collectedCodes, w)
-        end
-        AddedCount = #collectedCodes
+        AddedCount = 0
         refreshMainGUI()
+        -- Timer abbrechen
+        if submitTimer then
+            task.cancel(submitTimer)
+            submitTimer = nil
+        end
     end
     return restored
 end
@@ -635,9 +636,8 @@ local function handleRedemptionFeedback(text)
         or lower:find("rejected", 1, true)
     if not rejected then return end
     local previousText = pendingRejectedText
-    local previousWordList = pendingRejectedWordList
     local previousBox = pendingRejectedBox
-    local restored = restoreRejectedText(previousBox, previousText, previousWordList)
+    local restored = restoreRejectedText(previousBox, previousText, nil)
     clearPendingSubmission()
 end
 
@@ -700,12 +700,9 @@ local function doSubmit()
     return false
 end
 
--- Timer für Auto Submit (nur wenn AutoSubmitEnabled)
+-- 11. TIMER FÜR AUTO SUBMIT
 local function triggerSubmitWithTimer()
-    if not _G.AutoSubmitEnabled then
-        -- Wenn AutoSubmit aus, nichts tun – Wörter werden sofort hinzugefügt, aber nicht automatisch gesendet
-        return
-    end
+    if not _G.AutoSubmitEnabled then return end
     
     if submitTimer then
         task.cancel(submitTimer)
@@ -739,7 +736,7 @@ local function triggerSubmitWithTimer()
     end)
 end
 
--- 11. HISTORY SPEICHERN
+-- 12. HISTORY SPEICHERN
 local function saveToHistory(Word, fromSammy)
     if not fromSammy then return end
     if not Word or Word == "" then return end
@@ -759,7 +756,7 @@ local function saveToHistory(Word, fromSammy)
     end
 end
 
--- 12. CODE HINZUFÜGEN (OHNE TIMER, WENN AUTO SUBMIT AUS)
+-- 13. CODE HINZUFÜGEN
 local function addCode(Code, fromSammy)
     Code = tostring(Code)
     if Code == "" then return end
@@ -782,13 +779,12 @@ local function addCode(Code, fromSammy)
     end
     AddedCount = AddedCount + 1
     
-    -- Timer starten (wenn AutoSubmit an ist)
     if _G.AutoSubmitEnabled then
         triggerSubmitWithTimer()
     end
 end
 
--- 13. WATCHER (MIT DUPLIKATSCHUTZ PRO NACHRICHT)
+-- 14. WATCHER
 local function watchLabel(Label)
     if not Label:IsA("TextLabel") then return end
     local text = Label.Text
@@ -811,7 +807,7 @@ local function watchLabel(Label)
     end
 end
 
--- 14. REDEMPTION FEEDBACK WATCHER
+-- 15. REDEMPTION FEEDBACK WATCHER
 local function watchFeedbackObject(obj)
     if not (obj:IsA("TextLabel") or obj:IsA("TextButton")) then return end
     handleRedemptionFeedback(obj.Text or "")
@@ -832,7 +828,7 @@ local function startFeedbackWatcher()
     end)
 end
 
--- 15. SPYDERSAMMY ERKENNUNG
+-- 16. SPYDERSAMMY ERKENNUNG
 local targetUserId = nil
 task.spawn(function()
     pcall(function() targetUserId = Players:GetUserIdFromNameAsync("SpyderSammy") end)
@@ -921,11 +917,13 @@ if CodeTextBox then
     CodeTextBox:GetPropertyChangedSignal("Text"):Connect(function()
         if CodeTextBox.Text == "" then
             AddedCount = 0
+            table.clear(collectedCodes)
+            refreshMainGUI()
         end
     end)
 end
 
--- 16. RESET
+-- 17. RESET
 local function resetCodes()
     if submitTimer then
         task.cancel(submitTimer)
@@ -937,7 +935,7 @@ local function resetCodes()
     if CodeTextBox then CodeTextBox.Text = "" end
 end
 
--- 17. GUI BAUEN (WIE BISHER, KLEIN)
+-- 18. GUI BAUEN (WIE BISHER, KLEIN)
 local function buildGUI()
     local old = CoreGui:FindFirstChild("KrimoHubGui")
     if old then old:Destroy() end
@@ -1140,8 +1138,21 @@ local function buildGUI()
         _G.AutoSubmitEnabled = not _G.AutoSubmitEnabled
         asToggle.BackgroundColor3 = _G.AutoSubmitEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
         asToggle.Text = _G.AutoSubmitEnabled and "ON" or "OFF"
-        if not _G.AutoSubmitEnabled then
-            if submitTimer then task.cancel(submitTimer); submitTimer = nil end
+        if _G.AutoSubmitEnabled then
+            -- Beim Einschalten: collectedCodes leeren, um Neustart zu erzwingen
+            table.clear(collectedCodes)
+            AddedCount = 0
+            refreshMainGUI()
+            if CodeTextBox then CodeTextBox.Text = "" end
+            if submitTimer then
+                task.cancel(submitTimer)
+                submitTimer = nil
+            end
+        else
+            if submitTimer then
+                task.cancel(submitTimer)
+                submitTimer = nil
+            end
         end
     end)
     
@@ -1317,6 +1328,9 @@ local function buildGUI()
         _G.RetypeInvalidEnabled = not _G.RetypeInvalidEnabled
         riToggle.BackgroundColor3 = _G.RetypeInvalidEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
         riToggle.Text = _G.RetypeInvalidEnabled and "ON" or "OFF"
+        if not _G.RetypeInvalidEnabled then
+            clearPendingSubmission()
+        end
     end)
     
     -- Collected + Reset
@@ -1532,11 +1546,11 @@ local function buildGUI()
     print("[KrimoHub V4] GUI sichtbar!")
 end
 
--- 18. START
+-- 19. START
 print("[KrimoHub V4] Starte...")
 pcall(setupPaths)
 pcall(buildGUI)
 pcall(startAnnouncementWatcher)
 pcall(startPlayerGuiScanner)
 pcall(startFeedbackWatcher)
-print("[KrimoHub V4] Fertig! Retype speichert jetzt die Wortliste.")
+print("[KrimoHub V4] Fertig!")
