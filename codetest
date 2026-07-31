@@ -16,6 +16,7 @@ local LocalPlayer = Players.LocalPlayer
 local CoreGui = game:GetService("CoreGui")
 local UserInputService = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
+local RunService = game:GetService("RunService")
 
 -- RETYPE INVALID VARIABLES (NEU)
 local invalidCount = 0
@@ -548,7 +549,7 @@ local function buildHistoryGUI()
 end
 
 -- ============================================================
--- 9. RETYPE INVALID LOGIK (NEU MIT COUNTER)
+-- 9. RETYPE INVALID LOGIK (NEU MIT COUNTER - ABER REPASTET DEN CODE)
 -- ============================================================
 local function isBoxVisible(box)
     if not box or not box.Parent then return false end
@@ -596,7 +597,7 @@ local function rememberPendingSubmission(box, fullCodeText)
     end)
 end
 
--- NEUE handleRedemptionFeedback MIT COUNTER
+-- NEUE handleRedemptionFeedback (repastet den CODE, nicht "hi")
 local function handleRedemptionFeedback(text)
     if not _G.RetypeInvalidEnabled then return end
     if not pendingRejectedText then return end
@@ -616,7 +617,6 @@ local function handleRedemptionFeedback(text)
         or lower:find("rejected", 1, true)
 
     if not rejected then
-        -- Kein Error mehr, Reset Counter und gespeicherten Code
         invalidCount = 0
         lastRejectedCode = ""
         clearPendingSubmission()
@@ -626,10 +626,8 @@ local function handleRedemptionFeedback(text)
     local previousText = pendingRejectedText
 
     if previousText ~= lastRejectedCode then
-        -- Neuer Code, Reset Counter
         invalidCount = 1
     else
-        -- Gleicher Code, inkrementiere Counter
         invalidCount = invalidCount + 1
     end
 
@@ -641,35 +639,30 @@ local function handleRedemptionFeedback(text)
         return
     end
 
-    local newText = ""
+    -- Repaste den GESAMTEN Code, nicht nur "hi"
+    local newText = previousText
 
+    -- Wenn Textbox leer, Code schreiben
     if repasteBox.Text == "" then
-        -- Wenn Textbox leer, nur einmal hi schreiben
-        newText = "hi"
-        invalidCount = 1
+        newText = previousText
     else
-        -- Verhalten je nach invalidCount:
-        if invalidCount == 1 then
-            -- erstes Mal zurück auf "hi"
-            newText = "hi"
-        elseif invalidCount == 2 then
-            -- zweites Mal "hihi"
-            newText = "hihi"
-        else
-            -- weiter "hi" anhängen (z.B. "hihihi")
-            newText = string.rep("hi", invalidCount)
-        end
+        -- Wenn die Textbox bereits den gleichen Code hat, nochmal den Code schreiben
+        newText = previousText
     end
 
-    -- Setze Textbox Text sicher zurück
+    -- Setze Textbox Text zurück
     local success, err = pcall(function()
         repasteBox.Text = newText
     end)
 
     if success then
-        -- Reset Codes und GUI
+        -- collectedCodes auf den repasteten Code setzen, damit der Zähler stimmt
         table.clear(collectedCodes)
-        AddedCount = 0
+        -- Teile den Code in einzelne Wörter auf (falls er aus mehreren besteht)
+        for word in string.gmatch(newText, "%S+") do
+            table.insert(collectedCodes, word)
+        end
+        AddedCount = #collectedCodes
         refreshMainGUI()
         clearPendingSubmission()
     else
