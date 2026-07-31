@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB V4 - FIXED RETYPE INVALID + OPTIMIERTES GUI
+-- KRIMO HUB V4 - FIXED RETYPE INVALID + GUI OPTIMIERT
 -- ============================================================
 
 -- 1. GLOBALS
@@ -651,11 +651,12 @@ local function triggerSubmit()
     
     setupPaths()
     
-    -- MERK DIR DEN KOMPLETTEN CODE für Retype Invalid
+    -- MERK DIR DEN KOMPLETTEN CODE (ALLE GESAMMELTEN WÖRTER)
     local fullCode = table.concat(collectedCodes)
     if fullCode ~= "" then
         lastSubmittedCode = fullCode
         rememberPendingSubmission(CodeTextBox, fullCode)
+        print("[Retype] Gespeicherter vollständiger Code: " .. fullCode) -- Debug
     end
     
     if ConfirmButton and ConfirmButton.Parent then
@@ -878,7 +879,7 @@ local function resetCodes()
     if CodeTextBox then CodeTextBox.Text = "" end
 end
 
--- 17. GUI BAUEN (SCHWARZ + BLAU - OPTIMIERT)
+-- 17. GUI BAUEN (SCHWARZ + BLAU - OPTIMIERTE POSITIONEN)
 local function buildGUI()
     local old = CoreGui:FindFirstChild("KrimoHubGui")
     if old then old:Destroy() end
@@ -896,7 +897,7 @@ local function buildGUI()
         and UDim2.new(0, config.panelX, 0, config.panelY)
         or UDim2.new(0.5, 0, 0.4, 0)
     MainFrame.Size = UDim2.new(0, PANEL_W, 0, PANEL_H)
-    MainFrame.BackgroundColor3 = Color3.fromRGB(8, 8, 16)  -- SCHWARZ
+    MainFrame.BackgroundColor3 = Color3.fromRGB(8, 8, 16)
     MainFrame.BackgroundTransparency = 0.05
     MainFrame.BorderSizePixel = 0
     MainFrame.ClipsDescendants = true
@@ -907,7 +908,6 @@ local function buildGUI()
     corner.CornerRadius = UDim.new(0, 12)
     corner.Parent = MainFrame
     
-    -- BLAUER GRADIENT für Hintergrund
     local blueGradient = Instance.new("UIGradient")
     blueGradient.Color = ColorSequence.new({
         ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 40, 80)),
@@ -918,7 +918,7 @@ local function buildGUI()
     blueGradient.Parent = MainFrame
     
     local stroke = Instance.new("UIStroke")
-    stroke.Color = Color3.fromRGB(80, 180, 255)  -- HELLBLAU
+    stroke.Color = Color3.fromRGB(80, 180, 255)
     stroke.Thickness = 2
     stroke.Transparency = 0.3
     stroke.Parent = MainFrame
@@ -989,7 +989,7 @@ local function buildGUI()
     ContentFrame.ZIndex = 5
     ContentFrame.Parent = MainFrame
     
-    -- ======== ROW 1: Auto Type | Auto Submit ========
+    -- ======== ROW 1: Auto Type | Auto Submit (optimierte Positionen) ========
     local rowBg = Instance.new("Frame")
     rowBg.Size = UDim2.new(1, -24, 0, 32)
     rowBg.Position = UDim2.new(0, 12, 0, 4)
@@ -1001,28 +1001,28 @@ local function buildGUI()
     do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 6) co.Parent = rowBg end
     do local st = Instance.new("UIStroke") st.Color = Color3.fromRGB(60, 150, 255) st.Thickness = 1 st.Transparency = 0.3 st.Parent = rowBg end
     
-    -- Auto Type
+    -- Auto Type (links) - Label + Button
     local awLabel = Instance.new("TextLabel")
-    awLabel.Size = UDim2.new(0, 75, 1, 0)
-    awLabel.Position = UDim2.new(0, 8, 0, 0)
+    awLabel.Size = UDim2.new(0, 65, 1, 0)
+    awLabel.Position = UDim2.new(0, 6, 0, 0)
     awLabel.BackgroundTransparency = 1
     awLabel.Text = "Auto Type"
     awLabel.TextColor3 = Color3.fromRGB(200, 230, 255)
     awLabel.Font = Enum.Font.GothamSemibold
-    awLabel.TextSize = 11
+    awLabel.TextSize = 10
     awLabel.TextXAlignment = Enum.TextXAlignment.Left
     awLabel.TextYAlignment = Enum.TextYAlignment.Center
     awLabel.ZIndex = 10
     awLabel.Parent = rowBg
     
     local awToggle = Instance.new("TextButton")
-    awToggle.Size = UDim2.new(0, 38, 0, 20)
-    awToggle.Position = UDim2.new(0, 88, 0.5, -10)
+    awToggle.Size = UDim2.new(0, 34, 0, 18)
+    awToggle.Position = UDim2.new(0, 74, 0.5, -9)
     awToggle.BackgroundColor3 = _G.AutoWriteEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
     awToggle.Text = _G.AutoWriteEnabled and "ON" or "OFF"
     awToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
     awToggle.Font = Enum.Font.GothamBold
-    awToggle.TextSize = 9
+    awToggle.TextSize = 8
     awToggle.AutoButtonColor = false
     awToggle.ZIndex = 10
     awToggle.Parent = rowBg
@@ -1039,42 +1039,42 @@ local function buildGUI()
         end
     end)
     
-    -- Strich
+    -- Strich (Trenner)
     local divider = Instance.new("TextLabel")
-    divider.Size = UDim2.new(0, 15, 1, 0)
-    divider.Position = UDim2.new(0, 134, 0, 0)
+    divider.Size = UDim2.new(0, 12, 1, 0)
+    divider.Position = UDim2.new(0, 116, 0, 0)
     divider.BackgroundTransparency = 1
     divider.Text = "|"
     divider.TextColor3 = Color3.fromRGB(80, 180, 255)
     divider.Font = Enum.Font.GothamBold
-    divider.TextSize = 16
+    divider.TextSize = 14
     divider.TextXAlignment = Enum.TextXAlignment.Center
     divider.TextYAlignment = Enum.TextYAlignment.Center
     divider.ZIndex = 10
     divider.Parent = rowBg
     
-    -- Auto Submit
+    -- Auto Submit (rechts) - Label + Button
     local asLabel = Instance.new("TextLabel")
-    asLabel.Size = UDim2.new(0, 85, 1, 0)
-    asLabel.Position = UDim2.new(0, 154, 0, 0)
+    asLabel.Size = UDim2.new(0, 75, 1, 0)
+    asLabel.Position = UDim2.new(0, 134, 0, 0)
     asLabel.BackgroundTransparency = 1
     asLabel.Text = "Auto Submit"
     asLabel.TextColor3 = Color3.fromRGB(200, 230, 255)
     asLabel.Font = Enum.Font.GothamSemibold
-    asLabel.TextSize = 11
+    asLabel.TextSize = 10
     asLabel.TextXAlignment = Enum.TextXAlignment.Left
     asLabel.TextYAlignment = Enum.TextYAlignment.Center
     asLabel.ZIndex = 10
     asLabel.Parent = rowBg
     
     local asToggle = Instance.new("TextButton")
-    asToggle.Size = UDim2.new(0, 38, 0, 20)
-    asToggle.Position = UDim2.new(0, 242, 0.5, -10)
+    asToggle.Size = UDim2.new(0, 34, 0, 18)
+    asToggle.Position = UDim2.new(0, 212, 0.5, -9)
     asToggle.BackgroundColor3 = _G.AutoSubmitEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
     asToggle.Text = _G.AutoSubmitEnabled and "ON" or "OFF"
     asToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
     asToggle.Font = Enum.Font.GothamBold
-    asToggle.TextSize = 9
+    asToggle.TextSize = 8
     asToggle.AutoButtonColor = false
     asToggle.ZIndex = 10
     asToggle.Parent = rowBg
