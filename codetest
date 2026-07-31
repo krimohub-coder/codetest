@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB V5 - NUR RETYPE INVALID FIX
+-- KRIMO HUB V5 - RETYPE FIX (MIT COUNTER)
 -- ============================================================
 
 -- 1. GLOBALS
@@ -45,11 +45,13 @@ local Announcements = nil
 local CodeTextBox = nil
 local ConfirmButton = nil
 
--- RETYPE INVALID VARIABLES (FIXED)
-local pendingRejectedText = nil      -- SPEICHERT DEN KOMPLETTEN CODE
+-- RETYPE INVALID VARIABLES (MIT COUNTER)
+local pendingRejectedText = nil
 local pendingRejectedBox = nil
 local pendingRejectedUntil = 0
 local pendingRejectedToken = 0
+local invalidCount = 0
+local lastRejectedCode = ""
 
 local function setupPaths()
     pcall(function()
@@ -83,31 +85,24 @@ local collectedCodes = {}
 local AddedCount = 0
 local history = {}
 local submitCooldown = false
+local submitTimer = nil
+local SUBMIT_DELAY = 0.6
 
--- 5. RIDDLE DATABASE
+-- 5. RIDDLE DATABASE (GEKÜRZT)
 local SAB_DB = {
     ["who is the owner"] = "SPYDERSAMMY",
-    ["game owner"] = "SPYDERSAMMY",
     ["sammy"] = "SPYDERSAMMY",
     ["spyder"] = "SPYDERSAMMY",
-    ["who is the co owner"] = "MOO",
     ["co owner"] = "MOO",
-    ["who is the developer"] = "SECRETLOKII",
     ["developer"] = "SECRETLOKII",
     ["how is developer"] = "SECRETLOKII",
-    ["who built the map"] = "KEYBOARDESCAPE",
     ["builder"] = "KEYBOARDESCAPE",
-    ["who made the art"] = "GROWAGARDEN",
     ["artist"] = "GROWAGARDEN",
-    ["who tested the game"] = "RACOONINI JANDELINI",
     ["tester"] = "RACOONINI JANDELINI",
     ["how old am i"] = "24",
-    ["how old is sammy"] = "24",
     ["age"] = "24",
     ["where am i from"] = "BRAZIL",
-    ["sammy country"] = "BRAZIL",
     ["favorite color"] = "BLUE",
-    ["fav color"] = "BLUE",
     ["color"] = "BLUE",
     ["ronaldo"] = "RONALDO",
     ["game created on"] = "FRIDAY",
@@ -115,7 +110,6 @@ local SAB_DB = {
     ["max server size"] = "EIGHT",
     ["fire represents"] = "DRAGON",
     ["won the world cup"] = "SPAIN",
-    ["world cup winner"] = "SPAIN",
     ["first mutation"] = "CURSED",
     ["1st mutation"] = "CURSED",
     ["second mutation"] = "DIVINE",
@@ -124,30 +118,12 @@ local SAB_DB = {
     ["3rd mutation"] = "CYBER",
     ["fourth mutation"] = "PHANTOM",
     ["4th mutation"] = "PHANTOM",
-    ["fifth mutation"] = "GOLDEN",
-    ["5th mutation"] = "GOLDEN",
-    ["sixth mutation"] = "SHADOW",
-    ["6th mutation"] = "SHADOW",
-    ["seventh mutation"] = "CORRUPTED",
-    ["7th mutation"] = "CORRUPTED",
-    ["eighth mutation"] = "ANGELIC",
-    ["8th mutation"] = "ANGELIC",
-    ["ninth mutation"] = "DEMONIC",
-    ["9th mutation"] = "DEMONIC",
-    ["tenth mutation"] = "VOID",
-    ["10th mutation"] = "VOID",
     ["first og"] = "STRAWBERRYELEPHANT",
     ["1st og"] = "STRAWBERRYELEPHANT",
     ["second og"] = "SKIBIDITOILET",
     ["2nd og"] = "SKIBIDITOILET",
     ["third og"] = "JOHNPORK",
     ["3rd og"] = "JOHNPORK",
-    ["fourth og"] = "MEOWER",
-    ["4th og"] = "MEOWER",
-    ["fifth og"] = "HEADLESS HORSEMAN",
-    ["5th og"] = "HEADLESS HORSEMAN",
-    ["sixth og"] = "CERBERUS",
-    ["6th og"] = "CERBERUS",
     ["code 1"] = "SAB2024",
     ["code 2"] = "SAMMYGIFT",
     ["code 3"] = "BRAINROT",
@@ -158,16 +134,6 @@ local SAB_DB = {
     ["code 8"] = "KEYBOARD",
     ["code 9"] = "ESCAPE",
     ["code 10"] = "RAINBOW",
-    ["code 11"] = "MOO",
-    ["code 12"] = "SECRET",
-    ["code 13"] = "LOKII",
-    ["code 14"] = "GARDEN",
-    ["code 15"] = "RACOON",
-    ["code 16"] = "JANDELINI",
-    ["code 17"] = "KARKER",
-    ["code 18"] = "BRAZIL",
-    ["code 19"] = "RONALDO",
-    ["code 20"] = "SPAIN",
     ["first machine"] = "RAINBOW MACHINE",
     ["1st machine"] = "RAINBOW MACHINE",
     ["second machine"] = "BUBBLEGUM MACHINE",
@@ -180,30 +146,6 @@ local SAB_DB = {
     ["5th machine"] = "WITCH FUSE",
     ["sixth machine"] = "BRAINROT DEALER",
     ["6th machine"] = "BRAINROT DEALER",
-    ["seventh machine"] = "BRAINROT TRADER",
-    ["7th machine"] = "BRAINROT TRADER",
-    ["eighth machine"] = "SANTA'S FUSE",
-    ["8th machine"] = "SANTA'S FUSE",
-    ["ninth machine"] = "SANTA'S SHOP",
-    ["9th machine"] = "SANTA'S SHOP",
-    ["tenth machine"] = "NEW YEAR'S MACHINE",
-    ["10th machine"] = "NEW YEAR'S MACHINE",
-    ["eleventh machine"] = "DUELS MACHINE",
-    ["11th machine"] = "DUELS MACHINE",
-    ["twelfth machine"] = "CUPID'S MACHINE",
-    ["12th machine"] = "CUPID'S MACHINE",
-    ["thirteenth machine"] = "TRADE MACHINE",
-    ["13th machine"] = "TRADE MACHINE",
-    ["fourteenth machine"] = "DIVINE FUSE",
-    ["14th machine"] = "DIVINE FUSE",
-    ["fifteenth machine"] = "EGG INCUBATOR",
-    ["15th machine"] = "EGG INCUBATOR",
-    ["sixteenth machine"] = "CYBER CRAFT MACHINE",
-    ["16th machine"] = "CYBER CRAFT MACHINE",
-    ["seventeenth machine"] = "SUMMER FUSE",
-    ["17th machine"] = "SUMMER FUSE",
-    ["eighteenth machine"] = "LOS TRADERS",
-    ["18th machine"] = "LOS TRADERS",
 }
 
 local function answerQuestion(text)
@@ -542,10 +484,7 @@ local function buildHistoryGUI()
     end)
 end
 
--- ============================================================
--- 9. RETYPE INVALID LOGIK (FIXED - SPEICHERT KOMPLETTEN CODE)
--- ============================================================
-
+-- 9. UTILITY FUNKTIONEN
 local function isBoxVisible(box)
     if not box or not box.Parent then return false end
     local current = box
@@ -568,20 +507,25 @@ local function getAceCodeBox()
     return CodeTextBox
 end
 
+-- ============================================================
+-- RETYPE INVALID FUNKTIONEN (MIT COUNTER)
+-- ============================================================
+
 local function clearPendingSubmission()
     pendingRejectedToken = pendingRejectedToken + 1
     pendingRejectedText = nil
     pendingRejectedBox = nil
     pendingRejectedUntil = 0
+    invalidCount = 0
+    lastRejectedCode = ""
 end
 
--- FIX: Speichert den KOMPLETTEN Code (alle Wörter)
 local function rememberPendingSubmission(box, fullCodeText)
     if not _G.RetypeInvalidEnabled then return end
     if not fullCodeText or fullCodeText == "" then return end
     pendingRejectedToken = pendingRejectedToken + 1
     local token = pendingRejectedToken
-    pendingRejectedText = fullCodeText  -- KOMPLETTER CODE
+    pendingRejectedText = fullCodeText
     pendingRejectedBox = box
     pendingRejectedUntil = os.clock() + 8
     task.delay(8, function()
@@ -591,28 +535,9 @@ local function rememberPendingSubmission(box, fullCodeText)
     end)
 end
 
--- FIX: Stellt den KOMPLETTEN Code wieder her
-local function restoreRejectedText(box, previousText)
-    if not _G.RetypeInvalidEnabled then return false end
-    if not previousText or previousText == "" then return false end
-    RunService.Heartbeat:Wait()
-    local repasteBox = getAceCodeBox() or box
-    if not repasteBox or not isBoxVisible(repasteBox) then return false end
-    local restored = pcall(function()
-        repasteBox.Text = previousText  -- KOMPLETTER CODE
-    end)
-    if restored then
-        table.clear(collectedCodes)
-        AddedCount = 0
-        refreshMainGUI()
-        if submitTimer then
-            task.cancel(submitTimer)
-            submitTimer = nil
-        end
-    end
-    return restored
-end
-
+-- ============================================================
+-- NEUE handleRedemptionFeedback MIT COUNTER
+-- ============================================================
 local function handleRedemptionFeedback(text)
     if not _G.RetypeInvalidEnabled then return end
     if not pendingRejectedText then return end
@@ -620,6 +545,7 @@ local function handleRedemptionFeedback(text)
         clearPendingSubmission()
         return
     end
+
     local lower = tostring(text or ""):lower()
     local rejected = lower:find("invalid", 1, true)
         or lower:find("expired", 1, true)
@@ -629,14 +555,70 @@ local function handleRedemptionFeedback(text)
         or lower:find("does not exist", 1, true)
         or lower:find("not found", 1, true)
         or lower:find("rejected", 1, true)
-    if not rejected then return end
+
+    if not rejected then
+        -- Kein Error mehr, Reset Counter und gespeicherten Code
+        invalidCount = 0
+        lastRejectedCode = ""
+        clearPendingSubmission()
+        return
+    end
+
     local previousText = pendingRejectedText
-    local previousBox = pendingRejectedBox
-    local restored = restoreRejectedText(previousBox, previousText)
-    clearPendingSubmission()
+
+    if previousText ~= lastRejectedCode then
+        -- Neuer Code, Reset Counter
+        invalidCount = 1
+    else
+        -- Gleicher Code, inkrementiere Counter
+        invalidCount = invalidCount + 1
+    end
+
+    lastRejectedCode = previousText
+
+    local repasteBox = getAceCodeBox() or pendingRejectedBox
+    if not repasteBox or not isBoxVisible(repasteBox) then
+        clearPendingSubmission()
+        return
+    end
+
+    local newText = ""
+
+    if repasteBox.Text == "" then
+        -- Wenn Textbox leer, nur einmal hi schreiben
+        newText = "hi"
+        invalidCount = 1
+    else
+        -- Verhalten je nach invalidCount:
+        if invalidCount == 1 then
+            -- erstes Mal zurück auf "hi"
+            newText = "hi"
+        elseif invalidCount == 2 then
+            -- zweites Mal "hihi"
+            newText = "hihi"
+        else
+            -- weiter "hi" anhängen (z.B. "hihihi")
+            newText = string.rep("hi", invalidCount)
+        end
+    end
+
+    -- Setze Textbox Text sicher zurück
+    local success, err = pcall(function()
+        repasteBox.Text = newText
+    end)
+
+    if success then
+        -- Reset Codes und GUI
+        table.clear(collectedCodes)
+        AddedCount = 0
+        refreshMainGUI()
+        clearPendingSubmission()
+    else
+        clearPendingSubmission()
+    end
 end
 
--- 10. SUBMIT (MIT KOMPLETTEM CODE)
+-- 10. SUBMIT
 local function fireSignal(sig)
     if not sig then return end
     pcall(function()
@@ -658,11 +640,9 @@ local function doSubmit()
     
     setupPaths()
     
-    -- FIX: KOMPLETTEN CODE aus allen gesammelten Wörtern
     local fullCode = table.concat(collectedCodes)
     if fullCode == "" then return false
     
-    -- FIX: Speichere den KOMPLETTEN Code für Retype
     rememberPendingSubmission(CodeTextBox, fullCode)
     
     if ConfirmButton and ConfirmButton.Parent then
@@ -695,9 +675,6 @@ local function doSubmit()
     
     return false
 end
-
-local submitTimer = nil
-local SUBMIT_DELAY = 0.6
 
 local function triggerSubmitWithTimer()
     if not _G.AutoSubmitEnabled then return end
@@ -802,7 +779,7 @@ local function watchLabel(Label)
     end
 end
 
--- 14. REDEMPTION FEEDBACK WATCHER
+-- 14. FEEDBACK WATCHER
 local function watchFeedbackObject(obj)
     if not (obj:IsA("TextLabel") or obj:IsA("TextButton")) then return end
     handleRedemptionFeedback(obj.Text or "")
@@ -823,7 +800,7 @@ local function startFeedbackWatcher()
     end)
 end
 
--- 15. SPYDERSAMMY ERKENNUNG
+-- 15. SAMMY ERKENNUNG
 local targetUserId = nil
 task.spawn(function()
     pcall(function() targetUserId = Players:GetUserIdFromNameAsync("SpyderSammy") end)
@@ -841,9 +818,7 @@ local function verifySourceIsSammy(TO)
     if TO:IsDescendantOf(HistoryGui) then return false end
     
     local text = TO.Text or ""
-    if string.find(string.lower(text), "spydersammy") then
-        return true
-    end
+    if string.find(string.lower(text), "spydersammy") then return true end
     
     local C = TO.Parent
     local depth = 0
@@ -852,15 +827,11 @@ local function verifySourceIsSammy(TO)
         for _, I in ipairs(C:GetChildren()) do
             if I:IsA("TextLabel") then
                 local txt = I.Text or ""
-                if string.find(string.lower(txt), "spydersammy") then
-                    return true
-                end
+                if string.find(string.lower(txt), "spydersammy") then return true end
             end
         end
         for _, I in ipairs(C:GetDescendants()) do
-            if I:IsA("ImageLabel") and isAvatarImage(I) then
-                return true
-            end
+            if I:IsA("ImageLabel") and isAvatarImage(I) then return true end
         end
         if C.Parent and (C.Parent:IsA("Frame") or C.Parent:IsA("ImageLabel") or C.Parent:IsA("CanvasGroup")) then
             C = C.Parent
@@ -930,7 +901,7 @@ local function resetCodes()
     if CodeTextBox then CodeTextBox.Text = "" end
 end
 
--- 17. GUI BAUEN (DEIN ORIGINAL - NUR KLEINER)
+-- 17. GUI BAUEN
 local function buildGUI()
     local old = CoreGui:FindFirstChild("KrimoHubGui")
     if old then old:Destroy() end
@@ -1519,7 +1490,8 @@ local function buildGUI()
     MainFrame.InputChanged:Connect(function(input)
         if isMinimized then return end
         if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-            dragInput = input        end
+            dragInput = input
+        end
     end)
     
     UserInputService.InputChanged:Connect(function(input)
@@ -1540,4 +1512,4 @@ pcall(buildGUI)
 pcall(startAnnouncementWatcher)
 pcall(startPlayerGuiScanner)
 pcall(startFeedbackWatcher)
-print("[KrimoHub] Fertig! Retype Invalid speichert jetzt den KOMPLETTEN Code.")
+print("[KrimoHub] Fertig!")
