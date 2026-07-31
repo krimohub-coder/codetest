@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB V4 - ROBUST (KEINE NIL FEHLER)
+-- KRIMO HUB V5 - ROBUST (OHNE GETCONNECTIONS)
 -- ============================================================
 
 -- 1. GLOBALS
@@ -547,10 +547,10 @@ local function doSubmit()
         pcall(function()
             ConfirmButton:CaptureFocus()
             ConfirmButton:ReleaseFocus(true)
-            -- Simuliere Klick
             if ConfirmButton.MouseButton1Click then
-                -- Versuche verschiedene Methoden
                 pcall(function() ConfirmButton.MouseButton1Click:Fire() end)
+            end
+            if ConfirmButton.Activated then
                 pcall(function() ConfirmButton.Activated:Fire() end)
             end
         end)
@@ -567,10 +567,8 @@ local function doSubmit()
                     pcall(function()
                         obj:CaptureFocus()
                         obj:ReleaseFocus(true)
-                        if obj.MouseButton1Click then
-                            pcall(function() obj.MouseButton1Click:Fire() end)
-                            pcall(function() obj.Activated:Fire() end)
-                        end
+                        if obj.MouseButton1Click then pcall(function() obj.MouseButton1Click:Fire() end) end
+                        if obj.Activated then pcall(function() obj.Activated:Fire() end) end
                     end)
                     return true
                 end
