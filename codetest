@@ -1,10 +1,10 @@
 -- ============================================================
--- KRIMO HUB V4 - FINAL FIX (NUR SAMMY + RETYPE FIX + GUI KLEINER)
+-- KRIMO HUB V4 - FINAL FIX (DUPLIKATE PRO NACHRICHT)
 -- ============================================================
 
 -- 1. GLOBALS
 _G.ScriptEnabled = true
-_G.AutoWriteEnabled = false   -- Auto Type
+_G.AutoWriteEnabled = false
 _G.AutoSubmitEnabled = false
 _G.RiddleSolverEnabled = false
 _G.SubmitAfterCount = 3
@@ -82,11 +82,10 @@ end
 local collectedCodes = {}
 local AddedCount = 0
 local history = {}          -- { word, time }
-local lastAddedWord = ""    -- für Duplikatschutz
 local submitCooldown = false
 local lastSubmittedFullCode = ""
 
--- 5. RIDDLE DATABASE (nur die wichtigsten)
+-- 5. RIDDLE DATABASE
 local SAB_DB = {
     ["who is the owner"] = "SPYDERSAMMY",
     ["game owner"] = "SPYDERSAMMY",
@@ -217,14 +216,14 @@ local function answerQuestion(text)
     return nil
 end
 
--- 6. GUI ELEMENTE (KLEINER)
+-- 6. GUI ELEMENTE (KLEIN)
 local MainFrame = nil
 local ScreenGui = nil
 local HistoryGui = nil
 local HistoryFrame = nil
 local HistoryScroll = nil
-local PANEL_W = 250  -- KLEINER
-local PANEL_H = 300  -- KLEINER
+local PANEL_W = 250
+local PANEL_H = 300
 local isMinimized = false
 local historyOpen = false
 
@@ -544,7 +543,7 @@ local function buildHistoryGUI()
     end)
 end
 
--- 9. RETYPE INVALID LOGIK (FIXED)
+-- 9. RETYPE INVALID LOGIK
 local function isBoxVisible(box)
     if not box or not box.Parent then return false end
     local current = box
@@ -648,7 +647,6 @@ local function triggerSubmit()
     
     setupPaths()
     
-    -- KOMPLETTEN CODE SPEICHERN
     local fullCode = table.concat(collectedCodes)
     if fullCode ~= "" then
         rememberPendingSubmission(CodeTextBox, fullCode)
@@ -687,10 +685,8 @@ end
 
 -- 11. HISTORY SPEICHERN (NUR VON SAMMY + NUR EINZELNE WÖRTER)
 local function saveToHistory(Word, fromSammy)
-    -- NUR von Sammy speichern
     if not fromSammy then return end
     if not Word or Word == "" then return end
-    -- NUR einzelne Wörter (keine Sätze)
     if Word:find(" ") then return end
     
     local time = os.date("%H:%M:%S")
@@ -707,18 +703,11 @@ local function saveToHistory(Word, fromSammy)
     end
 end
 
--- 12. CODE HINZUFÜGEN
+-- 12. CODE HINZUFÜGEN (OHNE GLOBALEN DUPLIKATSCHUTZ)
 local function addCode(Code, fromSammy)
     Code = tostring(Code)
     if Code == "" then return end
     
-    if Code == lastAddedWord then
-        return
-    end
-    lastAddedWord = Code
-    task.delay(0.3, function() lastAddedWord = "" end)
-    
-    -- NUR von Sammy in History speichern
     if fromSammy then
         saveToHistory(Code, true)
     end
@@ -749,7 +738,7 @@ local function addCode(Code, fromSammy)
     end
 end
 
--- 13. WATCHER
+-- 13. WATCHER (MIT DUPLIKATSCHUTZ PRO NACHRICHT)
 local function watchLabel(Label)
     if not Label:IsA("TextLabel") then return end
     local text = Label.Text
@@ -763,8 +752,13 @@ local function watchLabel(Label)
         end
     end
     
+    -- Pro Nachricht: Duplikate nur innerhalb dieser Nachricht vermeiden
+    local processedWords = {}
     for word in text:gmatch("%S+") do
-        addCode(word, true)
+        if not processedWords[word] then
+            processedWords[word] = true
+            addCode(word, true)
+        end
     end
 end
 
@@ -789,7 +783,7 @@ local function startFeedbackWatcher()
     end)
 end
 
--- 15. SPYDERSAMMY ERKENNUNG (VERBESSERT)
+-- 15. SPYDERSAMMY ERKENNUNG
 local targetUserId = nil
 task.spawn(function()
     pcall(function() targetUserId = Players:GetUserIdFromNameAsync("SpyderSammy") end)
@@ -806,20 +800,15 @@ local function verifySourceIsSammy(TO)
     if TO:IsDescendantOf(MainFrame) then return false end
     if TO:IsDescendantOf(HistoryGui) then return false end
     
-    -- Prüfe den Text selbst auf "SpyderSammy"
     local text = TO.Text or ""
     if string.find(string.lower(text), "spydersammy") then
         return true
     end
     
-    -- Prüfe die Parent-Kette auf Sammy-Referenzen
     local C = TO.Parent
-    local maxDepth = 10
     local depth = 0
-    while C and depth < maxDepth do
+    while C and depth < 10 do
         depth = depth + 1
-        
-        -- Prüfe Children auf "SpyderSammy" Text
         for _, I in ipairs(C:GetChildren()) do
             if I:IsA("TextLabel") then
                 local txt = I.Text or ""
@@ -828,21 +817,17 @@ local function verifySourceIsSammy(TO)
                 end
             end
         end
-        
-        -- Prüfe auf Avatar-Bild von Sammy
         for _, I in ipairs(C:GetDescendants()) do
             if I:IsA("ImageLabel") and isAvatarImage(I) then
                 return true
             end
         end
-        
         if C.Parent and (C.Parent:IsA("Frame") or C.Parent:IsA("ImageLabel") or C.Parent:IsA("CanvasGroup")) then
             C = C.Parent
         else
             break
         end
     end
-    
     return false
 end
 
@@ -887,7 +872,6 @@ if CodeTextBox then
     CodeTextBox:GetPropertyChangedSignal("Text"):Connect(function()
         if CodeTextBox.Text == "" then
             AddedCount = 0
-            lastAddedWord = ""
         end
     end)
 end
@@ -896,13 +880,12 @@ end
 local function resetCodes()
     table.clear(collectedCodes)
     AddedCount = 0
-    lastAddedWord = ""
     lastSubmittedFullCode = ""
     refreshMainGUI()
     if CodeTextBox then CodeTextBox.Text = "" end
 end
 
--- 17. GUI BAUEN (KLEINER)
+-- 17. GUI BAUEN (KLEIN)
 local function buildGUI()
     local old = CoreGui:FindFirstChild("KrimoHubGui")
     if old then old:Destroy() end
@@ -1012,7 +995,7 @@ local function buildGUI()
     ContentFrame.ZIndex = 5
     ContentFrame.Parent = MainFrame
     
-    -- ======== ROW 1: Auto Type | Auto Submit ========
+    -- ROW 1: Auto Type | Auto Submit
     local rowBg = Instance.new("Frame")
     rowBg.Size = UDim2.new(1, -20, 0, 30)
     rowBg.Position = UDim2.new(0, 10, 0, 4)
@@ -1106,7 +1089,7 @@ local function buildGUI()
         asToggle.Text = _G.AutoSubmitEnabled and "ON" or "OFF"
     end)
     
-    -- ======== ROW 2: Submit After Count ========
+    -- ROW 2: Submit After Count
     local countLabel = Instance.new("TextLabel")
     countLabel.Size = UDim2.new(0, 110, 0, 22)
     countLabel.Position = UDim2.new(0, 10, 0, 38)
@@ -1172,7 +1155,7 @@ local function buildGUI()
         end
     end)
     
-    -- ======== ROW 3: Riddle Solver ========
+    -- ROW 3: Riddle Solver
     local rsLabel = Instance.new("TextLabel")
     rsLabel.Size = UDim2.new(0, 90, 0, 22)
     rsLabel.Position = UDim2.new(0, 10, 0, 64)
@@ -1205,7 +1188,7 @@ local function buildGUI()
         rsToggle.Text = _G.RiddleSolverEnabled and "ON" or "OFF"
     end)
     
-    -- ======== ROW 4: History ========
+    -- ROW 4: History
     local historyLabel = Instance.new("TextLabel")
     historyLabel.Size = UDim2.new(0, 90, 0, 22)
     historyLabel.Position = UDim2.new(0, 10, 0, 90)
@@ -1247,7 +1230,7 @@ local function buildGUI()
         end
     end)
     
-    -- ======== ROW 5: Retype Invalid ========
+    -- ROW 5: Retype Invalid
     local riLabel = Instance.new("TextLabel")
     riLabel.Size = UDim2.new(0, 110, 0, 22)
     riLabel.Position = UDim2.new(0, 10, 0, 116)
@@ -1280,7 +1263,7 @@ local function buildGUI()
         riToggle.Text = _G.RetypeInvalidEnabled and "ON" or "OFF"
     end)
     
-    -- ======== Collected Label + Reset ========
+    -- Collected + Reset
     local collectedLabel = Instance.new("TextLabel")
     collectedLabel.Name = "CollectedLabel"
     collectedLabel.Size = UDim2.new(0.5, 0, 0, 18)
@@ -1312,7 +1295,7 @@ local function buildGUI()
         resetCodes()
     end)
     
-    -- ======== Code-Liste ========
+    -- Code-Liste
     local codeListFrame = Instance.new("Frame")
     codeListFrame.Name = "CodeListFrame"
     codeListFrame.Size = UDim2.new(1, -20, 0, 80)
@@ -1360,7 +1343,7 @@ local function buildGUI()
     placeholder.Parent = scroll
     placeholder.Visible = (#collectedCodes == 0)
     
-    -- ======== Separator ========
+    -- Separator
     local sep = Instance.new("Frame")
     sep.Size = UDim2.new(1, -20, 0, 1)
     sep.Position = UDim2.new(0, 10, 0, 247)
