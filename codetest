@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB V4 - FINAL MIT TIMER (SAMMLT WÖRTER ÜBER ZEIT)
+-- KRIMO HUB V4 - RETYPE FIX (SPEICHERT WORTLISTE)
 -- ============================================================
 
 -- 1. GLOBALS
@@ -46,14 +46,15 @@ local CodeTextBox = nil
 local ConfirmButton = nil
 
 -- RETYPE INVALID VARIABLES
-local pendingRejectedText = nil
+local pendingRejectedText = nil      -- gespeicherter vollständiger Code-String
+local pendingRejectedWordList = nil  -- Liste der Wörter, die den Code bilden
 local pendingRejectedBox = nil
 local pendingRejectedUntil = 0
 local pendingRejectedToken = 0
 
 -- TIMER FÜR AUTO SUBMIT
 local submitTimer = nil
-local SUBMIT_DELAY = 0.6  -- Sekunden warten, bevor gesendet wird
+local SUBMIT_DELAY = 0.6
 
 local function setupPaths()
     pcall(function()
@@ -85,9 +86,8 @@ end
 -- 4. COLLECTED CODES & HISTORY
 local collectedCodes = {}
 local AddedCount = 0
-local history = {}          -- { word, time }
+local history = {}
 local submitCooldown = false
-local lastSubmittedFullCode = ""
 
 -- 5. RIDDLE DATABASE
 local SAB_DB = {
@@ -547,7 +547,7 @@ local function buildHistoryGUI()
     end)
 end
 
--- 9. RETYPE INVALID LOGIK
+-- 9. RETYPE INVALID LOGIK (MIT WORTLISTE)
 local function isBoxVisible(box)
     if not box or not box.Parent then return false end
     local current = box
@@ -573,20 +573,21 @@ end
 local function clearPendingSubmission()
     pendingRejectedToken = pendingRejectedToken + 1
     pendingRejectedText = nil
+    pendingRejectedWordList = nil
     pendingRejectedBox = nil
     pendingRejectedUntil = 0
-    lastSubmittedFullCode = ""
 end
 
-local function rememberPendingSubmission(box, fullCodeText)
+-- Speichert den vollständigen Code und die Wortliste
+local function rememberPendingSubmission(box, fullCodeText, wordList)
     if not _G.RetypeInvalidEnabled then return end
     if not fullCodeText or fullCodeText == "" then return end
     pendingRejectedToken = pendingRejectedToken + 1
     local token = pendingRejectedToken
     pendingRejectedText = fullCodeText
+    pendingRejectedWordList = wordList and table.clone(wordList) or {}
     pendingRejectedBox = box
     pendingRejectedUntil = os.clock() + 8
-    lastSubmittedFullCode = fullCodeText
     task.delay(8, function()
         if token == pendingRejectedToken then
             clearPendingSubmission()
@@ -594,7 +595,8 @@ local function rememberPendingSubmission(box, fullCodeText)
     end)
 end
 
-local function restoreRejectedText(box, previousText)
+-- Stellt den Code wieder her und setzt collectedCodes auf die gespeicherte Wortliste
+local function restoreRejectedText(box, previousText, wordList)
     if not _G.RetypeInvalidEnabled then return false end
     if not previousText or previousText == "" then return false end
     RunService.Heartbeat:Wait()
@@ -603,6 +605,15 @@ local function restoreRejectedText(box, previousText)
     local restored = pcall(function()
         repasteBox.Text = previousText
     end)
+    if restored and wordList then
+        -- collectedCodes auf die gespeicherte Wortliste zurücksetzen
+        table.clear(collectedCodes)
+        for _, w in ipairs(wordList) do
+            table.insert(collectedCodes, w)
+        end
+        AddedCount = #collectedCodes
+        refreshMainGUI()
+    end
     return restored
 end
 
@@ -624,12 +635,13 @@ local function handleRedemptionFeedback(text)
         or lower:find("rejected", 1, true)
     if not rejected then return end
     local previousText = pendingRejectedText
+    local previousWordList = pendingRejectedWordList
     local previousBox = pendingRejectedBox
-    local restored = restoreRejectedText(previousBox, previousText)
+    local restored = restoreRejectedText(previousBox, previousText, previousWordList)
     clearPendingSubmission()
 end
 
--- 10. SUBMIT (MIT TIMER)
+-- 10. SUBMIT (MIT WORTLISTE)
 local function fireSignal(sig)
     if not sig then return end
     pcall(function()
@@ -654,7 +666,8 @@ local function doSubmit()
     local fullCode = table.concat(collectedCodes)
     if fullCode == "" then return false
     
-    rememberPendingSubmission(CodeTextBox, fullCode)
+    -- Speichere den vollständigen Code und die Wortliste für Retype
+    rememberPendingSubmission(CodeTextBox, fullCode, table.clone(collectedCodes))
     
     if ConfirmButton and ConfirmButton.Parent then
         pcall(function()
@@ -687,17 +700,18 @@ local function doSubmit()
     return false
 end
 
+-- Timer für Auto Submit (nur wenn AutoSubmitEnabled)
 local function triggerSubmitWithTimer()
-    -- Timer zurücksetzen, falls vorhanden
+    if not _G.AutoSubmitEnabled then
+        -- Wenn AutoSubmit aus, nichts tun – Wörter werden sofort hinzugefügt, aber nicht automatisch gesendet
+        return
+    end
+    
     if submitTimer then
         task.cancel(submitTimer)
         submitTimer = nil
     end
     
-    -- Wenn Auto Submit nicht aktiv ist, nichts tun
-    if not _G.AutoSubmitEnabled then return end
-    
-    -- Sofort senden, wenn genug Wörter gesammelt wurden
     if #collectedCodes >= _G.SubmitAfterCount then
         local success = doSubmit()
         if success then
@@ -710,7 +724,6 @@ local function triggerSubmitWithTimer()
         return
     end
     
-    -- Timer starten: nach kurzer Verzögerung senden
     submitTimer = task.delay(SUBMIT_DELAY, function()
         submitTimer = nil
         if #collectedCodes > 0 and _G.AutoSubmitEnabled then
@@ -726,7 +739,7 @@ local function triggerSubmitWithTimer()
     end)
 end
 
--- 11. HISTORY SPEICHERN (NUR VON SAMMY + NUR EINZELNE WÖRTER)
+-- 11. HISTORY SPEICHERN
 local function saveToHistory(Word, fromSammy)
     if not fromSammy then return end
     if not Word or Word == "" then return end
@@ -746,7 +759,7 @@ local function saveToHistory(Word, fromSammy)
     end
 end
 
--- 12. CODE HINZUFÜGEN (MIT TIMER-START)
+-- 12. CODE HINZUFÜGEN (OHNE TIMER, WENN AUTO SUBMIT AUS)
 local function addCode(Code, fromSammy)
     Code = tostring(Code)
     if Code == "" then return end
@@ -769,8 +782,10 @@ local function addCode(Code, fromSammy)
     end
     AddedCount = AddedCount + 1
     
-    -- Timer für Auto Submit starten (sammelt mehrere Wörter)
-    triggerSubmitWithTimer()
+    -- Timer starten (wenn AutoSubmit an ist)
+    if _G.AutoSubmitEnabled then
+        triggerSubmitWithTimer()
+    end
 end
 
 -- 13. WATCHER (MIT DUPLIKATSCHUTZ PRO NACHRICHT)
@@ -918,12 +933,11 @@ local function resetCodes()
     end
     table.clear(collectedCodes)
     AddedCount = 0
-    lastSubmittedFullCode = ""
     refreshMainGUI()
     if CodeTextBox then CodeTextBox.Text = "" end
 end
 
--- 17. GUI BAUEN (KLEIN)
+-- 17. GUI BAUEN (WIE BISHER, KLEIN)
 local function buildGUI()
     local old = CoreGui:FindFirstChild("KrimoHubGui")
     if old then old:Destroy() end
@@ -1076,10 +1090,7 @@ local function buildGUI()
         awToggle.BackgroundColor3 = _G.AutoWriteEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
         awToggle.Text = _G.AutoWriteEnabled and "ON" or "OFF"
         if not _G.AutoWriteEnabled then
-            if submitTimer then
-                task.cancel(submitTimer)
-                submitTimer = nil
-            end
+            if submitTimer then task.cancel(submitTimer); submitTimer = nil end
             table.clear(collectedCodes)
             AddedCount = 0
             refreshMainGUI()
@@ -1130,10 +1141,7 @@ local function buildGUI()
         asToggle.BackgroundColor3 = _G.AutoSubmitEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
         asToggle.Text = _G.AutoSubmitEnabled and "ON" or "OFF"
         if not _G.AutoSubmitEnabled then
-            if submitTimer then
-                task.cancel(submitTimer)
-                submitTimer = nil
-            end
+            if submitTimer then task.cancel(submitTimer); submitTimer = nil end
         end
     end)
     
@@ -1531,4 +1539,4 @@ pcall(buildGUI)
 pcall(startAnnouncementWatcher)
 pcall(startPlayerGuiScanner)
 pcall(startFeedbackWatcher)
-print("[KrimoHub V4] Fertig! Timer-basierte Sammlung aktiv.")
+print("[KrimoHub V4] Fertig! Retype speichert jetzt die Wortliste.")
