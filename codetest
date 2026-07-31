@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB V4 - OPTIMIERTES GUI + RETYPE INVALID LOGIK
+-- KRIMO HUB V4 - FIXED RETYPE INVALID + OPTIMIERTES GUI
 -- ============================================================
 
 -- 1. GLOBALS
@@ -45,8 +45,8 @@ local Announcements = nil
 local CodeTextBox = nil
 local ConfirmButton = nil
 
--- RETYPE INVALID VARIABLES
-local pendingRejectedText = nil
+-- RETYPE INVALID VARIABLES (FIXED)
+local pendingRejectedText = nil      -- SPEICHERT DEN KOMPLETTEN CODE-STRING
 local pendingRejectedBox = nil
 local pendingRejectedUntil = 0
 local pendingRejectedToken = 0
@@ -85,6 +85,7 @@ local AddedCount = 0
 local history = {}          -- { word, time }
 local lastAddedWord = ""    -- für Duplikatschutz
 local submitCooldown = false
+local lastSubmittedCode = "" -- für Retype Invalid
 
 -- 5. RIDDLE DATABASE
 local SAB_DB = {
@@ -546,7 +547,7 @@ local function buildHistoryGUI()
     end)
 end
 
--- 9. RETYPE INVALID LOGIK (AUS DEM ANDEREN SCRIPT)
+-- 9. RETYPE INVALID LOGIK (FIXED - SPEICHERT KOMPLETTEN CODE)
 local function isBoxVisible(box)
     if not box or not box.Parent then return false end
     local current = box
@@ -576,12 +577,13 @@ local function clearPendingSubmission()
     pendingRejectedUntil = 0
 end
 
-local function rememberPendingSubmission(box, text)
+-- FIX: Speichert den KOMPLETTEN Code-String, nicht nur das letzte Wort
+local function rememberPendingSubmission(box, fullCodeText)
     if not _G.RetypeInvalidEnabled then return end
-    if not text or text == "" then return end
+    if not fullCodeText or fullCodeText == "" then return end
     pendingRejectedToken = pendingRejectedToken + 1
     local token = pendingRejectedToken
-    pendingRejectedText = text
+    pendingRejectedText = fullCodeText  -- SPEICHERT DEN GESAMTEN CODE
     pendingRejectedBox = box
     pendingRejectedUntil = os.clock() + 8
     task.delay(8, function()
@@ -591,6 +593,7 @@ local function rememberPendingSubmission(box, text)
     end)
 end
 
+-- FIX: Stellt den KOMPLETTEN Code wieder her
 local function restoreRejectedText(box, previousText)
     if not _G.RetypeInvalidEnabled then return false end
     if not previousText or previousText == "" then return false end
@@ -598,7 +601,7 @@ local function restoreRejectedText(box, previousText)
     local repasteBox = getAceCodeBox() or box
     if not repasteBox or not isBoxVisible(repasteBox) then return false end
     local restored = pcall(function()
-        repasteBox.Text = previousText
+        repasteBox.Text = previousText  -- STELLT DEN GESAMTEN CODE WIEDER HER
     end)
     return restored
 end
@@ -626,7 +629,7 @@ local function handleRedemptionFeedback(text)
     clearPendingSubmission()
 end
 
--- 10. SUBMIT
+-- 10. SUBMIT (MERKT SICH DEN KOMPLETTEN CODE FÜR RETYPE)
 local function fireSignal(sig)
     if not sig then return end
     pcall(function()
@@ -648,10 +651,11 @@ local function triggerSubmit()
     
     setupPaths()
     
-    -- Merken für Retype Invalid
-    local combinedCode = table.concat(collectedCodes)
-    if combinedCode ~= "" then
-        rememberPendingSubmission(CodeTextBox, combinedCode)
+    -- MERK DIR DEN KOMPLETTEN CODE für Retype Invalid
+    local fullCode = table.concat(collectedCodes)
+    if fullCode ~= "" then
+        lastSubmittedCode = fullCode
+        rememberPendingSubmission(CodeTextBox, fullCode)
     end
     
     if ConfirmButton and ConfirmButton.Parent then
@@ -752,7 +756,6 @@ local function watchLabel(Label)
     local text = Label.Text
     if text == "" then return end
     
-    -- Riddle Solver
     if _G.RiddleSolverEnabled then
         local answer = answerQuestion(text)
         if answer then
@@ -761,13 +764,12 @@ local function watchLabel(Label)
         end
     end
     
-    -- Jedes Wort als Code
     for word in text:gmatch("%S+") do
         addCode(word, true)
     end
 end
 
--- 14. REDEMPTION FEEDBACK WATCHER (für Retype Invalid)
+-- 14. REDEMPTION FEEDBACK WATCHER
 local function watchFeedbackObject(obj)
     if not (obj:IsA("TextLabel") or obj:IsA("TextButton")) then return end
     handleRedemptionFeedback(obj.Text or "")
@@ -876,7 +878,7 @@ local function resetCodes()
     if CodeTextBox then CodeTextBox.Text = "" end
 end
 
--- 17. GUI BAUEN (OPTIMIERT)
+-- 17. GUI BAUEN (SCHWARZ + BLAU - OPTIMIERT)
 local function buildGUI()
     local old = CoreGui:FindFirstChild("KrimoHubGui")
     if old then old:Destroy() end
@@ -894,7 +896,7 @@ local function buildGUI()
         and UDim2.new(0, config.panelX, 0, config.panelY)
         or UDim2.new(0.5, 0, 0.4, 0)
     MainFrame.Size = UDim2.new(0, PANEL_W, 0, PANEL_H)
-    MainFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 18)
+    MainFrame.BackgroundColor3 = Color3.fromRGB(8, 8, 16)  -- SCHWARZ
     MainFrame.BackgroundTransparency = 0.05
     MainFrame.BorderSizePixel = 0
     MainFrame.ClipsDescendants = true
@@ -905,19 +907,18 @@ local function buildGUI()
     corner.CornerRadius = UDim.new(0, 12)
     corner.Parent = MainFrame
     
-    local flowerGradient = Instance.new("UIGradient")
-    flowerGradient.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(30, 60, 120)),
-        ColorSequenceKeypoint.new(0.3, Color3.fromRGB(50, 100, 200)),
+    -- BLAUER GRADIENT für Hintergrund
+    local blueGradient = Instance.new("UIGradient")
+    blueGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 40, 80)),
         ColorSequenceKeypoint.new(0.5, Color3.fromRGB(30, 60, 120)),
-        ColorSequenceKeypoint.new(0.7, Color3.fromRGB(50, 100, 200)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 60, 120))
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 40, 80))
     })
-    flowerGradient.Rotation = 45
-    flowerGradient.Parent = MainFrame
+    blueGradient.Rotation = 90
+    blueGradient.Parent = MainFrame
     
     local stroke = Instance.new("UIStroke")
-    stroke.Color = Color3.fromRGB(100, 200, 255)
+    stroke.Color = Color3.fromRGB(80, 180, 255)  -- HELLBLAU
     stroke.Thickness = 2
     stroke.Transparency = 0.3
     stroke.Parent = MainFrame
@@ -925,7 +926,7 @@ local function buildGUI()
     -- Title Bar
     local titleBar = Instance.new("Frame")
     titleBar.Size = UDim2.new(1, 0, 0, 28)
-    titleBar.BackgroundColor3 = Color3.fromRGB(15, 20, 40)
+    titleBar.BackgroundColor3 = Color3.fromRGB(10, 15, 30)
     titleBar.BackgroundTransparency = 0.3
     titleBar.BorderSizePixel = 0
     titleBar.ZIndex = 10
@@ -938,7 +939,7 @@ local function buildGUI()
     titleLabel.Position = UDim2.new(0, 10, 0, 0)
     titleLabel.BackgroundTransparency = 1
     titleLabel.Text = "🌸 krimo hub"
-    titleLabel.TextColor3 = Color3.fromRGB(180, 230, 255)
+    titleLabel.TextColor3 = Color3.fromRGB(150, 220, 255)
     titleLabel.Font = Enum.Font.GothamBold
     titleLabel.TextSize = 14
     titleLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -949,7 +950,7 @@ local function buildGUI()
     toggleMinBtn.Name = "ToggleMinBtn"
     toggleMinBtn.Size = UDim2.new(0, 22, 0, 22)
     toggleMinBtn.Position = UDim2.new(1, -30, 0.5, -11)
-    toggleMinBtn.BackgroundColor3 = Color3.fromRGB(30, 60, 100)
+    toggleMinBtn.BackgroundColor3 = Color3.fromRGB(30, 60, 120)
     toggleMinBtn.Text = "−"
     toggleMinBtn.TextColor3 = Color3.fromRGB(200, 230, 255)
     toggleMinBtn.Font = Enum.Font.GothamBold
@@ -988,20 +989,21 @@ local function buildGUI()
     ContentFrame.ZIndex = 5
     ContentFrame.Parent = MainFrame
     
-    -- ======== ROW 1: Auto Type | Auto Submit (nebeneinander) ========
+    -- ======== ROW 1: Auto Type | Auto Submit ========
     local rowBg = Instance.new("Frame")
-    rowBg.Size = UDim2.new(1, -24, 0, 30)
+    rowBg.Size = UDim2.new(1, -24, 0, 32)
     rowBg.Position = UDim2.new(0, 12, 0, 4)
-    rowBg.BackgroundColor3 = Color3.fromRGB(20, 25, 45)
+    rowBg.BackgroundColor3 = Color3.fromRGB(15, 20, 40)
     rowBg.BackgroundTransparency = 0.4
     rowBg.BorderSizePixel = 0
     rowBg.ZIndex = 8
     rowBg.Parent = ContentFrame
     do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 6) co.Parent = rowBg end
+    do local st = Instance.new("UIStroke") st.Color = Color3.fromRGB(60, 150, 255) st.Thickness = 1 st.Transparency = 0.3 st.Parent = rowBg end
     
-    -- Auto Type (links)
+    -- Auto Type
     local awLabel = Instance.new("TextLabel")
-    awLabel.Size = UDim2.new(0, 72, 1, 0)
+    awLabel.Size = UDim2.new(0, 75, 1, 0)
     awLabel.Position = UDim2.new(0, 8, 0, 0)
     awLabel.BackgroundTransparency = 1
     awLabel.Text = "Auto Type"
@@ -1015,7 +1017,7 @@ local function buildGUI()
     
     local awToggle = Instance.new("TextButton")
     awToggle.Size = UDim2.new(0, 38, 0, 20)
-    awToggle.Position = UDim2.new(0, 84, 0.5, -10)
+    awToggle.Position = UDim2.new(0, 88, 0.5, -10)
     awToggle.BackgroundColor3 = _G.AutoWriteEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
     awToggle.Text = _G.AutoWriteEnabled and "ON" or "OFF"
     awToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -1040,10 +1042,10 @@ local function buildGUI()
     -- Strich
     local divider = Instance.new("TextLabel")
     divider.Size = UDim2.new(0, 15, 1, 0)
-    divider.Position = UDim2.new(0, 130, 0, 0)
+    divider.Position = UDim2.new(0, 134, 0, 0)
     divider.BackgroundTransparency = 1
     divider.Text = "|"
-    divider.TextColor3 = Color3.fromRGB(100, 180, 255)
+    divider.TextColor3 = Color3.fromRGB(80, 180, 255)
     divider.Font = Enum.Font.GothamBold
     divider.TextSize = 16
     divider.TextXAlignment = Enum.TextXAlignment.Center
@@ -1051,10 +1053,10 @@ local function buildGUI()
     divider.ZIndex = 10
     divider.Parent = rowBg
     
-    -- Auto Submit (rechts)
+    -- Auto Submit
     local asLabel = Instance.new("TextLabel")
     asLabel.Size = UDim2.new(0, 85, 1, 0)
-    asLabel.Position = UDim2.new(0, 150, 0, 0)
+    asLabel.Position = UDim2.new(0, 154, 0, 0)
     asLabel.BackgroundTransparency = 1
     asLabel.Text = "Auto Submit"
     asLabel.TextColor3 = Color3.fromRGB(200, 230, 255)
@@ -1067,7 +1069,7 @@ local function buildGUI()
     
     local asToggle = Instance.new("TextButton")
     asToggle.Size = UDim2.new(0, 38, 0, 20)
-    asToggle.Position = UDim2.new(0, 238, 0.5, -10)
+    asToggle.Position = UDim2.new(0, 242, 0.5, -10)
     asToggle.BackgroundColor3 = _G.AutoSubmitEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
     asToggle.Text = _G.AutoSubmitEnabled and "ON" or "OFF"
     asToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -1087,7 +1089,7 @@ local function buildGUI()
     -- ======== ROW 2: Submit After Count ========
     local countLabel = Instance.new("TextLabel")
     countLabel.Size = UDim2.new(0, 120, 0, 24)
-    countLabel.Position = UDim2.new(0, 12, 0, 38)
+    countLabel.Position = UDim2.new(0, 12, 0, 40)
     countLabel.BackgroundTransparency = 1
     countLabel.Text = "🌸 Submit after msgs"
     countLabel.TextColor3 = Color3.fromRGB(180, 210, 240)
@@ -1099,8 +1101,8 @@ local function buildGUI()
     
     local minusBtn = Instance.new("TextButton")
     minusBtn.Size = UDim2.new(0, 22, 0, 20)
-    minusBtn.Position = UDim2.new(1, -84, 0, 40)
-    minusBtn.BackgroundColor3 = Color3.fromRGB(40, 60, 90)
+    minusBtn.Position = UDim2.new(1, -84, 0, 42)
+    minusBtn.BackgroundColor3 = Color3.fromRGB(40, 60, 100)
     minusBtn.Text = "−"
     minusBtn.TextColor3 = Color3.fromRGB(200, 230, 255)
     minusBtn.Font = Enum.Font.GothamBold
@@ -1112,8 +1114,8 @@ local function buildGUI()
     
     local countDisplay = Instance.new("TextLabel")
     countDisplay.Size = UDim2.new(0, 28, 0, 20)
-    countDisplay.Position = UDim2.new(1, -58, 0, 40)
-    countDisplay.BackgroundColor3 = Color3.fromRGB(30, 40, 60)
+    countDisplay.Position = UDim2.new(1, -58, 0, 42)
+    countDisplay.BackgroundColor3 = Color3.fromRGB(20, 30, 50)
     countDisplay.BackgroundTransparency = 0.3
     countDisplay.Text = tostring(_G.SubmitAfterCount)
     countDisplay.TextColor3 = Color3.fromRGB(200, 230, 255)
@@ -1126,8 +1128,8 @@ local function buildGUI()
     
     local plusBtn = Instance.new("TextButton")
     plusBtn.Size = UDim2.new(0, 22, 0, 20)
-    plusBtn.Position = UDim2.new(1, -28, 0, 40)
-    plusBtn.BackgroundColor3 = Color3.fromRGB(40, 60, 90)
+    plusBtn.Position = UDim2.new(1, -28, 0, 42)
+    plusBtn.BackgroundColor3 = Color3.fromRGB(40, 60, 100)
     plusBtn.Text = "+"
     plusBtn.TextColor3 = Color3.fromRGB(200, 230, 255)
     plusBtn.Font = Enum.Font.GothamBold
@@ -1153,7 +1155,7 @@ local function buildGUI()
     -- ======== ROW 3: Riddle Solver ========
     local rsLabel = Instance.new("TextLabel")
     rsLabel.Size = UDim2.new(0, 100, 0, 24)
-    rsLabel.Position = UDim2.new(0, 12, 0, 66)
+    rsLabel.Position = UDim2.new(0, 12, 0, 68)
     rsLabel.BackgroundTransparency = 1
     rsLabel.Text = "🌸 Riddle Solver"
     rsLabel.TextColor3 = Color3.fromRGB(200, 230, 255)
@@ -1166,7 +1168,7 @@ local function buildGUI()
     local rsToggle = Instance.new("TextButton")
     rsToggle.Name = "RiddleSolverToggle"
     rsToggle.Size = UDim2.new(0, 48, 0, 22)
-    rsToggle.Position = UDim2.new(1, -56, 0, 67)
+    rsToggle.Position = UDim2.new(1, -56, 0, 69)
     rsToggle.BackgroundColor3 = _G.RiddleSolverEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
     rsToggle.Text = _G.RiddleSolverEnabled and "ON" or "OFF"
     rsToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -1186,7 +1188,7 @@ local function buildGUI()
     -- ======== ROW 4: History ========
     local historyLabel = Instance.new("TextLabel")
     historyLabel.Size = UDim2.new(0, 100, 0, 24)
-    historyLabel.Position = UDim2.new(0, 12, 0, 94)
+    historyLabel.Position = UDim2.new(0, 12, 0, 96)
     historyLabel.BackgroundTransparency = 1
     historyLabel.Text = "🌸 History 📜"
     historyLabel.TextColor3 = Color3.fromRGB(200, 230, 255)
@@ -1199,7 +1201,7 @@ local function buildGUI()
     local historyBtn = Instance.new("TextButton")
     historyBtn.Name = "HistoryBtn"
     historyBtn.Size = UDim2.new(0, 48, 0, 22)
-    historyBtn.Position = UDim2.new(1, -56, 0, 95)
+    historyBtn.Position = UDim2.new(1, -56, 0, 97)
     historyBtn.BackgroundColor3 = _G.HistoryEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
     historyBtn.Text = _G.HistoryEnabled and "ON" or "OFF"
     historyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -1228,7 +1230,7 @@ local function buildGUI()
     -- ======== ROW 5: Retype Invalid ========
     local riLabel = Instance.new("TextLabel")
     riLabel.Size = UDim2.new(0, 120, 0, 24)
-    riLabel.Position = UDim2.new(0, 12, 0, 122)
+    riLabel.Position = UDim2.new(0, 12, 0, 124)
     riLabel.BackgroundTransparency = 1
     riLabel.Text = "🌸 Retype Invalid"
     riLabel.TextColor3 = Color3.fromRGB(200, 230, 255)
@@ -1241,7 +1243,7 @@ local function buildGUI()
     local riToggle = Instance.new("TextButton")
     riToggle.Name = "RetypeInvalidToggle"
     riToggle.Size = UDim2.new(0, 48, 0, 22)
-    riToggle.Position = UDim2.new(1, -56, 0, 123)
+    riToggle.Position = UDim2.new(1, -56, 0, 125)
     riToggle.BackgroundColor3 = _G.RetypeInvalidEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
     riToggle.Text = _G.RetypeInvalidEnabled and "ON" or "OFF"
     riToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -1262,7 +1264,7 @@ local function buildGUI()
     local collectedLabel = Instance.new("TextLabel")
     collectedLabel.Name = "CollectedLabel"
     collectedLabel.Size = UDim2.new(0.6, 0, 0, 20)
-    collectedLabel.Position = UDim2.new(0, 12, 0, 150)
+    collectedLabel.Position = UDim2.new(0, 12, 0, 152)
     collectedLabel.BackgroundTransparency = 1
     collectedLabel.Text = "🌸 Pasted: 0/" .. _G.SubmitAfterCount
     collectedLabel.TextColor3 = Color3.fromRGB(160, 200, 230)
@@ -1275,7 +1277,7 @@ local function buildGUI()
     local resetBtn = Instance.new("TextButton")
     resetBtn.Name = "ResetBtn"
     resetBtn.Size = UDim2.new(0, 44, 0, 20)
-    resetBtn.Position = UDim2.new(1, -52, 0, 150)
+    resetBtn.Position = UDim2.new(1, -52, 0, 152)
     resetBtn.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
     resetBtn.Text = "↻ Reset"
     resetBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -1293,16 +1295,16 @@ local function buildGUI()
     -- ======== Code-Liste ========
     local codeListFrame = Instance.new("Frame")
     codeListFrame.Name = "CodeListFrame"
-    codeListFrame.Size = UDim2.new(1, -24, 0, 98)
-    codeListFrame.Position = UDim2.new(0, 12, 0, 174)
-    codeListFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 22)
+    codeListFrame.Size = UDim2.new(1, -24, 0, 96)
+    codeListFrame.Position = UDim2.new(0, 12, 0, 176)
+    codeListFrame.BackgroundColor3 = Color3.fromRGB(8, 8, 20)
     codeListFrame.BackgroundTransparency = 0.3
     codeListFrame.BorderSizePixel = 0
     codeListFrame.ClipsDescendants = true
     codeListFrame.ZIndex = 10
     codeListFrame.Parent = ContentFrame
     do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = codeListFrame end
-    do local st = Instance.new("UIStroke") st.Color = Color3.fromRGB(100, 200, 255) st.Thickness = 1 st.Transparency = 0.3 st.Parent = codeListFrame end
+    do local st = Instance.new("UIStroke") st.Color = Color3.fromRGB(60, 150, 255) st.Thickness = 1 st.Transparency = 0.3 st.Parent = codeListFrame end
     
     local scroll = Instance.new("ScrollingFrame")
     scroll.Name = "Scrolling"
@@ -1311,7 +1313,7 @@ local function buildGUI()
     scroll.BackgroundTransparency = 1
     scroll.BorderSizePixel = 0
     scroll.ScrollBarThickness = 2
-    scroll.ScrollBarImageColor3 = Color3.fromRGB(100, 200, 255)
+    scroll.ScrollBarImageColor3 = Color3.fromRGB(60, 150, 255)
     scroll.ScrollBarImageTransparency = 0.4
     scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
     scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
@@ -1342,7 +1344,7 @@ local function buildGUI()
     local sep = Instance.new("Frame")
     sep.Size = UDim2.new(1, -24, 0, 1)
     sep.Position = UDim2.new(0, 12, 0, 275)
-    sep.BackgroundColor3 = Color3.fromRGB(100, 200, 255)
+    sep.BackgroundColor3 = Color3.fromRGB(60, 150, 255)
     sep.BackgroundTransparency = 0.5
     sep.BorderSizePixel = 0
     sep.ZIndex = 10
