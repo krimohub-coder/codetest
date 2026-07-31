@@ -1,10 +1,10 @@
 -- ============================================================
--- KRIMO HUB V5 - NUR RETYPE INVALID FIX
+-- KRIMO HUB V4 - NEUES DESIGN (SCHWARZ + HELLBLAU FLOWER)
 -- ============================================================
 
 -- 1. GLOBALS
 _G.ScriptEnabled = true
-_G.AutoWriteEnabled = false
+_G.AutoWriteEnabled = false   -- Auto Type
 _G.AutoSubmitEnabled = false
 _G.RiddleSolverEnabled = false
 _G.SubmitAfterCount = 3
@@ -17,6 +17,10 @@ local CoreGui = game:GetService("CoreGui")
 local UserInputService = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
+
+-- RETYPE INVALID VARIABLES (NEU - HIER EINGEFÜGT)
+local invalidCount = 0
+local lastRejectedCode = ""
 
 -- 2. PERSISTENZ
 local CONFIG_PATH = "KrimoHub_config.json"
@@ -45,15 +49,11 @@ local Announcements = nil
 local CodeTextBox = nil
 local ConfirmButton = nil
 
--- RETYPE INVALID VARIABLES (FIXED)
-local pendingRejectedText = nil -- SPEICHERT DEN KOMPLETTEN CODE
+-- RETYPE INVALID VARIABLES
+local pendingRejectedText = nil
 local pendingRejectedBox = nil
 local pendingRejectedUntil = 0
 local pendingRejectedToken = 0
-
--- Zusätzliche Variablen für Retype Invalid Fix
-local invalidCount = 0
-local lastRejectedCode = ""
 
 local function setupPaths()
     pcall(function()
@@ -85,7 +85,8 @@ end
 -- 4. COLLECTED CODES & HISTORY
 local collectedCodes = {}
 local AddedCount = 0
-local history = {}
+local history = {}          -- { word, time }
+local lastAddedWord = ""    -- für Duplikatschutz
 local submitCooldown = false
 local submitTimer = nil
 local SUBMIT_DELAY = 0.6
@@ -549,7 +550,9 @@ local function buildHistoryGUI()
     end)
 end
 
--- 9. RETYPE INVALID LOGIK (FIXED - SPEICHERT KOMPLETTEN CODE) mit Fix
+-- ============================================================
+-- 9. RETYPE INVALID LOGIK (NEU MIT FIX)
+-- ============================================================
 local function isBoxVisible(box)
     if not box or not box.Parent then return false end
     local current = box
@@ -572,6 +575,7 @@ local function getAceCodeBox()
     return CodeTextBox
 end
 
+-- NEUE clearPendingSubmission MIT invalidCount RESET
 local function clearPendingSubmission()
     pendingRejectedToken = pendingRejectedToken + 1
     pendingRejectedText = nil
@@ -596,13 +600,12 @@ local function rememberPendingSubmission(box, fullCodeText)
     end)
 end
 
+-- NEUE handleRedemptionFeedback MIT COUNTER
 local function handleRedemptionFeedback(text)
     if not _G.RetypeInvalidEnabled then return end
     if not pendingRejectedText then return end
     if os.clock() > pendingRejectedUntil then
         clearPendingSubmission()
-        invalidCount = 0
-        lastRejectedCode = ""
         return
     end
 
@@ -617,7 +620,7 @@ local function handleRedemptionFeedback(text)
         or lower:find("rejected", 1, true)
 
     if not rejected then
-        -- Kein Error mehr, Reset Counter und gespeicherten Code
+        -- Reset if error message gone
         invalidCount = 0
         lastRejectedCode = ""
         clearPendingSubmission()
@@ -627,7 +630,6 @@ local function handleRedemptionFeedback(text)
     local previousText = pendingRejectedText
 
     if previousText ~= lastRejectedCode then
-        -- Neuer Code, Reset Counter
         invalidCount = 1
     else
         invalidCount = invalidCount + 1
@@ -638,15 +640,12 @@ local function handleRedemptionFeedback(text)
     local repasteBox = getAceCodeBox() or pendingRejectedBox
     if not repasteBox or not isBoxVisible(repasteBox) then
         clearPendingSubmission()
-        invalidCount = 0
-        lastRejectedCode = ""
         return
     end
 
     local newText = ""
 
     if repasteBox.Text == "" then
-        -- Textbox leer, nur einmal hi
         newText = "hi"
         invalidCount = 1
     else
@@ -659,21 +658,17 @@ local function handleRedemptionFeedback(text)
         end
     end
 
-    local success, err = pcall(function()
+    pcall(function()
         repasteBox.Text = newText
     end)
 
-    if success then
-        table.clear(collectedCodes)
-        AddedCount = 0
-        refreshMainGUI()
-        clearPendingSubmission()
-    else
-        clearPendingSubmission()
-    end
+    table.clear(collectedCodes)
+    AddedCount = 0
+    refreshMainGUI()
+    clearPendingSubmission()
 end
 
--- 10. SUBMIT (MIT KOMPLETTEM CODE)
+-- 10. SUBMIT
 local function fireSignal(sig)
     if not sig then return end
     pcall(function()
@@ -695,11 +690,11 @@ local function doSubmit()
     
     setupPaths()
     
+    -- KOMPLETTEN CODE speichern
     local fullCode = table.concat(collectedCodes)
-    if fullCode == "" then return false end
-    
-    -- Speichere den KOMPLETTEN Code für Retype
-    rememberPendingSubmission(CodeTextBox, fullCode)
+    if fullCode ~= "" then
+        rememberPendingSubmission(CodeTextBox, fullCode)
+    end
     
     if ConfirmButton and ConfirmButton.Parent then
         pcall(function()
@@ -789,6 +784,12 @@ local function addCode(Code, fromSammy)
     Code = tostring(Code)
     if Code == "" then return end
     
+    if Code == lastAddedWord then
+        return
+    end
+    lastAddedWord = Code
+    task.delay(0.3, function() lastAddedWord = "" end)
+    
     if fromSammy then
         saveToHistory(Code, true)
     end
@@ -872,34 +873,19 @@ end
 local function verifySourceIsSammy(TO)
     if TO:IsDescendantOf(MainFrame) then return false end
     if TO:IsDescendantOf(HistoryGui) then return false end
-    
-    local text = TO.Text or ""
-    if string.find(string.lower(text), "spydersammy") then
-        return true
-    end
-    
     local C = TO.Parent
-    local depth = 0
-    while C and depth < 10 do
-        depth = depth + 1
+    while C and not C:IsA("ScreenGui") and C.Name ~= "PlayerGui" do
         for _, I in ipairs(C:GetChildren()) do
-            if I:IsA("TextLabel") then
-                local txt = I.Text or ""
-                if string.find(string.lower(txt), "spydersammy") then
-                    return true
-                end
-            end
-        end
-        for _, I in ipairs(C:GetDescendants()) do
-            if I:IsA("ImageLabel") and isAvatarImage(I) then
+            if I:IsA("TextLabel") and string.find(string.lower(I.Text), "spydersammy") then
                 return true
             end
         end
+        for _, I in ipairs(C:GetDescendants()) do
+            if I:IsA("ImageLabel") and isAvatarImage(I) then return true end
+        end
         if C.Parent and (C.Parent:IsA("Frame") or C.Parent:IsA("ImageLabel") or C.Parent:IsA("CanvasGroup")) then
             C = C.Parent
-        else
-            break
-        end
+        else break end
     end
     return false
 end
@@ -945,8 +931,7 @@ if CodeTextBox then
     CodeTextBox:GetPropertyChangedSignal("Text"):Connect(function()
         if CodeTextBox.Text == "" then
             AddedCount = 0
-            table.clear(collectedCodes)
-            refreshMainGUI()
+            lastAddedWord = ""
         end
     end)
 end
@@ -959,6 +944,7 @@ local function resetCodes()
     end
     table.clear(collectedCodes)
     AddedCount = 0
+    lastAddedWord = ""
     refreshMainGUI()
     if CodeTextBox then CodeTextBox.Text = "" end
 end
@@ -1564,14 +1550,12 @@ local function buildGUI()
     end)
     
     refreshMainGUI()
-    print("[KrimoHub] GUI sichtbar!")
-end
-
--- 18. START
-print("[KrimoHub] Starte...")
+    print("[KrimoHub V4] GUI sichtbar!")
+end-- 18. START
+print("[KrimoHub V4] Starte...")
 pcall(setupPaths)
 pcall(buildGUI)
 pcall(startAnnouncementWatcher)
 pcall(startPlayerGuiScanner)
 pcall(startFeedbackWatcher)
-print("[KrimoHub] Fertig! Retype Invalid speichert jetzt den KOMPLETTEN Code.")
+print("[KrimoHub V4] Fertig!")
