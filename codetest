@@ -1,27 +1,22 @@
--- ==========================================
--- KRIMO HUB - GEFIXT & EINFACH
--- HELLBLAU - discord.gg/zMt27E4FG9
--- ==========================================
-
 if not game:IsLoaded() then game.Loaded:Wait() end
 
 -- ==========================================
 -- SERVICES
 -- ==========================================
-local Players           = game:GetService("Players")
-local TweenService      = game:GetService("TweenService")
-local RunService        = game:GetService("RunService")
-local UserInputService  = game:GetService("UserInputService")
-local Stats             = game:GetService("Stats")
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Stats = game:GetService("Stats")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local StarterGui        = game:GetService("StarterGui")
+local StarterGui = game:GetService("StarterGui")
 local VirtualInputManager = game:GetService("VirtualInputManager")
-local GuiService        = game:GetService("GuiService")
-local CoreGui           = game:GetService("CoreGui")
-local Workspace         = game:GetService("Workspace")
+local GuiService = game:GetService("GuiService")
+local CoreGui = game:GetService("CoreGui")
+local Workspace = game:GetService("Workspace")
 
 local LocalPlayer = Players.LocalPlayer
-local PlayerGui   = LocalPlayer:WaitForChild("PlayerGui")
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 local ActiveConnections = {}
 local thisScriptStopped = false
@@ -30,24 +25,24 @@ local thisScriptStopped = false
 -- HELLBLAU FARBEN
 -- ==========================================
 local C = {
-    accent     = Color3.fromRGB(0, 180, 255),
-    accentHi   = Color3.fromRGB(80, 210, 255),
+    accent = Color3.fromRGB(0, 180, 255),
+    accentHi = Color3.fromRGB(80, 210, 255),
     accentDark = Color3.fromRGB(0, 120, 200),
-    deepBlue   = Color3.fromRGB(0, 80, 160),
-    body       = Color3.fromRGB(8, 12, 25),
-    panel      = Color3.fromRGB(12, 18, 35),
-    tabBar     = Color3.fromRGB(10, 15, 30),
-    card       = Color3.fromRGB(16, 24, 45),
-    cardHover  = Color3.fromRGB(25, 40, 70),
-    iconBg     = Color3.fromRGB(25, 40, 65),
-    stroke     = Color3.fromRGB(0, 150, 220),
+    deepBlue = Color3.fromRGB(0, 80, 160),
+    body = Color3.fromRGB(8, 12, 25),
+    panel = Color3.fromRGB(12, 18, 35),
+    tabBar = Color3.fromRGB(10, 15, 30),
+    card = Color3.fromRGB(16, 24, 45),
+    cardHover = Color3.fromRGB(25, 40, 70),
+    iconBg = Color3.fromRGB(25, 40, 65),
+    stroke = Color3.fromRGB(0, 150, 220),
     textBright = Color3.fromRGB(220, 240, 255),
-    textBlue   = Color3.fromRGB(100, 200, 255),
-    textMute   = Color3.fromRGB(80, 150, 200),
-    textDim    = Color3.fromRGB(40, 100, 150),
-    knobOn     = Color3.fromRGB(0, 200, 255),
-    knobOff    = Color3.fromRGB(40, 80, 120),
-    trackOff   = Color3.fromRGB(15, 30, 50),
+    textBlue = Color3.fromRGB(100, 200, 255),
+    textMute = Color3.fromRGB(80, 150, 200),
+    textDim = Color3.fromRGB(40, 100, 150),
+    knobOn = Color3.fromRGB(0, 200, 255),
+    knobOff = Color3.fromRGB(40, 80, 120),
+    trackOff = Color3.fromRGB(15, 30, 50),
 }
 
 -- ==========================================
@@ -102,10 +97,7 @@ local function createAPESP(targetPlayer, isAdmin)
         frame.BackgroundTransparency = 0.15
         frame.BackgroundColor3 = Color3.fromRGB(10, 20, 40)
         frame.Parent = billboard
-        
-        local uiCorner = Instance.new("UICorner")
-        uiCorner.CornerRadius = UDim.new(0, 8)
-        uiCorner.Parent = frame
+        Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
         
         local stroke = Instance.new("UIStroke")
         stroke.Color = isAdmin and C.accent or Color3.fromRGB(60, 120, 180)
@@ -218,10 +210,7 @@ local function createTimerESP(plot)
         frame.BackgroundTransparency = 0.15
         frame.BackgroundColor3 = Color3.fromRGB(10, 20, 40)
         frame.Parent = bb
-        
-        local uiCorner = Instance.new("UICorner")
-        uiCorner.CornerRadius = UDim.new(0, 6)
-        uiCorner.Parent = frame
+        Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 6)
         
         local stroke = Instance.new("UIStroke")
         stroke.Color = C.accent
@@ -292,7 +281,7 @@ end)
 table.insert(ActiveConnections, timerHeartbeatConn)
 
 -- ==========================================
--- SETUP FOR AUTO BALLOON PROTECTION
+-- AUTO BALLOON SETUP
 -- ==========================================
 local punishDebounce = {}
 local previousPlayerPositions = {}
@@ -361,13 +350,11 @@ end
 task.spawn(function()
     while not thisScriptStopped do
         task.wait(0.5)
-        
         if _G.AutoBalloon and AdminRemote then
             if isStealingMessageVisible() then
                 for _, plr in ipairs(Players:GetPlayers()) do
                     if plr == LocalPlayer then continue end
                     if not plr.Character then continue end
-                    
                     local lastSend = lastBalloonSent[plr.UserId] or 0
                     if tick() - lastSend > 2 then
                         local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
@@ -400,95 +387,55 @@ local function saveSettings()
     pcall(function()
         writefile(SETTINGS_FILE, game:GetService("HttpService"):JSONEncode({
             AutoResetOnBalloon = _G.AutoResetOnBalloon,
-            AutoResetOnTiny    = _G.AutoResetOnTiny,
-            AutoResetOnJail    = _G.AutoResetOnJail,
-            AutoGiant          = _G.AutoGiant,
-            AutoBlock          = _G.AutoBlock,
-            BlockDelay         = _G.BlockDelay,
-            AutoBalloon        = _G.AutoBalloon,
-            RagdollBypass      = _G.RagdollBypass,
-            AntiSwap           = _G.AntiSwap,
-            APESP              = _G.APESP,
-            TimerESP           = _G.TimerESP,
-            QuickPanel         = _G.QuickPanel,
-            SelectedCarpet     = _G.SelectedCarpet,
+            AutoResetOnTiny = _G.AutoResetOnTiny,
+            AutoResetOnJail = _G.AutoResetOnJail,
+            AutoGiant = _G.AutoGiant,
+            AutoBlock = _G.AutoBlock,
+            BlockDelay = _G.BlockDelay,
+            AutoBalloon = _G.AutoBalloon,
+            RagdollBypass = _G.RagdollBypass,
+            AntiSwap = _G.AntiSwap,
+            APESP = _G.APESP,
+            TimerESP = _G.TimerESP,
+            QuickPanel = _G.QuickPanel,
+            SelectedCarpet = _G.SelectedCarpet,
         }))
     end)
 end
 
 local savedSettings = loadSettings()
 
-if savedSettings.AutoResetOnBalloon ~= nil then _G.AutoResetOnBalloon = savedSettings.AutoResetOnBalloon
-elseif _G.AutoResetOnBalloon == nil then _G.AutoResetOnBalloon = true end
-
-if savedSettings.AutoResetOnTiny ~= nil then _G.AutoResetOnTiny = savedSettings.AutoResetOnTiny
-elseif _G.AutoResetOnTiny == nil then _G.AutoResetOnTiny = false end
-
-if savedSettings.AutoResetOnJail ~= nil then _G.AutoResetOnJail = savedSettings.AutoResetOnJail
-elseif _G.AutoResetOnJail == nil then _G.AutoResetOnJail = false end
-
-if savedSettings.AutoGiant ~= nil then _G.AutoGiant = savedSettings.AutoGiant
-elseif _G.AutoGiant == nil then _G.AutoGiant = false end
-
-if savedSettings.AutoBlock ~= nil then _G.AutoBlock = savedSettings.AutoBlock
-elseif _G.AutoBlock == nil then _G.AutoBlock = false end
-
-if savedSettings.BlockDelay ~= nil then _G.BlockDelay = savedSettings.BlockDelay
-else _G.BlockDelay = "fast" end
-
-if savedSettings.AutoBalloon ~= nil then _G.AutoBalloon = savedSettings.AutoBalloon
-else _G.AutoBalloon = false end
-
-if savedSettings.RagdollBypass ~= nil then _G.RagdollBypass = savedSettings.RagdollBypass
-else _G.RagdollBypass = false end
-
-if savedSettings.AntiSwap ~= nil then _G.AntiSwap = savedSettings.AntiSwap
-else _G.AntiSwap = false end
-
-if savedSettings.APESP ~= nil then _G.APESP = savedSettings.APESP
-else _G.APESP = false end
-
-if savedSettings.TimerESP ~= nil then _G.TimerESP = savedSettings.TimerESP
-else _G.TimerESP = true end
-
-if savedSettings.QuickPanel ~= nil then _G.QuickPanel = savedSettings.QuickPanel
-else _G.QuickPanel = false end
-
-if savedSettings.SelectedCarpet ~= nil then _G.SelectedCarpet = savedSettings.SelectedCarpet
-else _G.SelectedCarpet = "flying carpet" end
+_G.AutoResetOnBalloon = savedSettings.AutoResetOnBalloon ~= nil and savedSettings.AutoResetOnBalloon or true
+_G.AutoResetOnTiny = savedSettings.AutoResetOnTiny or false
+_G.AutoResetOnJail = savedSettings.AutoResetOnJail or false
+_G.AutoGiant = savedSettings.AutoGiant or false
+_G.AutoBlock = savedSettings.AutoBlock or false
+_G.BlockDelay = savedSettings.BlockDelay or "fast"
+_G.AutoBalloon = savedSettings.AutoBalloon or false
+_G.RagdollBypass = savedSettings.RagdollBypass or false
+_G.AntiSwap = savedSettings.AntiSwap or false
+_G.APESP = savedSettings.APESP or false
+_G.TimerESP = savedSettings.TimerESP ~= nil and savedSettings.TimerESP or true
+_G.QuickPanel = savedSettings.QuickPanel or false
+_G.SelectedCarpet = savedSettings.SelectedCarpet or "flying carpet"
 
 -- ==========================================
 -- CHARACTER
 -- ==========================================
 local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-local Humanoid  = Character:WaitForChild("Humanoid")
-local Root      = Character:WaitForChild("HumanoidRootPart")
-local Camera    = Workspace.CurrentCamera
+local Humanoid = Character:WaitForChild("Humanoid")
+local Root = Character:WaitForChild("HumanoidRootPart")
+local Camera = Workspace.CurrentCamera
 
-local autoStealEnabled  = false
-local stealDelay        = 1.30
-local isStealing        = false
-local currentMovement   = nil
-local selectedPrompt    = nil
-local selectedSlotNumber= nil
-
--- ==========================================
--- FAST CONFIRM
--- ==========================================
-local function FastConfirm()
-    local res = GuiService:GetScreenResolution()
-    local x = res.X * 0.5
-    local y = res.Y * 0.58
-    for i = 1, 10 do
-        if thisScriptStopped then break end
-        VirtualInputManager:SendMouseButtonEvent(x, y, 0, true, game, 0)
-        VirtualInputManager:SendMouseButtonEvent(x, y, 0, false, game, 0)
-        task.wait(0.01)
-    end
-end
+local autoStealEnabled = false
+local stealDelay = 1.30
+local isStealing = false
+local currentMovement = nil
+local selectedPrompt = nil
+local selectedSlotNumber = nil
 
 -- ==========================================
--- BLOCK SYSTEM (GEFIXT)
+-- BLOCK SYSTEM
 -- ==========================================
 local function getBlockDelay()
     if _G.BlockDelay == "normal" then return 0.50
@@ -497,7 +444,7 @@ local function getBlockDelay()
 end
 
 local function PromptClick()
-    local viewportSize = workspace.CurrentCamera.ViewportSize
+    local viewportSize = Camera.ViewportSize
     local centerX = viewportSize.X / 2
     local centerY = (viewportSize.Y / 2) + 30
     
@@ -525,9 +472,6 @@ local function blockAllPlayers()
     end
 end
 
--- ==========================================
--- GET NEAREST PLAYER
--- ==========================================
 local function getNearestPlayer()
     local hrp = Character:FindFirstChild("HumanoidRootPart")
     if not hrp then return nil end
@@ -547,9 +491,9 @@ end
 local charAddedConn = LocalPlayer.CharacterAdded:Connect(function(newChar)
     if currentMovement then pcall(function() currentMovement:Disconnect() end) currentMovement = nil end
     Character = newChar
-    Humanoid  = newChar:WaitForChild("Humanoid")
-    Root      = newChar:WaitForChild("HumanoidRootPart")
-    Camera    = Workspace.CurrentCamera
+    Humanoid = newChar:WaitForChild("Humanoid")
+    Root = newChar:WaitForChild("HumanoidRootPart")
+    Camera = Workspace.CurrentCamera
     autoStealEnabled = false isStealing = false
     task.wait()
     if Root then
@@ -565,15 +509,15 @@ table.insert(ActiveConnections, charAddedConn)
 -- SLOTS CONFIG
 -- ==========================================
 local SlotsConfig = {
-    [1]  = { Positions = { Vector3.new(-345.4766,-6.0291,1.5014) }, CamAngles = {-0.827500,-0.640100,-0.576243} },
-    [2]  = { Positions = { Vector3.new(-349.9259,-6.2791,-1.5767) }, CamAngles = {-1.007271,-0.967909,-0.916433} },
-    [3]  = { Positions = { Vector3.new(-349.9259,-6.2791,-1.5758) }, CamAngles = {-1.062718,-1.041500,-0.997864} },
-    [4]  = { Positions = { Vector3.new(-343.4199,-5.9197,10.5505) }, CamAngles = {-0.681953,-0.861073,-0.551998} },
-    [5]  = { Positions = { Vector3.new(-343.7608,-6.3272,-9.7994) }, CamAngles = {-1.424811,-1.351549,-1.421283} },
-    [6]  = { Positions = { Vector3.new(-340.9,-6.6,38.4) }, CamAngles = {-0.2298,-1.2369,0} },
-    [7]  = { Positions = { Vector3.new(-344.4383,-6.4281,41.8672) }, CamAngles = {-0.181885,-1.095968,-0.162135} },
-    [8]  = { Positions = { Vector3.new(-348.5228,-6.4281,48.1022) }, CamAngles = {-0.306020,-0.916511,-0.245634} },
-    [9]  = { Positions = { Vector3.new(-339.6349,-6.4281,60.4164) }, CamAngles = {-0.137335,-0.401849,-0.054002} },
+    [1] = { Positions = { Vector3.new(-345.4766,-6.0291,1.5014) }, CamAngles = {-0.827500,-0.640100,-0.576243} },
+    [2] = { Positions = { Vector3.new(-349.9259,-6.2791,-1.5767) }, CamAngles = {-1.007271,-0.967909,-0.916433} },
+    [3] = { Positions = { Vector3.new(-349.9259,-6.2791,-1.5758) }, CamAngles = {-1.062718,-1.041500,-0.997864} },
+    [4] = { Positions = { Vector3.new(-343.4199,-5.9197,10.5505) }, CamAngles = {-0.681953,-0.861073,-0.551998} },
+    [5] = { Positions = { Vector3.new(-343.7608,-6.3272,-9.7994) }, CamAngles = {-1.424811,-1.351549,-1.421283} },
+    [6] = { Positions = { Vector3.new(-340.9,-6.6,38.4) }, CamAngles = {-0.2298,-1.2369,0} },
+    [7] = { Positions = { Vector3.new(-344.4383,-6.4281,41.8672) }, CamAngles = {-0.181885,-1.095968,-0.162135} },
+    [8] = { Positions = { Vector3.new(-348.5228,-6.4281,48.1022) }, CamAngles = {-0.306020,-0.916511,-0.245634} },
+    [9] = { Positions = { Vector3.new(-339.6349,-6.4281,60.4164) }, CamAngles = {-0.137335,-0.401849,-0.054002} },
     [10] = { Positions = { Vector3.new(-332.8,-6.6,67.8) }, CamAngles = {-0.3277,-0.0150,0} },
     [11] = { Positions = { Vector3.new(-354.9932,-6.4281,-47.3879), Vector3.new(-331.5262,-6.4281,-47.3607) }, CamAngles = {2.851853,-0.097011,3.112724} },
     [12] = { Positions = { Vector3.new(-354.9584,-6.4208,-42.6520), Vector3.new(-338.7290,-6.4281,-43.4713) }, CamAngles = {2.856299,-0.433315,3.019061} },
@@ -649,7 +593,7 @@ local STOP_DIST = 5
 local SLOW_DIST = 20
 
 -- ==========================================
--- DO RESET
+-- RESET SYSTEM
 -- ==========================================
 local resetRemote = nil
 local instaResetCooldown = false
@@ -712,7 +656,7 @@ end)
 table.insert(ActiveConnections, balloonConnection)
 
 -- ==========================================
--- START FLASH TP
+-- FLASH TP
 -- ==========================================
 local function startTripToPetSlot(prompt, slotNumber)
     local config = SlotsConfig[slotNumber] or SlotsConfig[1]
@@ -1023,7 +967,7 @@ local function updatePetList()
 end
 
 -- ==========================================
--- QUICK PANEL
+-- QUICK PANEL SYSTEM
 -- ==========================================
 local QuickPanelGUI = nil
 local isMobileQP = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
@@ -1291,16 +1235,26 @@ local function disableQuickPanel()
 end
 
 -- ==========================================
--- EINFACHES GUI - HELLBLAU
+-- GUI - KRIMO HUB (KOMPLETT & SCHÖN)
 -- ==========================================
 task.spawn(function()
     task.wait(0.2)
 
     local old = PlayerGui:FindFirstChild("KRIMO_HUB")
     if old then old:Destroy() end
+    local oldB = PlayerGui:FindFirstChild("KrimoHubBanner")
+    if oldB then oldB:Destroy() end
+
+    local borderGradientSeq = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, C.accentHi),
+        ColorSequenceKeypoint.new(0.25, C.deepBlue),
+        ColorSequenceKeypoint.new(0.5, C.accent),
+        ColorSequenceKeypoint.new(0.75, C.deepBlue),
+        ColorSequenceKeypoint.new(1, C.accentHi),
+    })
 
     local function getDevice()
-        local screen = workspace.CurrentCamera.ViewportSize
+        local screen = Camera.ViewportSize
         if UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled then
             return "mobile"
         end
@@ -1308,84 +1262,99 @@ task.spawn(function()
     end
 
     local DEVICE = getDevice()
+
     local L = DEVICE == "mobile" and {
-        winW = 280, winH = 350,
+        winW = 280, winH = 340,
         posX = UDim2.new(0.5, 0, 0.5, 0),
         bannerW = 145, bannerH = 38,
         bannerPos = UDim2.new(0.5, 0, 1, -95),
         bannerAnchor = Vector2.new(0.5, 1),
-        btnSize = 80, btnH = 36,
-        tabH = 28, headerH = 42,
+        btnSize = 80, btnH = 34,
+        tabH = 26, headerH = 38,
         actionXs = {6, 92, 178},
         textSize = { header = 10, btn = 10, tab = 10, stats = 10, discord = 8.5 },
     } or {
-        winW = 340, winH = 430,
+        winW = 320, winH = 400,
         posX = UDim2.new(0.5, 0, 0.5, 0),
         bannerW = 302, bannerH = 82,
         bannerPos = UDim2.new(0.5, -151, 0, 60),
         bannerAnchor = Vector2.new(0, 0),
-        btnSize = 100, btnH = 40,
-        tabH = 32, headerH = 47,
-        actionXs = {8, 120, 232},
+        btnSize = 95, btnH = 38,
+        tabH = 30, headerH = 44,
+        actionXs = {8, 115, 222},
         textSize = { header = 11, btn = 12, tab = 12, stats = 12, discord = 10 },
     }
 
-    local gui = Instance.new("ScreenGui")
-    gui.Name = "KRIMO_HUB"
-    gui.ResetOnSpawn = false
-    gui.DisplayOrder = 999
-    gui.Parent = PlayerGui
+    local KRIMO_HUB_GUI = Instance.new("ScreenGui")
+    KRIMO_HUB_GUI.Name = "KRIMO_HUB"
+    KRIMO_HUB_GUI.ResetOnSpawn = false
+    KRIMO_HUB_GUI.DisplayOrder = 999
+    KRIMO_HUB_GUI.Parent = PlayerGui
 
-    -- Hauptframe
-    local main = Instance.new("Frame")
-    main.Size = UDim2.new(0, L.winW, 0, L.winH)
-    main.Position = L.posX
-    main.AnchorPoint = Vector2.new(0.5, 0.5)
-    main.BackgroundColor3 = C.body
-    main.BorderSizePixel = 0
-    main.ClipsDescendants = true
-    main.Parent = gui
-    Instance.new("UICorner", main).CornerRadius = UDim.new(0, 14)
+    local BorderFrame = Instance.new("Frame")
+    BorderFrame.Size = UDim2.new(0, L.winW + 4, 0, L.winH + 4)
+    BorderFrame.Position = L.posX
+    BorderFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+    BorderFrame.BackgroundColor3 = C.accent
+    BorderFrame.BorderSizePixel = 0
+    BorderFrame.Parent = KRIMO_HUB_GUI
+    Instance.new("UICorner", BorderFrame).CornerRadius = UDim.new(0, 13)
 
-    -- Border Glow
-    local border = Instance.new("Frame")
-    border.Size = UDim2.new(1, 6, 1, 6)
-    border.Position = UDim2.new(0, -3, 0, -3)
-    border.BackgroundColor3 = C.accent
-    border.BackgroundTransparency = 0.4
-    border.BorderSizePixel = 0
-    border.Parent = main
-    Instance.new("UICorner", border).CornerRadius = UDim.new(0, 16)
+    local UIGradient = Instance.new("UIGradient")
+    UIGradient.Color = borderGradientSeq
+    UIGradient.Rotation = 308.077
+    UIGradient.Parent = BorderFrame
+
+    local Win = Instance.new("Frame")
+    Win.Size = UDim2.new(0, L.winW, 0, L.winH)
+    Win.Position = L.posX
+    Win.AnchorPoint = Vector2.new(0.5, 0.5)
+    Win.BackgroundTransparency = 1
+    Win.Parent = KRIMO_HUB_GUI
+
+    local MainFrame = Instance.new("Frame")
+    MainFrame.Size = UDim2.new(1, 0, 1, 0)
+    MainFrame.BackgroundColor3 = C.body
+    MainFrame.BorderSizePixel = 0
+    MainFrame.ClipsDescendants = true
+    MainFrame.Parent = Win
+    Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 13)
+
+    local ContentFrame = Instance.new("Frame")
+    ContentFrame.Size = UDim2.new(1, 0, 1, -92)
+    ContentFrame.Position = UDim2.new(0, 0, 0, 88)
+    ContentFrame.BackgroundColor3 = C.panel
+    ContentFrame.BorderSizePixel = 0
+    ContentFrame.Parent = MainFrame
+    Instance.new("UICorner", ContentFrame).CornerRadius = UDim.new(0, 13)
 
     -- Header
-    local header = Instance.new("Frame")
-    header.Size = UDim2.new(1, 0, 0, L.headerH)
-    header.Position = UDim2.new(0, 0, 0, -8)
-    header.BackgroundTransparency = 1
-    header.Parent = main
+    local HeaderFrame = Instance.new("Frame")
+    HeaderFrame.Size = UDim2.new(1, 0, 0, L.headerH)
+    HeaderFrame.Position = UDim2.new(0, 0, 0, -6)
+    HeaderFrame.BackgroundTransparency = 1
+    HeaderFrame.Parent = MainFrame
     
-    local headerLine = Instance.new("Frame")
-    headerLine.Size = UDim2.new(1, 0, 0, 1)
-    headerLine.Position = UDim2.new(0, 0, 1, -1)
-    headerLine.BackgroundColor3 = C.stroke
-    headerLine.Parent = header
+    local HeaderLine = Instance.new("Frame")
+    HeaderLine.Size = UDim2.new(1, 0, 0, 1)
+    HeaderLine.Position = UDim2.new(0, 0, 1, -1)
+    HeaderLine.BackgroundColor3 = C.stroke
+    HeaderLine.Parent = HeaderFrame
 
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, -95, 1, 0)
-    title.Position = UDim2.new(0, 24, 0, 0)
-    title.BackgroundTransparency = 1
-    title.Text = "⚡ KRIMO HUB"
-    title.TextColor3 = C.textBright
-    title.TextSize = L.textSize.header
-    title.Font = Enum.Font.GothamBold
-    title.TextXAlignment = Enum.TextXAlignment.Left
-    title.Parent = header
+    local TitleLabel = Instance.new("TextLabel")
+    TitleLabel.Size = UDim2.new(1, -80, 1, 0)
+    TitleLabel.Position = UDim2.new(0, 20, 0, 0)
+    TitleLabel.BackgroundTransparency = 1
+    TitleLabel.Text = "⚡ KRIMO HUB"
+    TitleLabel.TextColor3 = C.textBright
+    TitleLabel.TextSize = L.textSize.header
+    TitleLabel.Font = Enum.Font.GothamBold
+    TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    TitleLabel.Parent = HeaderFrame
 
-    -- Header Buttons
-    local HB = DEVICE == "mobile" and 20 or 22
+    local HB = DEVICE == "mobile" and 18 or 20
     local function headerButton(name, txt, xOff)
         local b = Instance.new("TextButton")
-        b.Name = name
         b.Size = UDim2.new(0, HB, 0, HB)
         b.Position = UDim2.new(1, xOff, 0.5, -HB/2)
         b.BackgroundColor3 = C.card
@@ -1395,7 +1364,7 @@ task.spawn(function()
         b.TextSize = L.textSize.header
         b.Font = Enum.Font.GothamBold
         b.AutoButtonColor = false
-        b.Parent = header
+        b.Parent = HeaderFrame
         Instance.new("UICorner", b).CornerRadius = UDim.new(0, 5)
         local s = Instance.new("UIStroke")
         s.Color = C.stroke
@@ -1403,34 +1372,33 @@ task.spawn(function()
         return b
     end
 
-    local hbOff = DEVICE == "mobile" and {-75, -52, -30} or {-70, -46, -22}
+    local hbOff = DEVICE == "mobile" and {-65, -45, -25} or {-60, -40, -20}
     local LockBtn = headerButton("Lock", "🔓", hbOff[1])
     local MinBtn = headerButton("Min", "–", hbOff[2])
     local CloseBtn = headerButton("Close", "X", hbOff[3])
 
     -- Action Buttons
-    local actionBar = Instance.new("Frame")
-    actionBar.Size = UDim2.new(1, 0, 0, 69)
-    actionBar.Position = UDim2.new(0, 0, 0, 34)
-    actionBar.BackgroundTransparency = 1
-    actionBar.Parent = main
+    local ActionBar = Instance.new("Frame")
+    ActionBar.Size = UDim2.new(1, 0, 0, 64)
+    ActionBar.Position = UDim2.new(0, 0, 0, 32)
+    ActionBar.BackgroundTransparency = 1
+    ActionBar.Parent = MainFrame
 
-    local actionLine = Instance.new("Frame")
-    actionLine.Size = UDim2.new(1, 0, 0, 1)
-    actionLine.Position = UDim2.new(0, 0, 0, 55)
-    actionLine.BackgroundColor3 = C.stroke
-    actionLine.Parent = actionBar
+    local ActionLine = Instance.new("Frame")
+    ActionLine.Size = UDim2.new(1, 0, 0, 1)
+    ActionLine.Position = UDim2.new(0, 0, 0, 52)
+    ActionLine.BackgroundColor3 = C.stroke
+    ActionLine.Parent = ActionBar
 
     local function actionButton(name, label, xPos, bW)
         local btn = Instance.new("TextButton")
-        btn.Name = name
         btn.Size = UDim2.new(0, bW, 0, L.btnH)
         btn.Position = UDim2.new(0, xPos, 0, 8)
         btn.BackgroundColor3 = C.card
         btn.BorderSizePixel = 0
         btn.Text = ""
         btn.AutoButtonColor = false
-        btn.Parent = actionBar
+        btn.Parent = ActionBar
         Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 7)
         
         local s = Instance.new("UIStroke")
@@ -1456,148 +1424,144 @@ task.spawn(function()
         return btn, top
     end
 
-    local FLASHTP, flashAccent = actionButton("FLASH TP", "⚡ FLASH TP", L.actionXs[1], L.btnSize)
-    local BLOCK, blockAccent = actionButton("BLOCK", "🚫 BLOCK", L.actionXs[2], L.btnSize)
-    local RESET, resetAccent = actionButton("RESET", "🔄 RESET", L.actionXs[3], L.btnSize)
+    local FLASHTP, flashAccent = actionButton("FLASH TP", "⚡", L.actionXs[1], L.btnSize)
+    local BLOCK, blockAccent = actionButton("BLOCK", "🚫", L.actionXs[2], L.btnSize)
+    local RESET, resetAccent = actionButton("RESET", "🔄", L.actionXs[3], L.btnSize)
 
     -- Tabs
-    local tabBar = Instance.new("Frame")
-    tabBar.Size = UDim2.new(1, 0, 0, L.tabH)
-    tabBar.Position = UDim2.new(0, 0, 0, 90)
-    tabBar.BackgroundColor3 = C.tabBar
-    tabBar.Parent = main
+    local TabBar = Instance.new("Frame")
+    TabBar.Size = UDim2.new(1, 0, 0, L.tabH)
+    TabBar.Position = UDim2.new(0, 0, 0, 88)
+    TabBar.BackgroundColor3 = C.tabBar
+    TabBar.Parent = MainFrame
 
-    local tab1 = Instance.new("TextButton")
-    tab1.Size = UDim2.new(0.5, 0, 1, 0)
-    tab1.BackgroundColor3 = C.tabBar
-    tab1.BorderSizePixel = 0
-    tab1.LayoutOrder = 1
-    tab1.Text = ""
-    tab1.AutoButtonColor = false
-    tab1.Parent = tabBar
+    local Tab1 = Instance.new("TextButton")
+    Tab1.Size = UDim2.new(0.5, 0, 1, 0)
+    Tab1.BackgroundColor3 = C.tabBar
+    Tab1.BorderSizePixel = 0
+    Tab1.Text = ""
+    Tab1.AutoButtonColor = false
+    Tab1.Parent = TabBar
     
-    local tab1Label = Instance.new("TextLabel")
-    tab1Label.Size = UDim2.new(1, 0, 1, 0)
-    tab1Label.BackgroundTransparency = 1
-    tab1Label.Text = "🧠 Brainrots"
-    tab1Label.TextColor3 = C.textBlue
-    tab1Label.TextSize = L.textSize.tab
-    tab1Label.Font = Enum.Font.GothamMedium
-    tab1Label.Parent = tab1
+    local Tab1Label = Instance.new("TextLabel")
+    Tab1Label.Size = UDim2.new(1, 0, 1, 0)
+    Tab1Label.BackgroundTransparency = 1
+    Tab1Label.Text = "🧠 Pets"
+    Tab1Label.TextColor3 = C.textBlue
+    Tab1Label.TextSize = L.textSize.tab
+    Tab1Label.Font = Enum.Font.GothamMedium
+    Tab1Label.Parent = Tab1
     
-    local tab1Line = Instance.new("Frame")
-    tab1Line.Size = UDim2.new(1, -16, 0, 2)
-    tab1Line.Position = UDim2.new(0, 8, 1, -2)
-    tab1Line.BackgroundColor3 = C.accent
-    tab1Line.Parent = tab1
-    Instance.new("UICorner", tab1Line).CornerRadius = UDim.new(0, 1)
+    local Tab1Line = Instance.new("Frame")
+    Tab1Line.Size = UDim2.new(1, -16, 0, 2)
+    Tab1Line.Position = UDim2.new(0, 8, 1, -2)
+    Tab1Line.BackgroundColor3 = C.accent
+    Tab1Line.Parent = Tab1
+    Instance.new("UICorner", Tab1Line).CornerRadius = UDim.new(0, 1)
 
-    local tab2 = Instance.new("TextButton")
-    tab2.Size = UDim2.new(0.5, 0, 1, 0)
-    tab2.BackgroundColor3 = C.tabBar
-    tab2.BorderSizePixel = 0
-    tab2.LayoutOrder = 2
-    tab2.Text = ""
-    tab2.AutoButtonColor = false
-    tab2.Parent = tabBar
+    local Tab2 = Instance.new("TextButton")
+    Tab2.Size = UDim2.new(0.5, 0, 1, 0)
+    Tab2.BackgroundColor3 = C.tabBar
+    Tab2.BorderSizePixel = 0
+    Tab2.Text = ""
+    Tab2.AutoButtonColor = false
+    Tab2.Parent = TabBar
     
-    local tab2Label = Instance.new("TextLabel")
-    tab2Label.Size = UDim2.new(1, 0, 1, 0)
-    tab2Label.BackgroundTransparency = 1
-    tab2Label.Text = "⚙️ Einstellungen"
-    tab2Label.TextColor3 = C.textDim
-    tab2Label.TextSize = L.textSize.tab
-    tab2Label.Font = Enum.Font.GothamMedium
-    tab2Label.Parent = tab2
+    local Tab2Label = Instance.new("TextLabel")
+    Tab2Label.Size = UDim2.new(1, 0, 1, 0)
+    Tab2Label.BackgroundTransparency = 1
+    Tab2Label.Text = "⚙️ Settings"
+    Tab2Label.TextColor3 = C.textDim
+    Tab2Label.TextSize = L.textSize.tab
+    Tab2Label.Font = Enum.Font.GothamMedium
+    Tab2Label.Parent = Tab2
     
-    local tab2Line = Instance.new("Frame")
-    tab2Line.Size = UDim2.new(1, -16, 0, 2)
-    tab2Line.Position = UDim2.new(0, 8, 1, -2)
-    tab2Line.BackgroundColor3 = C.accent
-    tab2Line.BackgroundTransparency = 1
-    tab2Line.Parent = tab2
-    Instance.new("UICorner", tab2Line).CornerRadius = UDim.new(0, 1)
+    local Tab2Line = Instance.new("Frame")
+    Tab2Line.Size = UDim2.new(1, -16, 0, 2)
+    Tab2Line.Position = UDim2.new(0, 8, 1, -2)
+    Tab2Line.BackgroundColor3 = C.accent
+    Tab2Line.BackgroundTransparency = 1
+    Tab2Line.Parent = Tab2
+    Instance.new("UICorner", Tab2Line).CornerRadius = UDim.new(0, 1)
 
-    local tabDivider = Instance.new("Frame")
-    tabDivider.Size = UDim2.new(1, 0, 0, 1)
-    tabDivider.Position = UDim2.new(0, 0, 0, 121)
-    tabDivider.BackgroundColor3 = C.stroke
-    tabDivider.Parent = main
+    local TabDivider = Instance.new("Frame")
+    TabDivider.Size = UDim2.new(1, 0, 0, 1)
+    TabDivider.Position = UDim2.new(0, 0, 0, 118)
+    TabDivider.BackgroundColor3 = C.stroke
+    TabDivider.Parent = MainFrame
 
-    -- Content
-    local contentContainer = Instance.new("Frame")
-    contentContainer.Size = UDim2.new(1, 0, 1, -126)
-    contentContainer.Position = UDim2.new(0, 0, 0, 122)
-    contentContainer.BackgroundTransparency = 1
-    contentContainer.ClipsDescendants = true
-    contentContainer.Parent = main
+    -- Content Container
+    local ContentContainer = Instance.new("Frame")
+    ContentContainer.Size = UDim2.new(1, 0, 1, -126)
+    ContentContainer.Position = UDim2.new(0, 0, 0, 119)
+    ContentContainer.BackgroundTransparency = 1
+    ContentContainer.ClipsDescendants = true
+    ContentContainer.Parent = MainFrame
 
     -- Tab 1 Content
-    local tab1Content = Instance.new("Frame")
-    tab1Content.Size = UDim2.new(1, 0, 1, 0)
-    tab1Content.BackgroundTransparency = 1
-    tab1Content.Parent = contentContainer
+    local Tab1Content = Instance.new("Frame")
+    Tab1Content.Size = UDim2.new(1, 0, 1, 0)
+    Tab1Content.BackgroundTransparency = 1
+    Tab1Content.Parent = ContentContainer
 
-    local scrollFrame = Instance.new("ScrollingFrame")
-    scrollFrame.Size = UDim2.new(1, 0, 1, 0)
-    scrollFrame.BackgroundTransparency = 1
-    scrollFrame.BorderSizePixel = 0
-    scrollFrame.Active = true
-    scrollFrame.ScrollBarThickness = 3
-    scrollFrame.ScrollBarImageColor3 = C.accent
-    scrollFrame.ScrollingDirection = Enum.ScrollingDirection.Y
-    scrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    scrollFrame.Parent = tab1Content
+    local ScrollFrame1 = Instance.new("ScrollingFrame")
+    ScrollFrame1.Size = UDim2.new(1, 0, 1, 0)
+    ScrollFrame1.BackgroundTransparency = 1
+    ScrollFrame1.BorderSizePixel = 0
+    ScrollFrame1.Active = true
+    ScrollFrame1.ScrollBarThickness = 3
+    ScrollFrame1.ScrollBarImageColor3 = C.accent
+    ScrollFrame1.ScrollingDirection = Enum.ScrollingDirection.Y
+    ScrollFrame1.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    ScrollFrame1.Parent = Tab1Content
     
-    local scrollLayout = Instance.new("UIListLayout")
-    scrollLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    scrollLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    scrollLayout.Padding = UDim.new(0, 4)
-    scrollLayout.Parent = scrollFrame
+    local ScrollLayout1 = Instance.new("UIListLayout")
+    ScrollLayout1.Padding = UDim.new(0, 4)
+    ScrollLayout1.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    ScrollLayout1.Parent = ScrollFrame1
     
-    local scrollPadding = Instance.new("UIPadding")
-    scrollPadding.PaddingTop = UDim.new(0, 6)
-    scrollPadding.PaddingBottom = UDim.new(0, 6)
-    scrollPadding.PaddingLeft = UDim.new(0, 4)
-    scrollPadding.PaddingRight = UDim.new(0, 4)
-    scrollPadding.Parent = scrollFrame
+    local ScrollPadding1 = Instance.new("UIPadding")
+    ScrollPadding1.PaddingTop = UDim.new(0, 6)
+    ScrollPadding1.PaddingBottom = UDim.new(0, 6)
+    ScrollPadding1.PaddingLeft = UDim.new(0, 4)
+    ScrollPadding1.PaddingRight = UDim.new(0, 4)
+    ScrollPadding1.Parent = ScrollFrame1
 
-    scrollListRef = scrollFrame
+    scrollListRef = ScrollFrame1
 
     -- Tab 2 Content
-    local tab2Content = Instance.new("Frame")
-    tab2Content.Size = UDim2.new(1, 0, 1, 0)
-    tab2Content.Position = UDim2.new(1, 0, 0, 0)
-    tab2Content.BackgroundTransparency = 1
-    tab2Content.Visible = false
-    tab2Content.Parent = contentContainer
+    local Tab2Content = Instance.new("Frame")
+    Tab2Content.Size = UDim2.new(1, 0, 1, 0)
+    Tab2Content.Position = UDim2.new(1, 0, 0, 0)
+    Tab2Content.BackgroundTransparency = 1
+    Tab2Content.Visible = false
+    Tab2Content.Parent = ContentContainer
 
-    local scrollFrame2 = Instance.new("ScrollingFrame")
-    scrollFrame2.Size = UDim2.new(1, 0, 1, 0)
-    scrollFrame2.BackgroundTransparency = 1
-    scrollFrame2.BorderSizePixel = 0
-    scrollFrame2.Active = true
-    scrollFrame2.ScrollBarThickness = 3
-    scrollFrame2.ScrollBarImageColor3 = C.accent
-    scrollFrame2.ScrollingDirection = Enum.ScrollingDirection.Y
-    scrollFrame2.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    scrollFrame2.Parent = tab2Content
+    local ScrollFrame2 = Instance.new("ScrollingFrame")
+    ScrollFrame2.Size = UDim2.new(1, 0, 1, 0)
+    ScrollFrame2.BackgroundTransparency = 1
+    ScrollFrame2.BorderSizePixel = 0
+    ScrollFrame2.Active = true
+    ScrollFrame2.ScrollBarThickness = 3
+    ScrollFrame2.ScrollBarImageColor3 = C.accent
+    ScrollFrame2.ScrollingDirection = Enum.ScrollingDirection.Y
+    ScrollFrame2.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    ScrollFrame2.Parent = Tab2Content
     
-    local scrollLayout2 = Instance.new("UIListLayout")
-    scrollLayout2.SortOrder = Enum.SortOrder.LayoutOrder
-    scrollLayout2.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    scrollLayout2.Padding = UDim.new(0, 4)
-    scrollLayout2.Parent = scrollFrame2
+    local ScrollLayout2 = Instance.new("UIListLayout")
+    ScrollLayout2.Padding = UDim.new(0, 4)
+    ScrollLayout2.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    ScrollLayout2.Parent = ScrollFrame2
     
-    local scrollPadding2 = Instance.new("UIPadding")
-    scrollPadding2.PaddingTop = UDim.new(0, 10)
-    scrollPadding2.PaddingBottom = UDim.new(0, 10)
-    scrollPadding2.PaddingLeft = UDim.new(0, 8)
-    scrollPadding2.PaddingRight = UDim.new(0, 8)
-    scrollPadding2.Parent = scrollFrame2
+    local ScrollPadding2 = Instance.new("UIPadding")
+    ScrollPadding2.PaddingTop = UDim.new(0, 10)
+    ScrollPadding2.PaddingBottom = UDim.new(0, 10)
+    ScrollPadding2.PaddingLeft = UDim.new(0, 8)
+    ScrollPadding2.PaddingRight = UDim.new(0, 8)
+    ScrollPadding2.Parent = ScrollFrame2
 
     -- ==========================================
-    -- SETTINGS TOGGLES (EINFACH)
+    -- SETTINGS TOGGLES
     -- ==========================================
     local sectionOrder = 0
 
@@ -1607,7 +1571,7 @@ task.spawn(function()
         wrap.Size = UDim2.new(1, 0, 0, 24)
         wrap.BackgroundTransparency = 1
         wrap.LayoutOrder = sectionOrder
-        wrap.Parent = scrollFrame2
+        wrap.Parent = ScrollFrame2
         
         local line = Instance.new("Frame")
         line.Size = UDim2.new(1, 0, 0, 1)
@@ -1636,11 +1600,11 @@ task.spawn(function()
     local function toggleRow(title, desc, defaultOn, onToggle)
         sectionOrder = sectionOrder + 1
         local row = Instance.new("Frame")
-        row.Size = UDim2.new(1, 0, 0, 52)
+        row.Size = UDim2.new(1, 0, 0, 48)
         row.BackgroundColor3 = C.card
         row.BorderSizePixel = 0
         row.LayoutOrder = sectionOrder
-        row.Parent = scrollFrame2
+        row.Parent = ScrollFrame2
         Instance.new("UICorner", row)
         
         local s = Instance.new("UIStroke")
@@ -1655,47 +1619,47 @@ task.spawn(function()
         Instance.new("UICorner", accentBar).CornerRadius = UDim.new(0, 2)
         
         local t1 = Instance.new("TextLabel")
-        t1.Size = UDim2.new(1, -52, 0, 24)
-        t1.Position = UDim2.new(0, 12, 0, 0)
+        t1.Size = UDim2.new(1, -52, 0, 20)
+        t1.Position = UDim2.new(0, 12, 0, 2)
         t1.BackgroundTransparency = 1
         t1.Text = title
         t1.TextColor3 = C.textBright
-        t1.TextSize = 13
+        t1.TextSize = 12
         t1.Font = Enum.Font.GothamMedium
         t1.TextXAlignment = Enum.TextXAlignment.Left
         t1.Parent = row
         
         local t2 = Instance.new("TextLabel")
-        t2.Size = UDim2.new(1, -52, 0, 20)
+        t2.Size = UDim2.new(1, -52, 0, 18)
         t2.Position = UDim2.new(0, 12, 0, 22)
         t2.BackgroundTransparency = 1
         t2.Text = desc
         t2.TextColor3 = C.textMute
-        t2.TextSize = 11
+        t2.TextSize = 10
         t2.Font = Enum.Font.Gotham
         t2.TextWrapped = true
         t2.TextXAlignment = Enum.TextXAlignment.Left
         t2.Parent = row
         
         local track = Instance.new("Frame")
-        track.Size = UDim2.new(0, 36, 0, 20)
-        track.Position = UDim2.new(1, -42, 0.5, -10)
+        track.Size = UDim2.new(0, 34, 0, 18)
+        track.Position = UDim2.new(1, -40, 0.5, -9)
         track.BackgroundColor3 = C.accent
         track.BorderSizePixel = 0
         track.Parent = row
-        Instance.new("UICorner", track).CornerRadius = UDim.new(0, 10)
+        Instance.new("UICorner", track).CornerRadius = UDim.new(0, 9)
         
         local ts = Instance.new("UIStroke")
         ts.Color = C.accent
         ts.Parent = track
         
         local knob = Instance.new("Frame")
-        knob.Size = UDim2.new(0, 14, 0, 14)
-        knob.Position = UDim2.new(0, 19, 0.5, -7)
+        knob.Size = UDim2.new(0, 12, 0, 12)
+        knob.Position = UDim2.new(0, 18, 0.5, -6)
         knob.BackgroundColor3 = C.knobOn
         knob.BorderSizePixel = 0
         knob.Parent = track
-        Instance.new("UICorner", knob).CornerRadius = UDim.new(0, 7)
+        Instance.new("UICorner", knob).CornerRadius = UDim.new(0, 6)
         
         local hit = Instance.new("TextButton")
         hit.Size = UDim2.new(1, 0, 1, 0)
@@ -1710,11 +1674,11 @@ task.spawn(function()
             if ref.on then
                 TweenService:Create(track, info, { BackgroundColor3 = C.accent }):Play()
                 TweenService:Create(ts, info, { Color = C.accent }):Play()
-                TweenService:Create(knob, info, { Position = UDim2.new(0, 19, 0.5, -7), BackgroundColor3 = C.knobOn }):Play()
+                TweenService:Create(knob, info, { Position = UDim2.new(0, 18, 0.5, -6), BackgroundColor3 = C.knobOn }):Play()
             else
                 TweenService:Create(track, info, { BackgroundColor3 = C.trackOff }):Play()
                 TweenService:Create(ts, info, { Color = C.stroke }):Play()
-                TweenService:Create(knob, info, { Position = UDim2.new(0, 3, 0.5, -7), BackgroundColor3 = C.knobOff }):Play()
+                TweenService:Create(knob, info, { Position = UDim2.new(0, 4, 0.5, -6), BackgroundColor3 = C.knobOff }):Play()
             end
         end
         
@@ -1729,21 +1693,20 @@ task.spawn(function()
         end)
     end
 
-    -- Einstellungen
     sectionHeader("  AUTO RESET  ")
-    toggleRow("Reset bei Balloon", "Automatisch zurücksetzen bei Balloon", _G.AutoResetOnBalloon, function(v) _G.AutoResetOnBalloon = v end)
-    toggleRow("Reset bei Tiny", "Automatisch zurücksetzen bei Tiny", _G.AutoResetOnTiny, function(v) _G.AutoResetOnTiny = v end)
-    toggleRow("Reset bei Jail", "Automatisch zurücksetzen bei Jail", _G.AutoResetOnJail, function(v) _G.AutoResetOnJail = v end)
+    toggleRow("Reset bei Balloon", "Auto-Reset bei Balloon", _G.AutoResetOnBalloon, function(v) _G.AutoResetOnBalloon = v end)
+    toggleRow("Reset bei Tiny", "Auto-Reset bei Tiny", _G.AutoResetOnTiny, function(v) _G.AutoResetOnTiny = v end)
+    toggleRow("Reset bei Jail", "Auto-Reset bei Jail", _G.AutoResetOnJail, function(v) _G.AutoResetOnJail = v end)
 
     sectionHeader("  FLASH TP  ")
-    toggleRow("Auto Block", "Alle Spieler nach Flash TP blocken", _G.AutoBlock, function(v) _G.AutoBlock = v; saveSettings() end)
-    toggleRow("Auto Giant", "Riesen-Trank nach Flash TP aktivieren", _G.AutoGiant, function(v) _G.AutoGiant = v; saveSettings() end)
-    toggleRow("Ragdoll Bypass", "Behalte Brainrot bei Ragdoll/Rocket", _G.RagdollBypass, function(v) _G.RagdollBypass = v; saveSettings() end)
+    toggleRow("Auto Block", "Alle blocken nach Flash TP", _G.AutoBlock, function(v) _G.AutoBlock = v; saveSettings() end)
+    toggleRow("Auto Giant", "Riesen-Trank nach Flash TP", _G.AutoGiant, function(v) _G.AutoGiant = v; saveSettings() end)
+    toggleRow("Ragdoll Bypass", "Brainrot bei Ragdoll behalten", _G.RagdollBypass, function(v) _G.RagdollBypass = v; saveSettings() end)
     toggleRow("Anti Swap", "Body-Swap verhindern", _G.AntiSwap, function(v) _G.AntiSwap = v; saveSettings() end)
 
     sectionHeader("  MISC  ")
-    toggleRow("Auto Balloon", "Balloon automatisch auf Diebe", _G.AutoBalloon, function(v) _G.AutoBalloon = v; saveSettings() end)
-    toggleRow("AP ESP", "Admin Commands Spieler markieren", _G.APESP, function(v)
+    toggleRow("Auto Balloon", "Balloon auf Diebe", _G.AutoBalloon, function(v) _G.AutoBalloon = v; saveSettings() end)
+    toggleRow("AP ESP", "Admin Commands markieren", _G.APESP, function(v)
         _G.APESP = v
         saveSettings()
         if v then enableAPESP() else disableAPESP() end
@@ -1755,41 +1718,40 @@ task.spawn(function()
         if v then enableQuickPanel() else disableQuickPanel() end
     end)
 
-    -- Carpet
     sectionHeader("  FLUGTEPPICH  ")
     do
         sectionOrder = sectionOrder + 1
         local carpetOptions = {"flying carpet", "waverider", "cupid wing", "santa sleigh", "witch broom"}
         local carpetFrame = Instance.new("Frame")
-        carpetFrame.Size = UDim2.new(1, 0, 0, 70)
+        carpetFrame.Size = UDim2.new(1, 0, 0, 66)
         carpetFrame.BackgroundColor3 = C.card
         carpetFrame.BorderSizePixel = 0
         carpetFrame.LayoutOrder = sectionOrder
-        carpetFrame.Parent = scrollFrame2
+        carpetFrame.Parent = ScrollFrame2
         Instance.new("UICorner", carpetFrame)
         local s = Instance.new("UIStroke")
         s.Color = C.stroke
         s.Parent = carpetFrame
         
         local titleLabel = Instance.new("TextLabel")
-        titleLabel.Size = UDim2.new(1, -20, 0, 20)
+        titleLabel.Size = UDim2.new(1, -20, 0, 18)
         titleLabel.Position = UDim2.new(0, 10, 0, 6)
         titleLabel.BackgroundTransparency = 1
         titleLabel.Text = "Flugteppich auswählen"
         titleLabel.TextColor3 = C.textBright
-        titleLabel.TextSize = 13
+        titleLabel.TextSize = 12
         titleLabel.Font = Enum.Font.GothamBold
         titleLabel.TextXAlignment = Enum.TextXAlignment.Left
         titleLabel.Parent = carpetFrame
         
         local selectorFrame = Instance.new("Frame")
-        selectorFrame.Size = UDim2.new(1, -20, 0, 35)
-        selectorFrame.Position = UDim2.new(0, 10, 0, 30)
+        selectorFrame.Size = UDim2.new(1, -20, 0, 32)
+        selectorFrame.Position = UDim2.new(0, 10, 0, 28)
         selectorFrame.BackgroundTransparency = 1
         selectorFrame.Parent = carpetFrame
         
         local leftBtn = Instance.new("TextButton")
-        leftBtn.Size = UDim2.new(0, 35, 0, 35)
+        leftBtn.Size = UDim2.new(0, 32, 0, 32)
         leftBtn.Position = UDim2.new(0, 0, 0, 0)
         leftBtn.BackgroundColor3 = C.accent
         leftBtn.BorderSizePixel = 0
@@ -1801,12 +1763,12 @@ task.spawn(function()
         Instance.new("UICorner", leftBtn).CornerRadius = UDim.new(0, 8)
         
         local displayLabel = Instance.new("TextLabel")
-        displayLabel.Size = UDim2.new(1, -90, 0, 35)
-        displayLabel.Position = UDim2.new(0, 40, 0, 0)
+        displayLabel.Size = UDim2.new(1, -80, 0, 32)
+        displayLabel.Position = UDim2.new(0, 36, 0, 0)
         displayLabel.BackgroundColor3 = C.iconBg
         displayLabel.BorderSizePixel = 0
         displayLabel.TextColor3 = C.textBright
-        displayLabel.TextSize = 12
+        displayLabel.TextSize = 11
         displayLabel.Font = Enum.Font.GothamBold
         displayLabel.Parent = selectorFrame
         Instance.new("UICorner", displayLabel).CornerRadius = UDim.new(0, 8)
@@ -1816,8 +1778,8 @@ task.spawn(function()
         ds.Parent = displayLabel
         
         local rightBtn = Instance.new("TextButton")
-        rightBtn.Size = UDim2.new(0, 35, 0, 35)
-        rightBtn.Position = UDim2.new(1, -35, 0, 0)
+        rightBtn.Size = UDim2.new(0, 32, 0, 32)
+        rightBtn.Position = UDim2.new(1, -32, 0, 0)
         rightBtn.BackgroundColor3 = C.accent
         rightBtn.BorderSizePixel = 0
         rightBtn.Text = "▶"
@@ -1855,34 +1817,34 @@ task.spawn(function()
     do
         sectionOrder = sectionOrder + 1
         local bdContainer = Instance.new("Frame")
-        bdContainer.Size = UDim2.new(1, 0, 0, 70)
+        bdContainer.Size = UDim2.new(1, 0, 0, 66)
         bdContainer.BackgroundColor3 = C.card
         bdContainer.BorderSizePixel = 0
         bdContainer.LayoutOrder = sectionOrder
-        bdContainer.Parent = scrollFrame2
+        bdContainer.Parent = ScrollFrame2
         Instance.new("UICorner", bdContainer)
         local bdStroke = Instance.new("UIStroke")
         bdStroke.Color = C.stroke
         bdStroke.Parent = bdContainer
         
         local bdLabel = Instance.new("TextLabel")
-        bdLabel.Size = UDim2.new(1, -50, 0, 20)
+        bdLabel.Size = UDim2.new(1, -50, 0, 18)
         bdLabel.Position = UDim2.new(0, 12, 0, 8)
         bdLabel.BackgroundTransparency = 1
         bdLabel.Text = "Block Verzögerung"
         bdLabel.TextColor3 = C.textBright
-        bdLabel.TextSize = 13
+        bdLabel.TextSize = 12
         bdLabel.Font = Enum.Font.GothamMedium
         bdLabel.TextXAlignment = Enum.TextXAlignment.Left
         bdLabel.Parent = bdContainer
         
         local bdSubLabel = Instance.new("TextLabel")
-        bdSubLabel.Size = UDim2.new(1, -50, 0, 16)
+        bdSubLabel.Size = UDim2.new(1, -50, 0, 14)
         bdSubLabel.Position = UDim2.new(0, 12, 0, 28)
         bdSubLabel.BackgroundTransparency = 1
         bdSubLabel.Text = "Verzögerung vor Block-Beginn"
         bdSubLabel.TextColor3 = C.textMute
-        bdSubLabel.TextSize = 10
+        bdSubLabel.TextSize = 9
         bdSubLabel.Font = Enum.Font.Gotham
         bdSubLabel.TextXAlignment = Enum.TextXAlignment.Left
         bdSubLabel.Parent = bdContainer
@@ -1895,7 +1857,7 @@ task.spawn(function()
             btn.BorderSizePixel = 0
             btn.Text = text
             btn.TextColor3 = _G.BlockDelay == delayType and C.textBright or C.textMute
-            btn.TextSize = 10
+            btn.TextSize = 9
             btn.Font = Enum.Font.GothamMedium
             btn.Parent = bdContainer
             Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 5)
@@ -1936,11 +1898,11 @@ task.spawn(function()
     local function createKeybindRow(title, keybindVar)
         sectionOrder = sectionOrder + 1
         local row = Instance.new("Frame")
-        row.Size = UDim2.new(1, 0, 0, 44)
+        row.Size = UDim2.new(1, 0, 0, 40)
         row.BackgroundColor3 = C.card
         row.BorderSizePixel = 0
         row.LayoutOrder = sectionOrder
-        row.Parent = scrollFrame2
+        row.Parent = ScrollFrame2
         Instance.new("UICorner", row)
         
         local s = Instance.new("UIStroke")
@@ -1960,14 +1922,14 @@ task.spawn(function()
         titleLabel.BackgroundTransparency = 1
         titleLabel.Text = title
         titleLabel.TextColor3 = C.textBright
-        titleLabel.TextSize = 13
+        titleLabel.TextSize = 12
         titleLabel.Font = Enum.Font.GothamMedium
         titleLabel.TextXAlignment = Enum.TextXAlignment.Left
         titleLabel.Parent = row
         
         local keyDisplay = Instance.new("Frame")
-        keyDisplay.Size = UDim2.new(0, 50, 0, 24)
-        keyDisplay.Position = UDim2.new(1, -56, 0.5, -12)
+        keyDisplay.Size = UDim2.new(0, 46, 0, 22)
+        keyDisplay.Position = UDim2.new(1, -52, 0.5, -11)
         keyDisplay.BackgroundColor3 = C.iconBg
         keyDisplay.BorderSizePixel = 0
         keyDisplay.Parent = row
@@ -1981,7 +1943,7 @@ task.spawn(function()
         keyText.Size = UDim2.new(1, 0, 1, 0)
         keyText.BackgroundTransparency = 1
         keyText.TextColor3 = C.textMute
-        keyText.TextSize = 11
+        keyText.TextSize = 10
         keyText.Font = Enum.Font.GothamBold
         keyText.Parent = keyDisplay
         
@@ -2034,80 +1996,74 @@ task.spawn(function()
     -- ==========================================
     -- BANNER
     -- ==========================================
-    local banner = Instance.new("ScreenGui")
-    banner.Name = "KrimoHubBanner"
-    banner.ResetOnSpawn = false
-    banner.Parent = PlayerGui
+    local KrimoHubBanner = Instance.new("ScreenGui")
+    KrimoHubBanner.Name = "KrimoHubBanner"
+    KrimoHubBanner.ResetOnSpawn = false
+    KrimoHubBanner.Parent = PlayerGui
 
-    local bFrame = Instance.new("Frame")
-    bFrame.Size = UDim2.new(0, L.bannerW, 0, L.bannerH)
-    bFrame.Position = L.bannerPos
-    bFrame.AnchorPoint = L.bannerAnchor
-    bFrame.BackgroundColor3 = C.accent
-    bFrame.BorderSizePixel = 0
-    bFrame.Parent = banner
-    Instance.new("UICorner", bFrame).CornerRadius = UDim.new(0, DEVICE == "mobile" and 6 or 12)
+    local BFrame = Instance.new("Frame")
+    BFrame.Size = UDim2.new(0, L.bannerW, 0, L.bannerH)
+    BFrame.Position = L.bannerPos
+    BFrame.AnchorPoint = L.bannerAnchor
+    BFrame.BackgroundColor3 = C.accent
+    BFrame.BorderSizePixel = 0
+    BFrame.Parent = KrimoHubBanner
+    Instance.new("UICorner", BFrame).CornerRadius = UDim.new(0, DEVICE == "mobile" and 6 or 12)
 
-    local bGradient = Instance.new("UIGradient")
-    bGradient.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, C.accentHi),
-        ColorSequenceKeypoint.new(0.25, C.deepBlue),
-        ColorSequenceKeypoint.new(0.5, C.accent),
-        ColorSequenceKeypoint.new(0.75, C.deepBlue),
-        ColorSequenceKeypoint.new(1, C.accentHi),
-    })
-    bGradient.Rotation = 224.297
-    bGradient.Parent = bFrame
+    local BUIGradient = Instance.new("UIGradient")
+    BUIGradient.Color = borderGradientSeq
+    BUIGradient.Rotation = 224.297
+    BUIGradient.Parent = BFrame
 
-    local bFrame2 = Instance.new("Frame")
-    bFrame2.Size = UDim2.new(1, -2, 1, -2)
-    bFrame2.Position = UDim2.new(0, 1, 0, 1)
-    bFrame2.BackgroundColor3 = C.panel
-    bFrame2.BackgroundTransparency = 0.15
-    bFrame2.BorderSizePixel = 0
-    bFrame2.Parent = bFrame
-    Instance.new("UICorner", bFrame2).CornerRadius = UDim.new(0, DEVICE == "mobile" and 5 or 10)
+    local BFrame2 = Instance.new("Frame")
+    BFrame2.Size = UDim2.new(1, -2, 1, -2)
+    BFrame2.Position = UDim2.new(0, 1, 0, 1)
+    BFrame2.BackgroundColor3 = C.panel
+    BFrame2.BackgroundTransparency = 0.15
+    BFrame2.BorderSizePixel = 0
+    BFrame2.Parent = BFrame
+    Instance.new("UICorner", BFrame2).CornerRadius = UDim.new(0, DEVICE == "mobile" and 5 or 10)
 
-    local bDiscord = Instance.new("TextLabel")
-    bDiscord.Size = UDim2.new(1, 0, 0, 14)
-    bDiscord.Position = DEVICE == "mobile" and UDim2.new(0, 0, 0, 4) or UDim2.new(0, 0, 0, 34)
-    bDiscord.BackgroundTransparency = 1
-    bDiscord.Text = "⚡ KRIMO HUB | discord.gg/zMt27E4FG9"
-    bDiscord.TextColor3 = C.textBlue
-    bDiscord.TextSize = L.textSize.discord
-    bDiscord.Font = Enum.Font.GothamBold
-    bDiscord.Parent = bFrame2
+    local BDiscord = Instance.new("TextLabel")
+    BDiscord.Size = UDim2.new(1, 0, 0, 14)
+    BDiscord.Position = DEVICE == "mobile" and UDim2.new(0, 0, 0, 4) or UDim2.new(0, 0, 0, 34)
+    BDiscord.BackgroundTransparency = 1
+    BDiscord.Text = "discord.gg/zMt27E4FG9"
+    BDiscord.TextColor3 = C.textBlue
+    BDiscord.TextSize = L.textSize.discord
+    BDiscord.Font = Enum.Font.GothamBold
+    BDiscord.Parent = BFrame2
 
-    local bTitle = Instance.new("TextLabel")
-    bTitle.BackgroundTransparency = 1
-    bTitle.RichText = true
-    bTitle.Parent = bFrame2
+    local BTitle = Instance.new("TextLabel")
+    BTitle.BackgroundTransparency = 1
+    BTitle.RichText = true
+    BTitle.Parent = BFrame2
     
     if DEVICE ~= "mobile" then
-        bTitle.Size = UDim2.new(1, 0, 0, 30)
-        bTitle.Position = UDim2.new(0, 0, 0, 10)
-        bTitle.Text = '<font color="rgb(80,210,255)">⚡ KRIMO</font> <font color="rgb(220,240,255)">HUB</font>'
-        bTitle.TextSize = 18
-        bTitle.Font = Enum.Font.GothamBold
+        BTitle.Size = UDim2.new(1, 0, 0, 28)
+        BTitle.Position = UDim2.new(0, 0, 0, 10)
+        BTitle.Text = '<font color="rgb(80,210,255)">⚡ KRIMO</font> <font color="rgb(220,240,255)">HUB</font>'
+        BTitle.TextSize = 17
+        BTitle.Font = Enum.Font.GothamBold
     else
-        bTitle.Visible = false
+        BTitle.Visible = false
     end
 
-    local bStats = Instance.new("TextLabel")
+    local BStats = Instance.new("TextLabel")
     if DEVICE == "mobile" then
-        bStats.Size = UDim2.new(1, 0, 0, 16)
-        bStats.Position = UDim2.new(0, 0, 0, 18)
+        BStats.Size = UDim2.new(1, 0, 0, 16)
+        BStats.Position = UDim2.new(0, 0, 0, 18)
     else
-        bStats.Size = UDim2.new(1, 0, 0, 18)
-        bStats.Position = UDim2.new(0, 0, 0, 52)
+        BStats.Size = UDim2.new(1, 0, 0, 18)
+        BStats.Position = UDim2.new(0, 0, 0, 52)
     end
-    bStats.BackgroundTransparency = 1
-    bStats.Text = '<font color="rgb(80,200,255)">FPS:</font> --   <font color="rgb(80,200,255)">PING:</font> --ms'
-    bStats.TextColor3 = C.textBright
-    bStats.TextSize = L.textSize.stats
-    bStats.Font = Enum.Font.GothamBold
-    bStats.RichText = true
-    bStats.Parent = bFrame2
+    BStats.BackgroundTransparency = 1
+    BStats.Text = '<font color="rgb(80,200,255)">FPS:</font> --   <font color="rgb(80,200,255)">PING:</font> --ms'
+    BStats.TextColor3 = C.textBright
+    BStats.TextSize = L.textSize.stats
+    BStats.Font = Enum.Font.GothamBold
+    BStats.RichText = true
+    BStats.Parent = BFrame2
 
     -- FPS/PING
     do
@@ -2118,7 +2074,7 @@ task.spawn(function()
             while frameTimes[1] and now - frameTimes[1] > 1 do table.remove(frameTimes, 1) end
         end)
         task.spawn(function()
-            while bStats.Parent do
+            while BStats.Parent do
                 local fps = #frameTimes
                 if fps < 2 and frameTimes[1] then
                     local span = os.clock() - frameTimes[1]
@@ -2127,27 +2083,38 @@ task.spawn(function()
                 local ping = 0
                 pcall(function() ping = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue() + 0.5) end)
                 local spacing = DEVICE == "mobile" and "     " or "   "
-                bStats.Text = string.format('<font color="rgb(80,200,255)">FPS:</font> %d'..spacing..'<font color="rgb(80,200,255)">PING:</font> %dms', fps, ping)
+                BStats.Text = string.format('<font color="rgb(80,200,255)">FPS:</font> %d'..spacing..'<font color="rgb(80,200,255)">PING:</font> %dms', fps, ping)
                 task.wait(0.25)
             end
         end)
     end
 
+    -- Gradient Animation
+    task.spawn(function()
+        local base1, base2 = UIGradient.Rotation, BUIGradient.Rotation
+        while UIGradient.Parent and BUIGradient.Parent do
+            local t = os.clock()
+            UIGradient.Rotation = (base1 + t * 60) % 360
+            BUIGradient.Rotation = (base2 + t * 60) % 360
+            RunService.RenderStepped:Wait()
+        end
+    end)
+
     -- ==========================================
-    -- DRAG
+    -- WINDOW CONTROLS
     -- ==========================================
     local locked = false
     local function syncBorder()
-        main.Position = L.posX -- Reset, wird über drag geändert
+        BorderFrame.Position = Win.Position
     end
 
     local dragging, dragStart, startPos
-    header.InputBegan:Connect(function(input)
+    HeaderFrame.InputBegan:Connect(function(input)
         if locked then return end
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
             dragStart = input.Position
-            startPos = main.Position
+            startPos = Win.Position
             input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then dragging = false end
             end)
@@ -2157,51 +2124,47 @@ task.spawn(function()
     UserInputService.InputChanged:Connect(function(input)
         if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
             local d = input.Position - dragStart
-            main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
+            Win.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
+            syncBorder()
         end
     end)
 
-    -- ==========================================
-    -- TABS
-    -- ==========================================
+    -- Tabs
     local activeTab = "brainrots"
     local function setTab(tab)
         if tab == activeTab then return end
         activeTab = tab
-        local info = TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+        local info = TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
         
         if tab == "settings" then
-            tab2Content.Visible = true
-            tab2Content.Position = UDim2.new(1, 0, 0, 0)
-            TweenService:Create(tab1Content, info, { Position = UDim2.new(-1, 0, 0, 0) }):Play()
-            TweenService:Create(tab2Content, info, { Position = UDim2.new(0, 0, 0, 0) }):Play()
-            tab1Label.TextColor3 = C.textDim
-            tab2Label.TextColor3 = C.textBlue
-            TweenService:Create(tab1Line, info, { BackgroundTransparency = 1 }):Play()
-            TweenService:Create(tab2Line, info, { BackgroundTransparency = 0 }):Play()
+            Tab2Content.Visible = true
+            Tab2Content.Position = UDim2.new(1, 0, 0, 0)
+            TweenService:Create(Tab1Content, info, { Position = UDim2.new(-1, 0, 0, 0) }):Play()
+            TweenService:Create(Tab2Content, info, { Position = UDim2.new(0, 0, 0, 0) }):Play()
+            Tab1Label.TextColor3 = C.textDim
+            Tab2Label.TextColor3 = C.textBlue
+            TweenService:Create(Tab1Line, info, { BackgroundTransparency = 1 }):Play()
+            TweenService:Create(Tab2Line, info, { BackgroundTransparency = 0 }):Play()
         else
-            tab1Content.Visible = true
-            tab1Content.Position = UDim2.new(-1, 0, 0, 0)
-            TweenService:Create(tab1Content, info, { Position = UDim2.new(0, 0, 0, 0) }):Play()
-            TweenService:Create(tab2Content, info, { Position = UDim2.new(1, 0, 0, 0) }):Play()
-            tab1Label.TextColor3 = C.textBlue
-            tab2Label.TextColor3 = C.textDim
-            TweenService:Create(tab1Line, info, { BackgroundTransparency = 0 }):Play()
-            TweenService:Create(tab2Line, info, { BackgroundTransparency = 1 }):Play()
-            task.delay(0.22, function()
-                if activeTab == "brainrots" then tab2Content.Visible = false end
+            Tab1Content.Visible = true
+            Tab1Content.Position = UDim2.new(-1, 0, 0, 0)
+            TweenService:Create(Tab1Content, info, { Position = UDim2.new(0, 0, 0, 0) }):Play()
+            TweenService:Create(Tab2Content, info, { Position = UDim2.new(1, 0, 0, 0) }):Play()
+            Tab1Label.TextColor3 = C.textBlue
+            Tab2Label.TextColor3 = C.textDim
+            TweenService:Create(Tab1Line, info, { BackgroundTransparency = 0 }):Play()
+            TweenService:Create(Tab2Line, info, { BackgroundTransparency = 1 }):Play()
+            task.delay(0.2, function()
+                if activeTab == "brainrots" then Tab2Content.Visible = false end
             end)
         end
     end
     
-    tab1Content.Position = UDim2.new(0, 0, 0, 0)
-    tab2Content.Position = UDim2.new(1, 0, 0, 0)
-    tab1.MouseButton1Click:Connect(function() setTab("brainrots") end)
-    tab2.MouseButton1Click:Connect(function() setTab("settings") end)
+    Tab1Content.Position = UDim2.new(0, 0, 0, 0)
+    Tab1.MouseButton1Click:Connect(function() setTab("brainrots") end)
+    Tab2.MouseButton1Click:Connect(function() setTab("settings") end)
 
-    -- ==========================================
-    -- LOCK/MIN/CLOSE
-    -- ==========================================
+    -- Lock/Min/Close
     LockBtn.MouseButton1Click:Connect(function()
         locked = not locked
         LockBtn.Text = locked and "🔒" or "🔓"
@@ -2210,35 +2173,38 @@ task.spawn(function()
     end)
 
     local minimised = false
-    local fullSize = main.Size
-    local fullBorder = border.Size
-    local MIN_WIN_H = L.headerH + 41
+    local fullSize = Win.Size
+    local fullBorder = BorderFrame.Size
+    local MIN_WIN_H = L.headerH + 38
     local MIN_BORDER_H = MIN_WIN_H + 4
 
     MinBtn.MouseButton1Click:Connect(function()
         if dragging then return end
         minimised = not minimised
-        local info = TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
-        local currentPos = main.Position
+        local info = TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+        local currentWinPos = Win.Position
+        local currentBorderPos = BorderFrame.Position
         local offset = (fullSize.Y.Offset - MIN_WIN_H) / 2
         
         if minimised then
-            local targetPos = UDim2.new(currentPos.X.Scale, currentPos.X.Offset, currentPos.Y.Scale, currentPos.Y.Offset - offset)
-            TweenService:Create(contentContainer, info, { Size = UDim2.new(1, 0, 0, 0) }):Play()
-            TweenService:Create(main, info, { Size = UDim2.new(0, L.winW, 0, MIN_WIN_H), Position = targetPos }):Play()
-            TweenService:Create(border, info, { Size = UDim2.new(0, L.winW+4, 0, MIN_BORDER_H), Position = targetPos }):Play()
+            local targetWinPos = UDim2.new(currentWinPos.X.Scale, currentWinPos.X.Offset, currentWinPos.Y.Scale, currentWinPos.Y.Offset - offset)
+            local targetBorderPos = UDim2.new(currentBorderPos.X.Scale, currentBorderPos.X.Offset, currentBorderPos.Y.Scale, currentBorderPos.Y.Offset - offset)
+            TweenService:Create(ContentFrame, info, { Size = UDim2.new(1, 0, 0, 0) }):Play()
+            TweenService:Create(Win, info, { Size = UDim2.new(0, L.winW, 0, MIN_WIN_H), Position = targetWinPos }):Play()
+            TweenService:Create(BorderFrame, info, { Size = UDim2.new(0, L.winW+4, 0, MIN_BORDER_H), Position = targetBorderPos }):Play()
         else
-            local targetPos = UDim2.new(currentPos.X.Scale, currentPos.X.Offset, currentPos.Y.Scale, currentPos.Y.Offset + offset)
-            TweenService:Create(contentContainer, info, { Size = UDim2.new(1, 0, 1, -94) }):Play()
-            TweenService:Create(main, info, { Size = fullSize, Position = targetPos }):Play()
-            TweenService:Create(border, info, { Size = fullBorder, Position = targetPos }):Play()
+            local targetWinPos = UDim2.new(currentWinPos.X.Scale, currentWinPos.X.Offset, currentWinPos.Y.Scale, currentWinPos.Y.Offset + offset)
+            local targetBorderPos = UDim2.new(currentBorderPos.X.Scale, currentBorderPos.X.Offset, currentBorderPos.Y.Scale, currentBorderPos.Y.Offset + offset)
+            TweenService:Create(ContentFrame, info, { Size = UDim2.new(1, 0, 1, -92) }):Play()
+            TweenService:Create(Win, info, { Size = fullSize, Position = targetWinPos }):Play()
+            TweenService:Create(BorderFrame, info, { Size = fullBorder, Position = targetBorderPos }):Play()
         end
     end)
 
     CloseBtn.MouseButton1Click:Connect(function()
-        TweenService:Create(main, TweenInfo.new(0.2), { Size = UDim2.new(0, 0, 0, 0) }):Play()
-        TweenService:Create(border, TweenInfo.new(0.2), { Size = UDim2.new(0, 0, 0, 0) }):Play()
-        task.delay(0.25, function() gui:Destroy() end)
+        TweenService:Create(Win, TweenInfo.new(0.15), { Size = UDim2.new(0, 0, 0, 0) }):Play()
+        TweenService:Create(BorderFrame, TweenInfo.new(0.15), { Size = UDim2.new(0, 0, 0, 0) }):Play()
+        task.delay(0.2, function() KRIMO_HUB_GUI:Destroy() end)
     end)
 
     -- ==========================================
@@ -2246,10 +2212,10 @@ task.spawn(function()
     -- ==========================================
     local function hookButton(btn, normal, hover)
         btn.MouseEnter:Connect(function()
-            TweenService:Create(btn, TweenInfo.new(0.12), { BackgroundColor3 = hover }):Play()
+            TweenService:Create(btn, TweenInfo.new(0.1), { BackgroundColor3 = hover }):Play()
         end)
         btn.MouseLeave:Connect(function()
-            TweenService:Create(btn, TweenInfo.new(0.12), { BackgroundColor3 = normal }):Play()
+            TweenService:Create(btn, TweenInfo.new(0.1), { BackgroundColor3 = normal }):Play()
         end)
     end
     
@@ -2262,7 +2228,7 @@ task.spawn(function()
 
     local function flashBar(bar)
         bar.BackgroundColor3 = C.accentHi
-        TweenService:Create(bar, TweenInfo.new(0.4), { BackgroundColor3 = C.stroke }):Play()
+        TweenService:Create(bar, TweenInfo.new(0.3), { BackgroundColor3 = C.stroke }):Play()
     end
 
     -- ==========================================
@@ -2280,12 +2246,12 @@ task.spawn(function()
             while flashBlinkActive and not thisScriptStopped do
                 TweenService:Create(FLASHTP, BLINK_T, { BackgroundColor3 = BLINK_HI }):Play()
                 TweenService:Create(flashAccent, BLINK_T, { BackgroundColor3 = BLINK_HI }):Play()
-                TweenService:Create(tab1Line, BLINK_T, { BackgroundColor3 = BLINK_HI, BackgroundTransparency = 0 }):Play()
+                TweenService:Create(Tab1Line, BLINK_T, { BackgroundColor3 = BLINK_HI, BackgroundTransparency = 0 }):Play()
                 task.wait(0.3)
                 if not flashBlinkActive then break end
                 TweenService:Create(FLASHTP, BLINK_T, { BackgroundColor3 = BLINK_LO }):Play()
                 TweenService:Create(flashAccent, BLINK_T, { BackgroundColor3 = BLINK_LO }):Play()
-                TweenService:Create(tab1Line, BLINK_T, { BackgroundColor3 = BLINK_LO }):Play()
+                TweenService:Create(Tab1Line, BLINK_T, { BackgroundColor3 = BLINK_LO }):Play()
                 task.wait(0.3)
             end
         end)
@@ -2296,7 +2262,7 @@ task.spawn(function()
         flashBlinkActive = false
         TweenService:Create(FLASHTP, TweenInfo.new(0.2), { BackgroundColor3 = C.card }):Play()
         TweenService:Create(flashAccent, TweenInfo.new(0.2), { BackgroundColor3 = C.stroke }):Play()
-        TweenService:Create(tab1Line, TweenInfo.new(0.2), { BackgroundColor3 = C.accent, BackgroundTransparency = 0 }):Play()
+        TweenService:Create(Tab1Line, TweenInfo.new(0.2), { BackgroundColor3 = C.accent, BackgroundTransparency = 0 }):Play()
     end
 
     -- ==========================================
@@ -2320,7 +2286,7 @@ task.spawn(function()
     end)
 
     -- ==========================================
-    -- PET LIST UPDATE
+    -- PET LIST UPDATE LOOP
     -- ==========================================
     task.spawn(function()
         while task.wait(5) do
@@ -2361,13 +2327,14 @@ task.spawn(function()
     -- ==========================================
     task.spawn(function()
         local target = L.posX
-        main.Position = UDim2.new(target.X.Scale, target.X.Offset, target.Y.Scale, target.Y.Offset - 40)
-        border.Position = main.Position
-        main.Visible = true
-        TweenService:Create(main, TweenInfo.new(0.45, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Position = target }):Play()
-        local bt = TweenService:Create(border, TweenInfo.new(0.45, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Position = target })
+        Win.Position = UDim2.new(target.X.Scale, target.X.Offset, target.Y.Scale, target.Y.Offset - 30)
+        BorderFrame.Position = Win.Position
+        Win.Visible = true
+        TweenService:Create(Win, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Position = target }):Play()
+        local bt = TweenService:Create(BorderFrame, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Position = target })
         bt:Play()
         bt.Completed:Wait()
+        RunService.RenderStepped:Connect(syncBorder)
     end)
 
     print("⚡ KRIMO HUB geladen! | discord.gg/zMt27E4FG9")
