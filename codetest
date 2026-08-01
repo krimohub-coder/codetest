@@ -140,7 +140,9 @@ local function onAceAnnouncement(...)
     task.delay(1.25, function() _seen[captured] = nil end)
     
     -- Code zu collectedCodes hinzufügen (mit fromSammy=true für History)
-    addCode(captured, true)
+    if type(addCode) == "function" then
+        pcall(function() addCode(captured, true) end)
+    end
 end
 
 local function startAceListener()
@@ -788,7 +790,7 @@ local function addCode(Code, fromSammy)
     end
 end
 
--- 12. WATCHER (NUR FÜR RIDDLE SOLVER - AUTO TYPE WIRD ÜBER ACE REMOTE GEMACHT)
+-- 12. WATCHER (NUR FÜR RIDDLE SOLVER)
 local function watchLabel(Label)
     if not Label:IsA("TextLabel") then return end
     local text = Label.Text
