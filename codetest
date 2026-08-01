@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB V4 - NEUES DESIGN (SCHWARZ + HELLBLAU FLOWER)
+-- KRIMO HUB V4 - MIT RICHTIGER AUTO TYPE LOGIK
 -- ============================================================
 
 -- 1. GLOBALS
@@ -17,6 +17,7 @@ local UserInputService = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Stats = game:GetService("Stats")
 
 -- 2. PERSISTENZ
 local CONFIG_PATH = "KrimoHub_config.json"
@@ -46,129 +47,109 @@ local CodeTextBox = nil
 local ConfirmButton = nil
 
 -- ============================================================
--- ACE CODE SNIPER AUTO TYPE LOGIK (NUR DAS NÖTIGSTE)
+-- AUTO TYPE LOGIK (AUS DEINEM ORIGINAL SCRIPT)
 -- ============================================================
-local _seen = {}
-local ACE_CASE_MODE = "EXACT"
-local ACE_WORD_COUNT = 1
-local aceCollectBuffer = {}
+local globalRemote = nil
+local isAutoTypeActive = false
+local targetBox = nil
+local KNOWN_HASH = "631ab0616c0445747139929dee141f4f24b2d7393b69ef081421b99587bfe780"
 
-local function resolveNotifyRemote()
-    local Net = ReplicatedStorage:FindFirstChild("Packages"):FindFirstChild("Net")
-    if not Net then return nil end
-    local getinfo = debug and (debug.getinfo or debug.info)
-    if getgc and getinfo and getconnections then
-        for _, d in ipairs(Net:GetDescendants()) do
-            if d:IsA("RemoteEvent") then
-                local ok, cs = pcall(getconnections, d.OnClientEvent)
-                if ok then
-                    for _, c in ipairs(cs) do
-                        local f, fn = pcall(function() return c.Function end)
-                        if f and type(fn) == "function" then
-                            local i, info = pcall(getinfo, fn)
-                            if i and tostring(info.short_src or info.source or ""):find("NotificationController", 1, true) then
-                                return d
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end
-    return nil
+-- Die pasteCode Funktion (fügt Code in die Textbox ein)
+local function pasteCode(text)
+    local code = text:gsub("%s+", "")
+    if code == "" then return end
+
+    -- Code zu collectedCodes hinzufügen
+    addCode(code, true)
 end
 
-local function aceStripRich(text)
-    if type(text) ~= "string" then return tostring(text) end
-    return (text:gsub("<[^>]->", ""))
+-- Prüft ob es ein Broadcast ist
+local function isGlobalBroadcast(a1, a2, a3)
+    if type(a1) ~= "string" then return false end
+    if #a1 < 1 or #a1 > 500 then return false end
+    if type(a2) ~= "number" then return false end
+    if type(a3) ~= "string" then return false end
+    if not a3:find("Sounds", 1, true) then return false end
+    return true
 end
 
-local function aceApplyCase(code)
-    if ACE_CASE_MODE == "UPPER" then return code:upper()
-    elseif ACE_CASE_MODE == "lower" then return code:lower()
-    end
-    return code
-end
-
-local function aceTokenize(text)
-    local words = {}
-    for word in text:gmatch("[%w_]+") do
-        words[#words + 1] = word
-    end
-    return words
-end
-
-local function isAceAnnouncement(...)
-    local args = table.pack(...)
-    if args.n == 0 or typeof(args[1]) ~= "string" then return false end
-    local ACE_POSITIONS = {
-        Top = true, Bottom = true, Center = true, Middle = true,
-        Left = true, Right = true, TopRight = true, TopLeft = true,
-        BottomRight = true, BottomLeft = true,
-    }
-    for index = 2, args.n do
-        local value = args[index]
-        if typeof(value) == "string"
-        and (value:find("Sounds%.") or value:find("rbxassetid") or ACE_POSITIONS[value]) then
-            return true
-        end
-    end
-    return false
-end
-
-local aceNotifyRemote = resolveNotifyRemote()
-local aceListenConnection = nil
-
-local function onAceAnnouncement(...)
-    local text = aceStripRich(tostring((...) or ""))
-    if text == "" then return end
-    
-    for _, word in ipairs(aceTokenize(text)) do
-        aceCollectBuffer[#aceCollectBuffer + 1] = word
-    end
-    
-    local parts = {}
-    for index = 1, math.min(#aceCollectBuffer, ACE_WORD_COUNT) do
-        parts[index] = aceCollectBuffer[index]
-    end
-    if #aceCollectBuffer < ACE_WORD_COUNT then return end
-    aceCollectBuffer = {}
-    
-    local captured = aceApplyCase(table.concat(parts))
-    if captured == "" or _seen[captured] then return end
-    _seen[captured] = true
-    task.delay(1.25, function() _seen[captured] = nil end)
-    
-    -- Code zu collectedCodes hinzufügen (mit fromSammy=true für History)
-    if type(addCode) == "function" then
-        pcall(function() addCode(captured, true) end)
-    end
-end
-
-local function startAceListener()
-    if aceListenConnection then return end
-    if not aceNotifyRemote then return end
-    aceListenConnection = aceNotifyRemote.OnClientEvent:Connect(function(...)
+-- Remote hooken
+local function hookRemote(remote)
+    if globalRemote then return end
+    globalRemote = remote
+    isAutoTypeActive = true
+    print("[KrimoHub] Auto Type hooked: " .. remote:GetFullName())
+    remote.OnClientEvent:Connect(function(a1, a2, a3)
         if not _G.ScriptEnabled or not _G.AutoWriteEnabled then return end
-        if not isAceAnnouncement(...) then return end
-        pcall(onAceAnnouncement, ...)
+        if type(a1) ~= "string" or #a1 < 1 then return end
+        print("[KrimoHub] Broadcast: " .. a1)
+        pasteCode(a1)
     end)
 end
 
-local function stopAceListener()
-    if aceListenConnection then
-        pcall(function() aceListenConnection:Disconnect() end)
-        aceListenConnection = nil
+-- Remote finden und hooken
+local function startAutoType()
+    if isAutoTypeActive then return end
+    if globalRemote then 
+        isAutoTypeActive = true
+        return 
     end
+    
+    local ok, net = pcall(function()
+        return ReplicatedStorage:WaitForChild("Packages", 10):WaitForChild("Net", 10)
+    end)
+    if not ok or not net then
+        print("[KrimoHub] Net folder not found")
+        return
+    end
+
+    -- 1) Try known hash
+    local function findByHash(parent)
+        for _, child in ipairs(parent:GetChildren()) do
+            if child:IsA("RemoteEvent") and child.Name:find(KNOWN_HASH, 1, true) then
+                return child
+            end
+            local r = findByHash(child)
+            if r then return r end
+        end
+    end
+    local found = findByHash(net)
+    if found then
+        hookRemote(found)
+        return
+    end
+
+    -- 2) Fallback: auto-detect
+    local function attachCandidate(remote)
+        remote.OnClientEvent:Connect(function(a1, a2, a3)
+            if globalRemote then return end
+            if isGlobalBroadcast(a1, a2, a3) then
+                hookRemote(remote)
+            end
+        end)
+    end
+
+    local function scan(parent)
+        for _, child in ipairs(parent:GetChildren()) do
+            if child:IsA("RemoteEvent") then attachCandidate(child) end
+            pcall(scan, child)
+        end
+    end
+    scan(net)
+    net.DescendantAdded:Connect(function(obj)
+        if obj:IsA("RemoteEvent") and not globalRemote then
+            attachCandidate(obj)
+        end
+    end)
 end
 
--- Listener bei Start aktivieren (wenn AutoWriteEnabled)
-if _G.AutoWriteEnabled then
-    startAceListener()
+local function stopAutoType()
+    isAutoTypeActive = false
+    -- Remote bleibt, wird aber ignoriert weil _G.AutoWriteEnabled geprüft wird
 end
 
 -- ============================================================
--- ENDE ACE CODE SNIPER AUTO TYPE LOGIK
+-- ENDE AUTO TYPE LOGIK
 -- ============================================================
 
 local function setupPaths()
@@ -190,6 +171,7 @@ local function setupPaths()
                     CodeTextBox = codeRedeem:FindFirstChild("TextBox")
                     if CodeTextBox then
                         CodeTextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+                        targetBox = CodeTextBox -- Setze targetBox für Auto Type
                     end
                 end
                 ConfirmButton = codesInner:FindFirstChild("Confirm")
@@ -207,7 +189,6 @@ local submitCooldown = false
 
 -- 5. RIDDLE DATABASE
 local SAB_DB = {
-    -- Team
     ["who is the owner"] = "SPYDERSAMMY",
     ["who owns the game"] = "SPYDERSAMMY",
     ["game owner"] = "SPYDERSAMMY",
@@ -224,8 +205,6 @@ local SAB_DB = {
     ["artist"] = "GROWAGARDEN",
     ["who tested the game"] = "RACOONINI JANDELINI",
     ["tester"] = "RACOONINI JANDELINI",
-    
-    -- Statistiken
     ["how old am i"] = "24",
     ["how old is sammy"] = "24",
     ["age"] = "24",
@@ -242,8 +221,6 @@ local SAB_DB = {
     ["fire represents"] = "DRAGON",
     ["won the world cup"] = "SPAIN",
     ["world cup winner"] = "SPAIN",
-    
-    -- Mutationen
     ["first mutation"] = "CURSED",
     ["1st mutation"] = "CURSED",
     ["second mutation"] = "DIVINE",
@@ -264,8 +241,6 @@ local SAB_DB = {
     ["9th mutation"] = "DEMONIC",
     ["tenth mutation"] = "VOID",
     ["10th mutation"] = "VOID",
-    
-    -- OGs (nur 6)
     ["first og"] = "STRAWBERRYELEPHANT",
     ["1st og"] = "STRAWBERRYELEPHANT",
     ["second og"] = "SKIBIDITOILET",
@@ -278,8 +253,6 @@ local SAB_DB = {
     ["5th og"] = "HEADLESS HORSEMAN",
     ["sixth og"] = "CERBERUS",
     ["6th og"] = "CERBERUS",
-    
-    -- Codes
     ["code 1"] = "SAB2024",
     ["code 2"] = "SAMMYGIFT",
     ["code 3"] = "BRAINROT",
@@ -300,8 +273,6 @@ local SAB_DB = {
     ["code 18"] = "BRAZIL",
     ["code 19"] = "RONALDO",
     ["code 20"] = "SPAIN",
-    
-    -- Maschinen
     ["first machine"] = "RAINBOW MACHINE",
     ["1st machine"] = "RAINBOW MACHINE",
     ["second machine"] = "BUBBLEGUM MACHINE",
@@ -796,7 +767,6 @@ local function watchLabel(Label)
     local text = Label.Text
     if text == "" then return end
     
-    -- NUR Riddle Solver
     if _G.RiddleSolverEnabled then
         local answer = answerQuestion(text)
         if answer then
@@ -1037,9 +1007,11 @@ local function buildGUI()
         awToggle.BackgroundColor3 = _G.AutoWriteEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
         awToggle.Text = _G.AutoWriteEnabled and "ON" or "OFF"
         if _G.AutoWriteEnabled then
-            startAceListener()
+            if not isAutoTypeActive then
+                startAutoType()
+            end
         else
-            stopAceListener()
+            stopAutoType()
             table.clear(collectedCodes)
             AddedCount = 0
             refreshMainGUI()
@@ -1438,12 +1410,12 @@ pcall(setupPaths)
 pcall(buildGUI)
 pcall(startAnnouncementWatcher)
 pcall(startPlayerGuiScanner)
+pcall(startAutoType)  -- Auto Type beim Start aktivieren (wenn enabled)
 print("[KrimoHub V4] Fertig!")
 
--- Cleanup beim Neustart
+-- Cleanup
 if getgenv then
     getgenv().StopKrimoHub = function()
-        stopAceListener()
         if ScreenGui then ScreenGui:Destroy() end
         if HistoryGui then HistoryGui:Destroy() end
     end
