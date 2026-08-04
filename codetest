@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB V5 - MIT ACE CODE SNIPER AUTO TYPE LOGIK
+-- KRIMO HUB V5 - AUTO TYPE FIX + DELAY BEI AUTO SUBMIT
 -- ============================================================
 
 -- 1. GLOBALS
@@ -48,7 +48,7 @@ local ConfirmButton = nil
 local _delay = 0.5
 
 -- ============================================================
--- ACE CODE SNIPER AUTO TYPE LOGIK (KOMPLETT ÜBERNOMMEN)
+-- ACE CODE SNIPER AUTO TYPE LOGIK (FIXED)
 -- ============================================================
 local _seen = {}
 local ACE_CASE_MODE = "EXACT"
@@ -56,6 +56,7 @@ local ACE_WORD_COUNT = 1
 local aceCollectBuffer = {}
 local aceListenConnection = nil
 local aceNotifyRemote = nil
+local isListenerActive = false
 
 local function resolveNotifyRemote()
     if _G.PhiNotifyRemote then return _G.PhiNotifyRemote end
@@ -139,17 +140,22 @@ local function onAceAnnouncement(...)
 end
 
 local function startAceListener()
-    if aceListenConnection then return end
+    if isListenerActive then return end
     aceNotifyRemote = resolveNotifyRemote()
     if not aceNotifyRemote then 
         print("[KrimoHub] Notification Remote nicht gefunden!")
         return 
+    end
+    if aceListenConnection then
+        pcall(function() aceListenConnection:Disconnect() end)
+        aceListenConnection = nil
     end
     aceListenConnection = aceNotifyRemote.OnClientEvent:Connect(function(...)
         if not _G.ScriptEnabled or not _G.AutoWriteEnabled then return end
         if not isAceAnnouncement(...) then return end
         pcall(onAceAnnouncement, ...)
     end)
+    isListenerActive = true
     print("[KrimoHub] ACE Listener gestartet!")
     if getgenv then 
         getgenv().ACECodeSniperNotifyConnection = aceListenConnection 
@@ -161,6 +167,7 @@ local function stopAceListener()
         pcall(function() aceListenConnection:Disconnect() end)
         aceListenConnection = nil
     end
+    isListenerActive = false
     if getgenv then
         getgenv().ACECodeSniperNotifyConnection = nil
     end
@@ -200,11 +207,11 @@ end
 -- 4. COLLECTED CODES & HISTORY
 local collectedCodes = {}
 local AddedCount = 0
-local history = {}          -- { word, time }
-local lastAddedWord = ""    -- für Duplikatschutz
+local history = {}
+local lastAddedWord = ""
 local submitCooldown = false
 
--- 5. RIDDLE DATABASE
+-- 5. RIDDLE DATABASE (GEKÜRZT)
 local SAB_DB = {
     ["who is the owner"] = "SPYDERSAMMY",
     ["game owner"] = "SPYDERSAMMY",
@@ -278,16 +285,6 @@ local SAB_DB = {
     ["code 8"] = "KEYBOARD",
     ["code 9"] = "ESCAPE",
     ["code 10"] = "RAINBOW",
-    ["code 11"] = "MOO",
-    ["code 12"] = "SECRET",
-    ["code 13"] = "LOKII",
-    ["code 14"] = "GARDEN",
-    ["code 15"] = "RACOON",
-    ["code 16"] = "JANDELINI",
-    ["code 17"] = "KARKER",
-    ["code 18"] = "BRAZIL",
-    ["code 19"] = "RONALDO",
-    ["code 20"] = "SPAIN",
     ["first machine"] = "RAINBOW MACHINE",
     ["1st machine"] = "RAINBOW MACHINE",
     ["second machine"] = "BUBBLEGUM MACHINE",
@@ -308,22 +305,6 @@ local SAB_DB = {
     ["9th machine"] = "SANTA'S SHOP",
     ["tenth machine"] = "NEW YEAR'S MACHINE",
     ["10th machine"] = "NEW YEAR'S MACHINE",
-    ["eleventh machine"] = "DUELS MACHINE",
-    ["11th machine"] = "DUELS MACHINE",
-    ["twelfth machine"] = "CUPID'S MACHINE",
-    ["12th machine"] = "CUPID'S MACHINE",
-    ["thirteenth machine"] = "TRADE MACHINE",
-    ["13th machine"] = "TRADE MACHINE",
-    ["fourteenth machine"] = "DIVINE FUSE",
-    ["14th machine"] = "DIVINE FUSE",
-    ["fifteenth machine"] = "EGG INCUBATOR",
-    ["15th machine"] = "EGG INCUBATOR",
-    ["sixteenth machine"] = "CYBER CRAFT MACHINE",
-    ["16th machine"] = "CYBER CRAFT MACHINE",
-    ["seventeenth machine"] = "SUMMER FUSE",
-    ["17th machine"] = "SUMMER FUSE",
-    ["eighteenth machine"] = "LOS TRADERS",
-    ["18th machine"] = "LOS TRADERS",
 }
 
 local function answerQuestion(text)
@@ -341,7 +322,7 @@ local ScreenGui = nil
 local HistoryGui = nil
 local HistoryFrame = nil
 local HistoryScroll = nil
-local PANEL_W = 260
+local PANEL_W = 290
 local PANEL_H = 320
 local isMinimized = false
 local historyOpen = false
@@ -409,7 +390,7 @@ local function refreshMainGUI()
     end
 end
 
--- 8. HISTORY
+-- 8. HISTORY (GEKÜRZT)
 local function updateHistoryContent()
     if not HistoryScroll then return end
     
@@ -800,7 +781,7 @@ local function addCode(Code, fromSammy)
     end
 end
 
--- 12. WATCHER (NUR FÜR RIDDLE SOLVER)
+-- 12. WATCHER
 local function watchLabel(Label)
     if not Label:IsA("TextLabel") then return end
     local text = Label.Text
@@ -903,7 +884,7 @@ local function startPlayerGuiScanner()
     PG.DescendantAdded:Connect(hookUiTextObject)
 end
 
--- 15. GUI BAUEN
+-- 15. GUI BAUEN (RICHTIGE ANORDNUNG)
 local function buildGUI()
     local old = CoreGui:FindFirstChild("KrimoHubGui")
     if old then old:Destroy() end
@@ -1015,9 +996,9 @@ local function buildGUI()
     ContentFrame.ZIndex = 5
     ContentFrame.Parent = MainFrame
     
-    -- ROW 1: Auto Type (NUR Auto Type, kein Delay)
+    -- ======== ROW 1: Auto Type ========
     local awLabel = Instance.new("TextLabel")
-    awLabel.Size = UDim2.new(0, 100, 0, 22)
+    awLabel.Size = UDim2.new(0, 85, 0, 22)
     awLabel.Position = UDim2.new(0, 12, 0, 6)
     awLabel.BackgroundTransparency = 1
     awLabel.Text = "🌸 Auto Type"
@@ -1028,11 +1009,10 @@ local function buildGUI()
     awLabel.ZIndex = 10
     awLabel.Parent = ContentFrame
     
-    -- Status Label
     local statusLabel = Instance.new("TextLabel")
     statusLabel.Name = "StatusLabel"
-    statusLabel.Size = UDim2.new(0, 60, 0, 16)
-    statusLabel.Position = UDim2.new(1, -110, 0, 9)
+    statusLabel.Size = UDim2.new(0, 30, 0, 16)
+    statusLabel.Position = UDim2.new(1, -90, 0, 9)
     statusLabel.BackgroundTransparency = 1
     statusLabel.Text = _G.AutoWriteEnabled and "🟢" or "⏸"
     statusLabel.TextColor3 = _G.AutoWriteEnabled and Color3.fromRGB(80, 255, 120) or Color3.fromRGB(255, 200, 50)
@@ -1042,9 +1022,8 @@ local function buildGUI()
     statusLabel.ZIndex = 10
     statusLabel.Parent = ContentFrame
     
-    -- ON/OFF Button
     local awToggle = Instance.new("TextButton")
-    awToggle.Size = UDim2.new(0, 34, 0, 20)
+    awToggle.Size = UDim2.new(0, 38, 0, 20)
     awToggle.Position = UDim2.new(1, -44, 0, 7)
     awToggle.BackgroundColor3 = _G.AutoWriteEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
     awToggle.Text = _G.AutoWriteEnabled and "ON" or "OFF"
@@ -1074,9 +1053,9 @@ local function buildGUI()
         end
     end)
     
-    -- ROW 2: Auto Submit + Delay
+    -- ======== ROW 2: Auto Submit + Delay (Delay zwischen Label und ON/OFF) ========
     local asLabel = Instance.new("TextLabel")
-    asLabel.Size = UDim2.new(0, 80, 0, 22)
+    asLabel.Size = UDim2.new(0, 85, 0, 22)
     asLabel.Position = UDim2.new(0, 12, 0, 32)
     asLabel.BackgroundTransparency = 1
     asLabel.Text = "🌸 Auto Submit"
@@ -1087,29 +1066,10 @@ local function buildGUI()
     asLabel.ZIndex = 10
     asLabel.Parent = ContentFrame
     
-    local asToggle = Instance.new("TextButton")
-    asToggle.Size = UDim2.new(0, 34, 0, 20)
-    asToggle.Position = UDim2.new(0, 96, 0, 33)
-    asToggle.BackgroundColor3 = _G.AutoSubmitEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
-    asToggle.Text = _G.AutoSubmitEnabled and "ON" or "OFF"
-    asToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
-    asToggle.Font = Enum.Font.GothamBold
-    asToggle.TextSize = 9
-    asToggle.AutoButtonColor = false
-    asToggle.ZIndex = 10
-    asToggle.Parent = ContentFrame
-    do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = asToggle end
-    
-    asToggle.MouseButton1Click:Connect(function()
-        _G.AutoSubmitEnabled = not _G.AutoSubmitEnabled
-        asToggle.BackgroundColor3 = _G.AutoSubmitEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
-        asToggle.Text = _G.AutoSubmitEnabled and "ON" or "OFF"
-    end)
-    
-    -- Delay (neben Auto Submit, VOR dem Button)
+    -- DELAY (zwischen Label und ON/OFF)
     local delayLabel = Instance.new("TextLabel")
-    delayLabel.Size = UDim2.new(0, 35, 0, 20)
-    delayLabel.Position = UDim2.new(0, 140, 0, 33)
+    delayLabel.Size = UDim2.new(0, 20, 0, 20)
+    delayLabel.Position = UDim2.new(0, 100, 0, 33)
     delayLabel.BackgroundTransparency = 1
     delayLabel.Text = "⏱"
     delayLabel.TextColor3 = Color3.fromRGB(180, 210, 240)
@@ -1122,7 +1082,7 @@ local function buildGUI()
     local delayBox = Instance.new("TextBox")
     delayBox.Name = "DelayBox"
     delayBox.Size = UDim2.new(0, 30, 0, 20)
-    delayBox.Position = UDim2.new(0, 178, 0, 33)
+    delayBox.Position = UDim2.new(0, 124, 0, 33)
     delayBox.BackgroundColor3 = Color3.fromRGB(20, 30, 50)
     delayBox.BackgroundTransparency = 0.3
     delayBox.BorderSizePixel = 0
@@ -1138,7 +1098,7 @@ local function buildGUI()
     
     local setDelayBtn = Instance.new("TextButton")
     setDelayBtn.Size = UDim2.new(0, 28, 0, 20)
-    setDelayBtn.Position = UDim2.new(0, 212, 0, 33)
+    setDelayBtn.Position = UDim2.new(0, 158, 0, 33)
     setDelayBtn.BackgroundColor3 = Color3.fromRGB(40, 60, 90)
     setDelayBtn.Text = "Set"
     setDelayBtn.TextColor3 = Color3.fromRGB(200, 230, 255)
@@ -1159,7 +1119,27 @@ local function buildGUI()
         end
     end)
     
-    -- Submit After Count
+    -- ON/OFF Button (ganz rechts)
+    local asToggle = Instance.new("TextButton")
+    asToggle.Size = UDim2.new(0, 38, 0, 20)
+    asToggle.Position = UDim2.new(1, -44, 0, 33)
+    asToggle.BackgroundColor3 = _G.AutoSubmitEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
+    asToggle.Text = _G.AutoSubmitEnabled and "ON" or "OFF"
+    asToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    asToggle.Font = Enum.Font.GothamBold
+    asToggle.TextSize = 9
+    asToggle.AutoButtonColor = false
+    asToggle.ZIndex = 10
+    asToggle.Parent = ContentFrame
+    do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = asToggle end
+    
+    asToggle.MouseButton1Click:Connect(function()
+        _G.AutoSubmitEnabled = not _G.AutoSubmitEnabled
+        asToggle.BackgroundColor3 = _G.AutoSubmitEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
+        asToggle.Text = _G.AutoSubmitEnabled and "ON" or "OFF"
+    end)
+    
+    -- ======== ROW 3: Submit After Count ========
     local countLabel = Instance.new("TextLabel")
     countLabel.Size = UDim2.new(0, 120, 0, 22)
     countLabel.Position = UDim2.new(0, 12, 0, 58)
@@ -1225,7 +1205,7 @@ local function buildGUI()
         end
     end)
     
-    -- ROW 3: Riddle Solver
+    -- ======== ROW 4: Riddle Solver ========
     local rsLabel = Instance.new("TextLabel")
     rsLabel.Size = UDim2.new(0, 100, 0, 22)
     rsLabel.Position = UDim2.new(0, 12, 0, 84)
@@ -1240,13 +1220,13 @@ local function buildGUI()
     
     local rsToggle = Instance.new("TextButton")
     rsToggle.Name = "RiddleSolverToggle"
-    rsToggle.Size = UDim2.new(0, 48, 0, 22)
-    rsToggle.Position = UDim2.new(1, -56, 0, 84)
+    rsToggle.Size = UDim2.new(0, 38, 0, 20)
+    rsToggle.Position = UDim2.new(1, -44, 0, 85)
     rsToggle.BackgroundColor3 = _G.RiddleSolverEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
     rsToggle.Text = _G.RiddleSolverEnabled and "ON" or "OFF"
     rsToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
     rsToggle.Font = Enum.Font.GothamBold
-    rsToggle.TextSize = 10
+    rsToggle.TextSize = 9
     rsToggle.AutoButtonColor = false
     rsToggle.ZIndex = 10
     rsToggle.Parent = ContentFrame
@@ -1258,7 +1238,7 @@ local function buildGUI()
         rsToggle.Text = _G.RiddleSolverEnabled and "ON" or "OFF"
     end)
     
-    -- ROW 4: History
+    -- ======== ROW 5: History ========
     local historyLabel = Instance.new("TextLabel")
     historyLabel.Size = UDim2.new(0, 100, 0, 22)
     historyLabel.Position = UDim2.new(0, 12, 0, 110)
@@ -1273,13 +1253,13 @@ local function buildGUI()
     
     local historyBtn = Instance.new("TextButton")
     historyBtn.Name = "HistoryBtn"
-    historyBtn.Size = UDim2.new(0, 48, 0, 22)
-    historyBtn.Position = UDim2.new(1, -56, 0, 110)
+    historyBtn.Size = UDim2.new(0, 38, 0, 20)
+    historyBtn.Position = UDim2.new(1, -44, 0, 111)
     historyBtn.BackgroundColor3 = _G.HistoryEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
     historyBtn.Text = _G.HistoryEnabled and "ON" or "OFF"
     historyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     historyBtn.Font = Enum.Font.GothamBold
-    historyBtn.TextSize = 10
+    historyBtn.TextSize = 9
     historyBtn.AutoButtonColor = false
     historyBtn.ZIndex = 10
     historyBtn.Parent = ContentFrame
@@ -1300,7 +1280,7 @@ local function buildGUI()
         end
     end)
     
-    -- Collected Label
+    -- ======== Collected Label ========
     local collectedLabel = Instance.new("TextLabel")
     collectedLabel.Name = "CollectedLabel"
     collectedLabel.Size = UDim2.new(0.6, 0, 0, 18)
@@ -1332,10 +1312,10 @@ local function buildGUI()
         resetCodes()
     end)
     
-    -- Code-Liste
+    -- ======== Code-Liste ========
     local codeListFrame = Instance.new("Frame")
     codeListFrame.Name = "CodeListFrame"
-    codeListFrame.Size = UDim2.new(1, -24, 0, 108)
+    codeListFrame.Size = UDim2.new(1, -24, 0, 106)
     codeListFrame.Position = UDim2.new(0, 12, 0, 158)
     codeListFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 22)
     codeListFrame.BackgroundTransparency = 0.3
@@ -1380,10 +1360,10 @@ local function buildGUI()
     placeholder.Parent = scroll
     placeholder.Visible = (#collectedCodes == 0)
     
-    -- Separator
+    -- ======== Separator ========
     local sep = Instance.new("Frame")
     sep.Size = UDim2.new(1, -24, 0, 1)
-    sep.Position = UDim2.new(0, 12, 0, 269)
+    sep.Position = UDim2.new(0, 12, 0, 267)
     sep.BackgroundColor3 = Color3.fromRGB(100, 200, 255)
     sep.BackgroundTransparency = 0.5
     sep.BorderSizePixel = 0
@@ -1394,7 +1374,7 @@ local function buildGUI()
     local creditLabel = Instance.new("TextLabel")
     creditLabel.Name = "CreditLabel"
     creditLabel.Size = UDim2.new(1, -24, 0, 14)
-    creditLabel.Position = UDim2.new(0, 12, 0, 274)
+    creditLabel.Position = UDim2.new(0, 12, 0, 272)
     creditLabel.BackgroundTransparency = 1
     creditLabel.Text = "🌸 Credits to momo.1711"
     creditLabel.TextColor3 = Color3.fromRGB(130, 170, 210)
@@ -1407,7 +1387,7 @@ local function buildGUI()
     -- Discord
     local footer = Instance.new("TextLabel")
     footer.Size = UDim2.new(1, -24, 0, 18)
-    footer.Position = UDim2.new(0, 12, 0, 290)
+    footer.Position = UDim2.new(0, 12, 0, 288)
     footer.BackgroundTransparency = 1
     footer.RichText = true
     footer.Text = '<font color="#88aaff">🌸 discord.gg/</font><font color="#66ccff"><b>7Ea7qEsPzP</b></font>'
@@ -1420,7 +1400,7 @@ local function buildGUI()
     
     local footerBtn = Instance.new("TextButton")
     footerBtn.Size = UDim2.new(1, -24, 0, 18)
-    footerBtn.Position = UDim2.new(0, 12, 0, 290)
+    footerBtn.Position = UDim2.new(0, 12, 0, 288)
     footerBtn.BackgroundTransparency = 1
     footerBtn.Text = ""
     footerBtn.AutoButtonColor = false
