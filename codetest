@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB V5
+-- KRIMO HUB V5 - AUTO TYPE FIXED (ZÄHLER GEHT HOCH)
 -- ============================================================
 
 -- 1. GLOBALS
@@ -47,7 +47,7 @@ local ConfirmButton = nil
 local _delay = 0.5
 
 -- ============================================================
--- ACE CODE SNIPER AUTO TYPE LOGIK (FIXED - RUFT addCode AUF)
+-- ACE CODE SNIPER AUTO TYPE LOGIK (FIXED)
 -- ============================================================
 local _seen = {}
 local ACE_CASE_MODE = "EXACT"
@@ -56,8 +56,6 @@ local aceCollectBuffer = {}
 local aceListenConnection = nil
 local aceNotifyRemote = nil
 local _enabled = false
-local _capturedParts = {}
-local _submitAfter = 3
 
 local function resolveNotifyRemote()
     local Net = ReplicatedStorage:FindFirstChild("Packages"):FindFirstChild("Net")
@@ -117,6 +115,8 @@ end
 
 local function onAceAnnouncement(...)
     if not _G.ScriptEnabled or not _G.AutoWriteEnabled then return end
+    if not _enabled then return end  -- <-- WICHTIG: Prüft ob Listener aktiv ist
+    
     local raw = tostring((...) or "")
     local text = aceStripRich(raw):match("^%s*(.-)%s*$") or ""
     if text == "" then return end
@@ -139,8 +139,7 @@ local function onAceAnnouncement(...)
     
     print("[KrimoHub] Code erkannt: " .. captured)
     
-    -- ===== FIX: Code in Box einfügen UND addCode aufrufen =====
-    -- 1. Code in die Textbox einfügen
+    -- Code in die Textbox einfügen
     local box = CodeTextBox or aceCodeBox()
     if box then
         if box.Text == "" then
@@ -150,7 +149,7 @@ local function onAceAnnouncement(...)
         end
     end
     
-    -- 2. addCode aufrufen damit der Zähler hochgeht
+    -- addCode aufrufen für den Zähler
     addCode(captured, true)
 end
 
@@ -161,6 +160,7 @@ local function startAceListener()
         print("[KrimoHub] Remote nicht gefunden!")
         return 
     end
+    _enabled = true  -- <-- WICHTIG: Listener aktivieren
     aceListenConnection = aceNotifyRemote.OnClientEvent:Connect(function(...)
         if not _G.ScriptEnabled or not _G.AutoWriteEnabled then return end
         if not isAceAnnouncement(...) then return end
@@ -170,6 +170,7 @@ local function startAceListener()
 end
 
 local function stopAceListener()
+    _enabled = false  -- <-- WICHTIG: Listener deaktivieren
     if aceListenConnection then
         pcall(function() aceListenConnection:Disconnect() end)
         aceListenConnection = nil
@@ -192,7 +193,7 @@ local function aceCodeBox()
 end
 
 -- ============================================================
--- ENDE ACE CODE SNIPER AUTO TYPE LOGIK
+-- ENDE AUTO TYPE LOGIK
 -- ============================================================
 
 local function setupPaths()
@@ -882,7 +883,7 @@ local function startPlayerGuiScanner()
     PG.DescendantAdded:Connect(hookUiTextObject)
 end
 
--- 15. GUI BAUEN
+-- 15. GUI BAUEN (KLEIN)
 local function buildGUI()
     local old = CoreGui:FindFirstChild("KrimoHubGui")
     if old then old:Destroy() end
