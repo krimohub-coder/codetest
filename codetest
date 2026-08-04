@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB V5 - FUNKTIONIERT (AUTO TYPE FIXED + KLEINER)
+-- KRIMO HUB V5 - MIT NEUER AUTO TYPE LOGIK
 -- ============================================================
 
 -- 1. GLOBALS
@@ -44,21 +44,158 @@ loadConfig()
 local Announcements = nil
 local CodeTextBox = nil
 local ConfirmButton = nil
-local _delay = 0.5
 
 -- ============================================================
--- ACE CODE SNIPER AUTO TYPE LOGIK (100% FUNKTIONIERT)
+-- NEUE AUTO TYPE LOGIK (NUR CODE-ERFASSUNG)
 -- ============================================================
+local _enabled = false
+local _capturedParts = {}
+local _submitAfter = 3
 local _seen = {}
-local ACE_CASE_MODE = "EXACT"
+local _lastNonBlankBoxText = ""
+local _lastWatchedBox = nil
+local _boxTextConn = nil
+local _boxAncestryConn = nil
+local _lastBox = nil
+local _focused = nil
 local ACE_WORD_COUNT = 1
 local aceCollectBuffer = {}
 local aceListenConnection = nil
-local _enabled = false
+local aceNotifyRemote = nil
+
+local function isOurGui(instance)
+    local p = instance
+    for _ = 1, 10 do
+        if not p then break end
+        if p.Name == "ACECodeSniperUI" then return true end
+        p = p.Parent
+    end
+    return false
+end
+
+local function isVisibleChain(inst)
+    local current = inst
+    while current do
+        if current:IsA("GuiObject") and not current.Visible then return false end
+        if current:IsA("ScreenGui") then return current.Enabled end
+        current = current.Parent
+    end
+    return true
+end
+
+local function findAllTextBoxes(pg)
+    local boxes = {}
+    for _, gui in ipairs(pg:GetChildren()) do
+        if gui:IsA("ScreenGui") and gui.Enabled and not isOurGui(gui) then
+            for _, d in ipairs(gui:GetDescendants()) do
+                if d:IsA("TextBox") and not isOurGui(d) then
+                    boxes[#boxes+1] = d
+                end
+            end
+        end
+    end
+    return boxes
+end
+
+local function aceCodeBox()
+    local pg = LocalPlayer:FindFirstChild("PlayerGui")
+    if not pg then return nil end
+    local allBoxes = findAllTextBoxes(pg)
+    for _, box in ipairs(allBoxes) do
+        if isVisibleChain(box) then return box end
+    end
+    return nil
+end
+
+local function aceStripRich(text)
+    if type(text) ~= "string" then return tostring(text) end
+    return (text:gsub("<[^>]->", ""))
+end
+
+local function aceTokenize(text)
+    local words = {}
+    for word in text:gmatch("[%w_]+") do
+        words[#words + 1] = word
+    end
+    return words
+end
+
+local function clearBoxWatchers()
+    if _boxTextConn then pcall(function() _boxTextConn:Disconnect() end) end
+    if _boxAncestryConn then pcall(function() _boxAncestryConn:Disconnect() end) end
+    _boxTextConn = nil
+    _boxAncestryConn = nil
+    _lastWatchedBox = nil
+end
+
+local function resetPasteCounter() 
+    _capturedParts = {} 
+end
+
+local function watchBoxForBlankReset(box)
+    if not box or _lastWatchedBox == box then return end
+    clearBoxWatchers()
+    _lastWatchedBox = box
+    if box.Text ~= "" then _lastNonBlankBoxText = box.Text end
+    
+    _boxTextConn = box:GetPropertyChangedSignal("Text"):Connect(function()
+        if box.Text == "" then 
+            resetPasteCounter()
+        else 
+            _lastNonBlankBoxText = box.Text 
+        end
+    end)
+    
+    _boxAncestryConn = box.AncestryChanged:Connect(function(_, parent)
+        if not parent then 
+            resetPasteCounter()
+            clearBoxWatchers() 
+        end
+    end)
+end
+
+local function appendToBox(text)
+    if not text or text == "" or not _enabled then return end
+    
+    if _lastWatchedBox and not isVisibleChain(_lastWatchedBox) then
+        resetPasteCounter()
+        clearBoxWatchers()
+    end
+    
+    local box = aceCodeBox()
+    
+    _capturedParts[#_capturedParts + 1] = text
+    local combinedCode = table.concat(_capturedParts)
+    local capturedCount = #_capturedParts
+    
+    if box then
+        _lastBox = box
+        watchBoxForBlankReset(box)
+        local boxWasFocused = UserInputService:GetFocusedTextBox() == box
+        box.Text = combinedCode
+        if boxWasFocused then
+            pcall(function()
+                local caretEnd = #combinedCode + 1
+                box.CursorPosition = caretEnd
+                box.SelectionStart = caretEnd
+            end)
+        end
+        print("[KrimoHub] Auto-Typ: " .. capturedCount .. "/" .. _submitAfter .. " - " .. combinedCode)
+    end
+    
+    if capturedCount >= _submitAfter then
+        _capturedParts = {}
+        print("[KrimoHub] Auto-Typ: " .. _submitAfter .. " Teile gesammelt, zurückgesetzt")
+    end
+end
 
 local function resolveNotifyRemote()
-    local Net = ReplicatedStorage:FindFirstChild("Packages"):FindFirstChild("Net")
+    if _G.PhiNotifyRemote then return _G.PhiNotifyRemote end
+    local Net = ReplicatedStorage:FindFirstChild("Packages")
     if not Net then return nil end
+    Net = Net:FindFirstChild("Net")
+    if not Net then return nil end
+    
     local getinfo = debug and (debug.getinfo or debug.info)
     if getgc and getinfo and getconnections then
         for _, d in ipairs(Net:GetDescendants()) do
@@ -81,87 +218,82 @@ local function resolveNotifyRemote()
     return nil
 end
 
-local function aceStripRich(text)
-    if type(text) ~= "string" then return tostring(text) end
-    return (text:gsub("<[^>]->", ""))
-end
-
-local function aceTokenize(text)
-    local words = {}
-    for word in text:gmatch("[%w_]+") do
-        words[#words + 1] = word
-    end
-    return words
-end
-
-local function isAceAnnouncement(...)
-    local args = table.pack(...)
-    if args.n == 0 or typeof(args[1]) ~= "string" then return false end
-    local ACE_POSITIONS = {
-        Top = true, Bottom = true, Center = true, Middle = true,
-        Left = true, Right = true, TopRight = true, TopLeft = true,
-        BottomRight = true, BottomLeft = true,
-    }
-    for index = 2, args.n do
-        local value = args[index]
-        if typeof(value) == "string"
-        and (value:find("Sounds%.") or value:find("rbxassetid") or ACE_POSITIONS[value]) then
-            return true
-        end
-    end
-    return false
-end
-
 local function onAceAnnouncement(...)
-    if not _G.ScriptEnabled or not _G.AutoWriteEnabled then return end
-    local raw = tostring((...) or "")
-    local text = aceStripRich(raw):match("^%s*(.-)%s*$") or ""
-    if text == "" then return end
+    if not _enabled then return end
+    
+    local text = aceStripRich(tostring((...) or ""))
+    text = text:match("^%s*(.-)%s*$") or ""
+    if text == "" or text:find("%s") then return end
     
     for _, word in ipairs(aceTokenize(text)) do
         aceCollectBuffer[#aceCollectBuffer + 1] = word
     end
     
+    if #aceCollectBuffer < ACE_WORD_COUNT then return end
+    
     local parts = {}
     for index = 1, math.min(#aceCollectBuffer, ACE_WORD_COUNT) do
         parts[index] = aceCollectBuffer[index]
     end
-    if #aceCollectBuffer < ACE_WORD_COUNT then return end
     aceCollectBuffer = {}
     
     local captured = table.concat(parts)
     if captured == "" or _seen[captured] then return end
+    
     _seen[captured] = true
     task.delay(1.25, function() _seen[captured] = nil end)
     
-    print("[KrimoHub] Code erkannt: " .. captured)
-    addCode(captured, true)
+    -- Code in Box einfügen (nur sammeln, nicht submit)
+    appendToBox(captured)
 end
 
 local function startAceListener()
     if aceListenConnection then return end
-    local remote = resolveNotifyRemote()
-    if not remote then 
-        print("[KrimoHub] Remote nicht gefunden!")
+    if _enabled then return end
+    aceNotifyRemote = resolveNotifyRemote()
+    if not aceNotifyRemote then 
+        print("[KrimoHub] Auto-Typ: Remote nicht gefunden!")
         return 
     end
-    aceListenConnection = remote.OnClientEvent:Connect(function(...)
-        if not _G.ScriptEnabled or not _G.AutoWriteEnabled then return end
-        if not isAceAnnouncement(...) then return end
-        pcall(onAceAnnouncement, ...)
-    end)
-    print("[KrimoHub] Auto Type Listener gestartet!")
+    _enabled = true
+    aceListenConnection = aceNotifyRemote.OnClientEvent:Connect(onAceAnnouncement)
+    if getgenv then getgenv().ACECodeSniperNotifyConnection = aceListenConnection end
+    print("[KrimoHub] Auto-Typ: Listener aktiviert")
 end
 
 local function stopAceListener()
+    _enabled = false
     if aceListenConnection then
         pcall(function() aceListenConnection:Disconnect() end)
         aceListenConnection = nil
     end
+    if getgenv then
+        getgenv().ACECodeSniperNotifyConnection = nil
+    end
+    _capturedParts = {}
+    print("[KrimoHub] Auto-Typ: Listener gestoppt")
 end
 
+-- Box Focus Erkennung
+UserInputService.TextBoxFocused:Connect(function(box)
+    if box:IsDescendantOf(ScreenGui) then return end
+    if box ~= aceCodeBox() then return end
+    _focused = box
+    _lastBox = box
+    watchBoxForBlankReset(box)
+end)
+
+UserInputService.TextBoxFocusReleased:Connect(function(box)
+    if box:IsDescendantOf(ScreenGui) then return end
+    local codeBox = aceCodeBox()
+    if box ~= codeBox and box ~= _lastBox then return end
+    if _focused == box then
+        _focused = nil
+    end
+end)
+
 -- ============================================================
--- ENDE ACE CODE SNIPER AUTO TYPE LOGIK
+-- ENDE AUTO TYPE LOGIK
 -- ============================================================
 
 local function setupPaths()
@@ -197,6 +329,7 @@ local AddedCount = 0
 local history = {}
 local lastAddedWord = ""
 local submitCooldown = false
+local _delay = 0.5
 
 -- 5. RIDDLE DATABASE
 local SAB_DB = {
@@ -272,26 +405,6 @@ local SAB_DB = {
     ["code 8"] = "KEYBOARD",
     ["code 9"] = "ESCAPE",
     ["code 10"] = "RAINBOW",
-    ["first machine"] = "RAINBOW MACHINE",
-    ["1st machine"] = "RAINBOW MACHINE",
-    ["second machine"] = "BUBBLEGUM MACHINE",
-    ["2nd machine"] = "BUBBLEGUM MACHINE",
-    ["third machine"] = "FUSE MACHINE",
-    ["3rd machine"] = "FUSE MACHINE",
-    ["fourth machine"] = "CRAFT MACHINE",
-    ["4th machine"] = "CRAFT MACHINE",
-    ["fifth machine"] = "WITCH FUSE",
-    ["5th machine"] = "WITCH FUSE",
-    ["sixth machine"] = "BRAINROT DEALER",
-    ["6th machine"] = "BRAINROT DEALER",
-    ["seventh machine"] = "BRAINROT TRADER",
-    ["7th machine"] = "BRAINROT TRADER",
-    ["eighth machine"] = "SANTA'S FUSE",
-    ["8th machine"] = "SANTA'S FUSE",
-    ["ninth machine"] = "SANTA'S SHOP",
-    ["9th machine"] = "SANTA'S SHOP",
-    ["tenth machine"] = "NEW YEAR'S MACHINE",
-    ["10th machine"] = "NEW YEAR'S MACHINE",
 }
 
 local function answerQuestion(text)
@@ -303,14 +416,14 @@ local function answerQuestion(text)
     return nil
 end
 
--- 6. GUI ELEMENTE (KLEINER)
+-- 6. GUI ELEMENTE (KLEIN)
 local MainFrame = nil
 local ScreenGui = nil
 local HistoryGui = nil
 local HistoryFrame = nil
 local HistoryScroll = nil
-local PANEL_W = 230  -- KLEINER
-local PANEL_H = 290  -- KLEINER
+local PANEL_W = 230
+local PANEL_H = 290
 local isMinimized = false
 local historyOpen = false
 
@@ -871,7 +984,7 @@ local function startPlayerGuiScanner()
     PG.DescendantAdded:Connect(hookUiTextObject)
 end
 
--- 15. GUI BAUEN (KLEINER)
+-- 15. GUI BAUEN (KLEIN)
 local function buildGUI()
     local old = CoreGui:FindFirstChild("KrimoHubGui")
     if old then old:Destroy() end
