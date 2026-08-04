@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB V4 - NEUES DESIGN (SCHWARZ + HELLBLAU FLOWER)
+-- KRIMO HUB V5 - MIT SOURCES HUB REDEEMER LOGIK + HISTORY ON/OFF
 -- ============================================================
 
 -- 1. GLOBALS
@@ -16,6 +16,9 @@ local CoreGui = game:GetService("CoreGui")
 local UserInputService = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+local Stats = game:GetService("Stats")
 
 -- 2. PERSISTENZ
 local CONFIG_PATH = "KrimoHub_config.json"
@@ -43,6 +46,342 @@ loadConfig()
 local Announcements = nil
 local CodeTextBox = nil
 local ConfirmButton = nil
+
+-- ============================================================
+-- SOURCES HUB REDEEMER LOGIK (NUR DAS NÖTIGSTE)
+-- ============================================================
+local Net = ReplicatedStorage:WaitForChild("Packages"):WaitForChild("Net")
+local getupvalues = (debug and debug.getupvalues) or getupvalues
+local getconns = getconnections or (debug and debug.getconnections)
+local setupv = (debug and debug.setupvalue) or setupvalue
+local REDEEM_GUID = "7d14a912-1040-4867-b005-98838eb9acc4"
+local RedeemRemote = nil
+local _delay = 0.5
+local _msgBuffer = {}
+local _msgCombined = ""
+local _seenMsgs = {}
+local _focused = nil
+local _lastBox = nil
+local _lastWatchedBox = nil
+local _boxTextConn = nil
+local _boxAncConn = nil
+local _boxVisConns = {}
+local _lastNonBlank = ""
+local _pendText = nil
+local _pendBox = nil
+local _pendUntil = 0
+local _pendToken = 0
+local _writingBox = false
+local listenConn = nil
+local _enabled = false
+local _retypeInvalid = false
+
+local KNOWN_BOX_PATH = {"Codes", "Codes", "CodeRedeem", "TextBox"}
+
+local function normalise(text)
+    return text:lower():gsub("[^%a%d%s]", " "):gsub("%s+", " "):match("^%s*(.-)%s*$") or ""
+end
+
+local function normalizeCode(s)
+    if type(s) ~= "string" then return "" end
+    return s:match("^%s*(.-)%s*$") or ""
+end
+
+local function stripRich(t)
+    if type(t) ~= "string" then return tostring(t) end
+    return (t:gsub("<[^>]->", ""))
+end
+
+local function aceCodeBox()
+    local gui = LocalPlayer:FindFirstChild("PlayerGui"):FindFirstChild("Codes")
+    if not gui then return end
+    local root = gui:FindFirstChild("Codes") or gui
+    local box = (root:FindFirstChild("CodeRedeem") or root):FindFirstChild("TextBox")
+    if box and box:IsA("TextBox") then return box end
+    for _, o in ipairs(gui:GetDescendants()) do
+        if o:IsA("TextBox") then return o end
+    end
+end
+
+local function resolveRedeemRemote()
+    if RedeemRemote and RedeemRemote.Parent then return RedeemRemote end
+    local ok, api = pcall(require, Net)
+    if ok and type(api) == "table" then
+        local rok, rf = pcall(function() return api:RemoteFunction(REDEEM_GUID) end)
+        if rok and typeof(rf) == "Instance" then RedeemRemote = rf end
+    end
+    return RedeemRemote
+end
+
+local function killDebounce(fn)
+    if not (fn and setupv and getupvalues) then return end
+    local ok, ups = pcall(getupvalues, fn)
+    if ok and type(ups) == "table" then
+        for i, v in pairs(ups) do
+            if type(v) == "boolean" then pcall(setupv, fn, i, false) end
+        end
+    end
+end
+
+local function redeemViaBox(code)
+    if not getconns then return false, "no getconnections" end
+    local box = aceCodeBox()
+    if not box then return false, "no codebox" end
+    local ok, conns = pcall(getconns, box.FocusLost)
+    if not ok or type(conns) ~= "table" or #conns == 0 then return false, "no connection" end
+    local fired = false
+    for _, c in ipairs(conns) do
+        local fn
+        pcall(function() fn = c.Function end)
+        killDebounce(fn)
+        box.Text = code
+        box.Active = true
+        box.Selectable = true
+        fired = fired or pcall(function()
+            if c.Enabled ~= false then c:Fire(true) end
+        end)
+    end
+    return fired, fired and "sent" or "fire failed"
+end
+
+local function redeemViaRemote(code)
+    local rf = resolveRedeemRemote()
+    if not rf then return false, "no remote" end
+    local ok, result = pcall(function() return rf:InvokeServer(code) end)
+    if not ok then return false, tostring(result) end
+    return true, result
+end
+
+local function aceRedeem(code)
+    local ok, res = redeemViaBox(code)
+    if ok then return true, res end
+    if getconns then return false, res end
+    return redeemViaRemote(code)
+end
+
+local function clearBoxWatchers()
+    if _boxTextConn then pcall(function() _boxTextConn:Disconnect() end) end
+    if _boxAncConn then pcall(function() _boxAncConn:Disconnect() end) end
+    for _, c in ipairs(_boxVisConns) do pcall(function() c:Disconnect() end) end
+    _boxTextConn = nil
+    _boxAncConn = nil
+    _boxVisConns = {}
+    _lastWatchedBox = nil
+end
+
+local function isBoxOpen(box)
+    if not box or not box.Parent then return false end
+    local cur = box
+    while cur do
+        if cur:IsA("GuiObject") and cur.Visible == false then return false end
+        if cur:IsA("ScreenGui") and cur.Enabled == false then return false end
+        cur = cur.Parent
+    end
+    return true
+end
+
+local function resolveCodeBox()
+    local node = LocalPlayer:FindFirstChild("PlayerGui")
+    if not node then return nil end
+    for _, n in ipairs(KNOWN_BOX_PATH) do
+        if not node then break end
+        node = node:FindFirstChild(n)
+    end
+    if node and node:IsA("TextBox") and isBoxOpen(node) then return node end
+    if isBoxOpen(_focused) then return _focused end
+    if isBoxOpen(_lastBox) then return _lastBox end
+end
+
+local function safeWriteBox(box, text)
+    _writingBox = true
+    box.Text = text
+    pcall(function()
+        local e = #text + 1
+        box.CursorPosition = e
+        box.SelectionStart = e
+    end)
+    _writingBox = false
+end
+
+local function watchBox(box)
+    if not box or _lastWatchedBox == box then return end
+    clearBoxWatchers()
+    _lastWatchedBox = box
+    if box.Text ~= "" then _lastNonBlank = box.Text end
+    _boxTextConn = box:GetPropertyChangedSignal("Text"):Connect(function()
+        if _writingBox then return end
+        if box.Text == "" then
+            _msgBuffer = {}
+            _msgCombined = ""
+            if PreviewBox then PreviewBox.Text = "" end
+        else
+            _lastNonBlank = box.Text
+        end
+    end)
+    _boxAncConn = box.AncestryChanged:Connect(function(_, p)
+        if not p then
+            _msgBuffer = {}
+            _msgCombined = ""
+            if PreviewBox then PreviewBox.Text = "" end
+            clearBoxWatchers()
+        end
+    end)
+    local cur = box
+    while cur do
+        if cur:IsA("GuiObject") then
+            table.insert(_boxVisConns, cur:GetPropertyChangedSignal("Visible"):Connect(function()
+                if not isBoxOpen(box) then
+                    _msgBuffer = {}
+                    _msgCombined = ""
+                    if PreviewBox then PreviewBox.Text = "" end
+                    clearBoxWatchers()
+                end
+            end))
+        elseif cur:IsA("ScreenGui") then
+            table.insert(_boxVisConns, cur:GetPropertyChangedSignal("Enabled"):Connect(function()
+                if not isBoxOpen(box) then
+                    _msgBuffer = {}
+                    _msgCombined = ""
+                    if PreviewBox then PreviewBox.Text = "" end
+                    clearBoxWatchers()
+                end
+            end))
+        end
+        cur = cur.Parent
+    end
+end
+
+local clearPending, rememberPending, restoreRejected, handleFeedback
+
+clearPending = function()
+    _pendToken += 1
+    _pendText = nil
+    _pendBox = nil
+    _pendUntil = 0
+end
+
+rememberPending = function(box, text, replace)
+    if not _retypeInvalid or not text or text == "" then return end
+    if not replace and _pendText and os.clock() <= _pendUntil then return end
+    _pendToken += 1
+    local tok = _pendToken
+    _pendText = text
+    _pendBox = box
+    _pendUntil = os.clock() + 8
+    task.delay(8, function()
+        if tok == _pendToken then clearPending() end
+    end)
+end
+
+restoreRejected = function(box, prev)
+    if not _retypeInvalid or not prev or prev == "" then return false end
+    RunService.Heartbeat:Wait()
+    local rb = resolveCodeBox() or box
+    if not rb or not isBoxOpen(rb) then return false end
+    local ok = pcall(function() safeWriteBox(rb, prev) end)
+    if ok then
+        _lastBox = rb
+        watchBox(rb)
+        if PreviewBox then PreviewBox.Text = prev end
+    end
+    return ok
+end
+
+handleFeedback = function(text, obj)
+    if not _retypeInvalid or not _pendText then return end
+    if os.clock() > _pendUntil then
+        clearPending()
+        return
+    end
+    if obj and ScreenGui and obj:IsDescendantOf(ScreenGui) then return end
+    local l = tostring(text or ""):lower()
+    if not (l:find("invalid code", 1, true) or l:find("expired", 1, true)
+        or l:find("already redeemed", 1, true) or l:find("not found", 1, true)
+        or l:find("rejected", 1, true) or l:find("does not exist", 1, true)) then
+        return
+    end
+    local pt, pb = _pendText, _pendBox
+    local ok = restoreRejected(pb, pt)
+    clearPending()
+    if ok and PreviewBox then
+        PreviewBox.Text = pt
+    end
+end
+
+local function isAnnouncement(...)
+    local args = table.pack(...)
+    if args.n == 0 or typeof(args[1]) ~= "string" then return false end
+    local ACE_POS = {
+        Top = true, Bottom = true, Center = true, Middle = true, Left = true, Right = true,
+        TopRight = true, TopLeft = true, BottomRight = true, BottomLeft = true,
+    }
+    for i = 2, args.n do
+        local v = args[i]
+        if typeof(v) == "string" and (v:find("Sounds%.") or v:find("rbxassetid") or ACE_POS[v]) then
+            return true
+        end
+    end
+    return false
+end
+
+local function onAnnouncement(...)
+    local raw = tostring((...) or "")
+    local text = stripRich(raw):match("^%s*(.-)%s*$") or ""
+    if text == "" then return end
+    if _seenMsgs[text] then return end
+    _seenMsgs[text] = true
+    task.delay(2, function() _seenMsgs[text] = nil end)
+    
+    -- Code zu collectedCodes hinzufügen
+    addCode(text, true)
+end
+
+local function getRemotesFromFn(fn)
+    if not getupvalues then return {} end
+    local ok, vals = pcall(getupvalues, fn)
+    local out = {}
+    if ok and type(vals) == "table" then
+        for _, v in pairs(vals) do
+            if typeof(v) == "Instance"
+                and (v:IsA("RemoteEvent") or v:IsA("RemoteFunction") or v:IsA("UnreliableRemoteEvent"))
+                and v.Parent == Net then
+                table.insert(out, v)
+            end
+        end
+    end
+    return out
+end
+
+local function resolveNotifyRemote()
+    local ok, ctrl = pcall(function()
+        return require(ReplicatedStorage.Controllers:FindFirstChild("NotificationController", true))
+    end)
+    if ok and type(ctrl) == "table" and type(ctrl.Start) == "function" then
+        return getRemotesFromFn(ctrl.Start)[1]
+    end
+end
+
+local function startListener()
+    if listenConn then return end
+    local notifyRemote = resolveNotifyRemote()
+    if not notifyRemote then return end
+    listenConn = notifyRemote.OnClientEvent:Connect(function(...)
+        if not _G.ScriptEnabled or not _G.AutoWriteEnabled then return end
+        if not isAnnouncement(...) then return end
+        pcall(onAnnouncement, ...)
+    end)
+end
+
+local function stopListener()
+    if listenConn then
+        pcall(function() listenConn:Disconnect() end)
+        listenConn = nil
+    end
+end
+
+-- ============================================================
+-- ENDE SOURCES HUB REDEEMER LOGIK
+-- ============================================================
 
 local function setupPaths()
     pcall(function()
@@ -77,14 +416,10 @@ local AddedCount = 0
 local history = {}          -- { word, time }
 local lastAddedWord = ""    -- für Duplikatschutz
 local submitCooldown = false
-local pendingRejectedText = nil
-local pendingRejectedToken = 0
 
--- 5. RIDDLE DATABASE
+-- 5. RIDDLE DATABASE (GEKÜRZT)
 local SAB_DB = {
-    -- Team
     ["who is the owner"] = "SPYDERSAMMY",
-    ["who owns the game"] = "SPYDERSAMMY",
     ["game owner"] = "SPYDERSAMMY",
     ["sammy"] = "SPYDERSAMMY",
     ["spyder"] = "SPYDERSAMMY",
@@ -99,8 +434,6 @@ local SAB_DB = {
     ["artist"] = "GROWAGARDEN",
     ["who tested the game"] = "RACOONINI JANDELINI",
     ["tester"] = "RACOONINI JANDELINI",
-    
-    -- Statistiken
     ["how old am i"] = "24",
     ["how old is sammy"] = "24",
     ["age"] = "24",
@@ -109,7 +442,6 @@ local SAB_DB = {
     ["favorite color"] = "BLUE",
     ["fav color"] = "BLUE",
     ["color"] = "BLUE",
-    ["favorite football player"] = "RONALDO",
     ["ronaldo"] = "RONALDO",
     ["game created on"] = "FRIDAY",
     ["release date"] = "MAY162025",
@@ -117,8 +449,6 @@ local SAB_DB = {
     ["fire represents"] = "DRAGON",
     ["won the world cup"] = "SPAIN",
     ["world cup winner"] = "SPAIN",
-    
-    -- Mutationen
     ["first mutation"] = "CURSED",
     ["1st mutation"] = "CURSED",
     ["second mutation"] = "DIVINE",
@@ -139,8 +469,6 @@ local SAB_DB = {
     ["9th mutation"] = "DEMONIC",
     ["tenth mutation"] = "VOID",
     ["10th mutation"] = "VOID",
-    
-    -- OGs (nur 6)
     ["first og"] = "STRAWBERRYELEPHANT",
     ["1st og"] = "STRAWBERRYELEPHANT",
     ["second og"] = "SKIBIDITOILET",
@@ -153,8 +481,6 @@ local SAB_DB = {
     ["5th og"] = "HEADLESS HORSEMAN",
     ["sixth og"] = "CERBERUS",
     ["6th og"] = "CERBERUS",
-    
-    -- Codes
     ["code 1"] = "SAB2024",
     ["code 2"] = "SAMMYGIFT",
     ["code 3"] = "BRAINROT",
@@ -175,8 +501,6 @@ local SAB_DB = {
     ["code 18"] = "BRAZIL",
     ["code 19"] = "RONALDO",
     ["code 20"] = "SPAIN",
-    
-    -- Maschinen
     ["first machine"] = "RAINBOW MACHINE",
     ["1st machine"] = "RAINBOW MACHINE",
     ["second machine"] = "BUBBLEGUM MACHINE",
@@ -230,8 +554,9 @@ local ScreenGui = nil
 local HistoryGui = nil
 local HistoryFrame = nil
 local HistoryScroll = nil
-local PANEL_W = 240
-local PANEL_H = 280
+local PreviewBox = nil
+local PANEL_W = 260
+local PANEL_H = 320
 local isMinimized = false
 local historyOpen = false
 
@@ -423,7 +748,7 @@ local function buildHistoryGUI()
     HistoryFrame.Name = "HistoryFrame"
     HistoryFrame.AnchorPoint = Vector2.new(0, 0.5)
     HistoryFrame.Position = UDim2.new(0, 10, 0.5, 0)
-    HistoryFrame.Size = UDim2.new(0, 220, 0, 170)  -- Etwas breiter für den Toggle
+    HistoryFrame.Size = UDim2.new(0, 220, 0, 170)
     HistoryFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
     HistoryFrame.BackgroundTransparency = 0.05
     HistoryFrame.BorderSizePixel = 0
@@ -457,7 +782,7 @@ local function buildHistoryGUI()
     tl.ZIndex = 10
     tl.Parent = tb
     
-    -- === NEU: ON/OFF Toggle für History ===
+    -- History ON/OFF Toggle
     local historyToggle = Instance.new("TextButton")
     historyToggle.Name = "HistoryToggle"
     historyToggle.Size = UDim2.new(0, 38, 0, 18)
@@ -476,7 +801,6 @@ local function buildHistoryGUI()
         _G.HistoryEnabled = not _G.HistoryEnabled
         historyToggle.BackgroundColor3 = _G.HistoryEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
         historyToggle.Text = _G.HistoryEnabled and "ON" or "OFF"
-        -- History GUI aktualisieren wenn ON
         if _G.HistoryEnabled then
             updateHistoryContent()
         end
@@ -692,7 +1016,7 @@ local function addCode(Code, fromSammy)
     end
 end
 
--- 12. WATCHER
+-- 12. WATCHER (NUR FÜR RIDDLE SOLVER)
 local function watchLabel(Label)
     if not Label:IsA("TextLabel") then return end
     local text = Label.Text
@@ -704,10 +1028,6 @@ local function watchLabel(Label)
             addCode(answer, true)
             return
         end
-    end
-    
-    for word in text:gmatch("%S+") do
-        addCode(word, true)
     end
 end
 
@@ -799,7 +1119,7 @@ local function startPlayerGuiScanner()
     PG.DescendantAdded:Connect(hookUiTextObject)
 end
 
--- 15. GUI BAUEN
+-- 15. GUI BAUEN (MIT DELAY UND PREVIEW)
 local function buildGUI()
     local old = CoreGui:FindFirstChild("KrimoHubGui")
     if old then old:Destroy() end
@@ -911,9 +1231,9 @@ local function buildGUI()
     ContentFrame.ZIndex = 5
     ContentFrame.Parent = MainFrame
     
-    -- ROW 1: Auto Type
+    -- ROW 1: Auto Type + Status
     local awLabel = Instance.new("TextLabel")
-    awLabel.Size = UDim2.new(0, 100, 0, 22)
+    awLabel.Size = UDim2.new(0, 80, 0, 22)
     awLabel.Position = UDim2.new(0, 12, 0, 6)
     awLabel.BackgroundTransparency = 1
     awLabel.Text = "🌸 Auto Type"
@@ -925,13 +1245,13 @@ local function buildGUI()
     awLabel.Parent = ContentFrame
     
     local awToggle = Instance.new("TextButton")
-    awToggle.Size = UDim2.new(0, 48, 0, 22)
-    awToggle.Position = UDim2.new(1, -56, 0, 6)
+    awToggle.Size = UDim2.new(0, 34, 0, 20)
+    awToggle.Position = UDim2.new(0, 96, 0, 7)
     awToggle.BackgroundColor3 = _G.AutoWriteEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
     awToggle.Text = _G.AutoWriteEnabled and "ON" or "OFF"
     awToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
     awToggle.Font = Enum.Font.GothamBold
-    awToggle.TextSize = 10
+    awToggle.TextSize = 9
     awToggle.AutoButtonColor = false
     awToggle.ZIndex = 10
     awToggle.Parent = ContentFrame
@@ -941,17 +1261,87 @@ local function buildGUI()
         _G.AutoWriteEnabled = not _G.AutoWriteEnabled
         awToggle.BackgroundColor3 = _G.AutoWriteEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
         awToggle.Text = _G.AutoWriteEnabled and "ON" or "OFF"
-        if not _G.AutoWriteEnabled then
+        if _G.AutoWriteEnabled then
+            startListener()
+        else
+            stopListener()
             table.clear(collectedCodes)
             AddedCount = 0
             refreshMainGUI()
         end
     end)
     
-    -- ROW 2: Auto Submit
+    -- Status Label
+    local statusLabel = Instance.new("TextLabel")
+    statusLabel.Name = "StatusLabel"
+    statusLabel.Size = UDim2.new(0, 80, 0, 16)
+    statusLabel.Position = UDim2.new(1, -92, 0, 7)
+    statusLabel.BackgroundTransparency = 1
+    statusLabel.Text = _G.AutoWriteEnabled and "🔴 Listening" or "⏸ Paused"
+    statusLabel.TextColor3 = _G.AutoWriteEnabled and Color3.fromRGB(80, 255, 120) or Color3.fromRGB(255, 200, 50)
+    statusLabel.Font = Enum.Font.Gotham
+    statusLabel.TextSize = 9
+    statusLabel.TextXAlignment = Enum.TextXAlignment.Right
+    statusLabel.ZIndex = 10
+    statusLabel.Parent = ContentFrame
+    
+    -- ROW 2: Delay Setting
+    local delayLabel = Instance.new("TextLabel")
+    delayLabel.Size = UDim2.new(0, 50, 0, 22)
+    delayLabel.Position = UDim2.new(0, 12, 0, 32)
+    delayLabel.BackgroundTransparency = 1
+    delayLabel.Text = "🌸 Delay"
+    delayLabel.TextColor3 = Color3.fromRGB(200, 230, 255)
+    delayLabel.Font = Enum.Font.GothamSemibold
+    delayLabel.TextSize = 12
+    delayLabel.TextXAlignment = Enum.TextXAlignment.Left
+    delayLabel.ZIndex = 10
+    delayLabel.Parent = ContentFrame
+    
+    local delayBox = Instance.new("TextBox")
+    delayBox.Name = "DelayBox"
+    delayBox.Size = UDim2.new(0, 40, 0, 20)
+    delayBox.Position = UDim2.new(0, 66, 0, 33)
+    delayBox.BackgroundColor3 = Color3.fromRGB(20, 30, 50)
+    delayBox.BackgroundTransparency = 0.3
+    delayBox.BorderSizePixel = 0
+    delayBox.Font = Enum.Font.GothamBold
+    delayBox.Text = tostring(_delay)
+    delayBox.TextColor3 = Color3.fromRGB(200, 230, 255)
+    delayBox.TextSize = 12
+    delayBox.TextXAlignment = Enum.TextXAlignment.Center
+    delayBox.ClearTextOnFocus = false
+    delayBox.ZIndex = 10
+    delayBox.Parent = ContentFrame
+    do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = delayBox end
+    
+    local setDelayBtn = Instance.new("TextButton")
+    setDelayBtn.Size = UDim2.new(0, 32, 0, 20)
+    setDelayBtn.Position = UDim2.new(0, 110, 0, 33)
+    setDelayBtn.BackgroundColor3 = Color3.fromRGB(40, 60, 90)
+    setDelayBtn.Text = "Set"
+    setDelayBtn.TextColor3 = Color3.fromRGB(200, 230, 255)
+    setDelayBtn.Font = Enum.Font.GothamBold
+    setDelayBtn.TextSize = 9
+    setDelayBtn.AutoButtonColor = true
+    setDelayBtn.ZIndex = 10
+    setDelayBtn.Parent = ContentFrame
+    do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = setDelayBtn end
+    
+    setDelayBtn.MouseButton1Click:Connect(function()
+        local val = tonumber(delayBox.Text)
+        if val and val >= 0 then
+            _delay = val
+            delayBox.Text = tostring(_delay)
+        else
+            delayBox.Text = tostring(_delay)
+        end
+    end)
+    
+    -- ROW 3: Auto Submit
     local asLabel = Instance.new("TextLabel")
     asLabel.Size = UDim2.new(0, 100, 0, 22)
-    asLabel.Position = UDim2.new(0, 12, 0, 32)
+    asLabel.Position = UDim2.new(0, 12, 0, 58)
     asLabel.BackgroundTransparency = 1
     asLabel.Text = "🌸 Auto Submit"
     asLabel.TextColor3 = Color3.fromRGB(200, 230, 255)
@@ -963,7 +1353,7 @@ local function buildGUI()
     
     local asToggle = Instance.new("TextButton")
     asToggle.Size = UDim2.new(0, 48, 0, 22)
-    asToggle.Position = UDim2.new(1, -56, 0, 32)
+    asToggle.Position = UDim2.new(1, -56, 0, 58)
     asToggle.BackgroundColor3 = _G.AutoSubmitEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
     asToggle.Text = _G.AutoSubmitEnabled and "ON" or "OFF"
     asToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -983,7 +1373,7 @@ local function buildGUI()
     -- Submit After Count
     local countLabel = Instance.new("TextLabel")
     countLabel.Size = UDim2.new(0, 120, 0, 22)
-    countLabel.Position = UDim2.new(0, 12, 0, 58)
+    countLabel.Position = UDim2.new(0, 12, 0, 84)
     countLabel.BackgroundTransparency = 1
     countLabel.Text = "🌸 Submit after msgs"
     countLabel.TextColor3 = Color3.fromRGB(180, 210, 240)
@@ -995,7 +1385,7 @@ local function buildGUI()
     
     local minusBtn = Instance.new("TextButton")
     minusBtn.Size = UDim2.new(0, 22, 0, 20)
-    minusBtn.Position = UDim2.new(1, -84, 0, 59)
+    minusBtn.Position = UDim2.new(1, -84, 0, 85)
     minusBtn.BackgroundColor3 = Color3.fromRGB(40, 60, 90)
     minusBtn.Text = "−"
     minusBtn.TextColor3 = Color3.fromRGB(200, 230, 255)
@@ -1008,7 +1398,7 @@ local function buildGUI()
     
     local countDisplay = Instance.new("TextLabel")
     countDisplay.Size = UDim2.new(0, 28, 0, 20)
-    countDisplay.Position = UDim2.new(1, -58, 0, 59)
+    countDisplay.Position = UDim2.new(1, -58, 0, 85)
     countDisplay.BackgroundColor3 = Color3.fromRGB(30, 40, 60)
     countDisplay.BackgroundTransparency = 0.3
     countDisplay.Text = tostring(_G.SubmitAfterCount)
@@ -1022,7 +1412,7 @@ local function buildGUI()
     
     local plusBtn = Instance.new("TextButton")
     plusBtn.Size = UDim2.new(0, 22, 0, 20)
-    plusBtn.Position = UDim2.new(1, -28, 0, 59)
+    plusBtn.Position = UDim2.new(1, -28, 0, 85)
     plusBtn.BackgroundColor3 = Color3.fromRGB(40, 60, 90)
     plusBtn.Text = "+"
     plusBtn.TextColor3 = Color3.fromRGB(200, 230, 255)
@@ -1046,10 +1436,10 @@ local function buildGUI()
         end
     end)
     
-    -- ROW 3: Riddle Solver
+    -- ROW 4: Riddle Solver
     local rsLabel = Instance.new("TextLabel")
     rsLabel.Size = UDim2.new(0, 100, 0, 22)
-    rsLabel.Position = UDim2.new(0, 12, 0, 84)
+    rsLabel.Position = UDim2.new(0, 12, 0, 110)
     rsLabel.BackgroundTransparency = 1
     rsLabel.Text = "🌸 Riddle Solver"
     rsLabel.TextColor3 = Color3.fromRGB(200, 230, 255)
@@ -1062,7 +1452,7 @@ local function buildGUI()
     local rsToggle = Instance.new("TextButton")
     rsToggle.Name = "RiddleSolverToggle"
     rsToggle.Size = UDim2.new(0, 48, 0, 22)
-    rsToggle.Position = UDim2.new(1, -56, 0, 84)
+    rsToggle.Position = UDim2.new(1, -56, 0, 110)
     rsToggle.BackgroundColor3 = _G.RiddleSolverEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
     rsToggle.Text = _G.RiddleSolverEnabled and "ON" or "OFF"
     rsToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -1079,10 +1469,10 @@ local function buildGUI()
         rsToggle.Text = _G.RiddleSolverEnabled and "ON" or "OFF"
     end)
     
-    -- ROW 4: History
+    -- ROW 5: History
     local historyLabel = Instance.new("TextLabel")
     historyLabel.Size = UDim2.new(0, 100, 0, 22)
-    historyLabel.Position = UDim2.new(0, 12, 0, 110)
+    historyLabel.Position = UDim2.new(0, 12, 0, 136)
     historyLabel.BackgroundTransparency = 1
     historyLabel.Text = "🌸 History 📜"
     historyLabel.TextColor3 = Color3.fromRGB(200, 230, 255)
@@ -1095,7 +1485,7 @@ local function buildGUI()
     local historyBtn = Instance.new("TextButton")
     historyBtn.Name = "HistoryBtn"
     historyBtn.Size = UDim2.new(0, 48, 0, 22)
-    historyBtn.Position = UDim2.new(1, -56, 0, 110)
+    historyBtn.Position = UDim2.new(1, -56, 0, 136)
     historyBtn.BackgroundColor3 = _G.HistoryEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
     historyBtn.Text = _G.HistoryEnabled and "ON" or "OFF"
     historyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -1125,7 +1515,7 @@ local function buildGUI()
     local collectedLabel = Instance.new("TextLabel")
     collectedLabel.Name = "CollectedLabel"
     collectedLabel.Size = UDim2.new(0.6, 0, 0, 18)
-    collectedLabel.Position = UDim2.new(0, 12, 0, 136)
+    collectedLabel.Position = UDim2.new(0, 12, 0, 162)
     collectedLabel.BackgroundTransparency = 1
     collectedLabel.Text = "🌸 Pasted: 0/" .. _G.SubmitAfterCount
     collectedLabel.TextColor3 = Color3.fromRGB(160, 200, 230)
@@ -1138,7 +1528,7 @@ local function buildGUI()
     local resetBtn = Instance.new("TextButton")
     resetBtn.Name = "ResetBtn"
     resetBtn.Size = UDim2.new(0, 40, 0, 18)
-    resetBtn.Position = UDim2.new(1, -48, 0, 136)
+    resetBtn.Position = UDim2.new(1, -48, 0, 162)
     resetBtn.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
     resetBtn.Text = "↻ Reset"
     resetBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -1156,8 +1546,8 @@ local function buildGUI()
     -- Code-Liste
     local codeListFrame = Instance.new("Frame")
     codeListFrame.Name = "CodeListFrame"
-    codeListFrame.Size = UDim2.new(1, -24, 0, 72)
-    codeListFrame.Position = UDim2.new(0, 12, 0, 158)
+    codeListFrame.Size = UDim2.new(1, -24, 0, 88)
+    codeListFrame.Position = UDim2.new(0, 12, 0, 184)
     codeListFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 22)
     codeListFrame.BackgroundTransparency = 0.3
     codeListFrame.BorderSizePixel = 0
@@ -1204,7 +1594,7 @@ local function buildGUI()
     -- Separator
     local sep = Instance.new("Frame")
     sep.Size = UDim2.new(1, -24, 0, 1)
-    sep.Position = UDim2.new(0, 12, 0, 233)
+    sep.Position = UDim2.new(0, 12, 0, 275)
     sep.BackgroundColor3 = Color3.fromRGB(100, 200, 255)
     sep.BackgroundTransparency = 0.5
     sep.BorderSizePixel = 0
@@ -1215,7 +1605,7 @@ local function buildGUI()
     local creditLabel = Instance.new("TextLabel")
     creditLabel.Name = "CreditLabel"
     creditLabel.Size = UDim2.new(1, -24, 0, 14)
-    creditLabel.Position = UDim2.new(0, 12, 0, 238)
+    creditLabel.Position = UDim2.new(0, 12, 0, 280)
     creditLabel.BackgroundTransparency = 1
     creditLabel.Text = "🌸 Credits to momo.1711"
     creditLabel.TextColor3 = Color3.fromRGB(130, 170, 210)
@@ -1228,7 +1618,7 @@ local function buildGUI()
     -- Discord
     local footer = Instance.new("TextLabel")
     footer.Size = UDim2.new(1, -24, 0, 18)
-    footer.Position = UDim2.new(0, 12, 0, 254)
+    footer.Position = UDim2.new(0, 12, 0, 296)
     footer.BackgroundTransparency = 1
     footer.RichText = true
     footer.Text = '<font color="#88aaff">🌸 discord.gg/</font><font color="#66ccff"><b>7Ea7qEsPzP</b></font>'
@@ -1241,7 +1631,7 @@ local function buildGUI()
     
     local footerBtn = Instance.new("TextButton")
     footerBtn.Size = UDim2.new(1, -24, 0, 18)
-    footerBtn.Position = UDim2.new(0, 12, 0, 254)
+    footerBtn.Position = UDim2.new(0, 12, 0, 296)
     footerBtn.BackgroundTransparency = 1
     footerBtn.Text = ""
     footerBtn.AutoButtonColor = false
@@ -1331,13 +1721,13 @@ local function buildGUI()
     end)
     
     refreshMainGUI()
-    print("[KrimoHub V4] GUI sichtbar!")
+    print("[KrimoHub V5] GUI sichtbar!")
 end
 
 -- 16. START
-print("[KrimoHub V4] Starte...")
+print("[KrimoHub V5] Starte...")
 pcall(setupPaths)
 pcall(buildGUI)
 pcall(startAnnouncementWatcher)
 pcall(startPlayerGuiScanner)
-print("[KrimoHub V4] Fertig!")
+print("[KrimoHub V5] Fertig!")
