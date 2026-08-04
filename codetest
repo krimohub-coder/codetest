@@ -213,7 +213,6 @@ local function watchBox(box)
         if box.Text == "" then
             _msgBuffer = {}
             _msgCombined = ""
-            if PreviewBox then PreviewBox.Text = "" end
         else
             _lastNonBlank = box.Text
         end
@@ -222,7 +221,6 @@ local function watchBox(box)
         if not p then
             _msgBuffer = {}
             _msgCombined = ""
-            if PreviewBox then PreviewBox.Text = "" end
             clearBoxWatchers()
         end
     end)
@@ -233,7 +231,6 @@ local function watchBox(box)
                 if not isBoxOpen(box) then
                     _msgBuffer = {}
                     _msgCombined = ""
-                    if PreviewBox then PreviewBox.Text = "" end
                     clearBoxWatchers()
                 end
             end))
@@ -242,7 +239,6 @@ local function watchBox(box)
                 if not isBoxOpen(box) then
                     _msgBuffer = {}
                     _msgCombined = ""
-                    if PreviewBox then PreviewBox.Text = "" end
                     clearBoxWatchers()
                 end
             end))
@@ -282,7 +278,6 @@ restoreRejected = function(box, prev)
     if ok then
         _lastBox = rb
         watchBox(rb)
-        if PreviewBox then PreviewBox.Text = prev end
     end
     return ok
 end
@@ -303,9 +298,6 @@ handleFeedback = function(text, obj)
     local pt, pb = _pendText, _pendBox
     local ok = restoreRejected(pb, pt)
     clearPending()
-    if ok and PreviewBox then
-        PreviewBox.Text = pt
-    end
 end
 
 local function isAnnouncement(...)
@@ -332,7 +324,7 @@ local function onAnnouncement(...)
     _seenMsgs[text] = true
     task.delay(2, function() _seenMsgs[text] = nil end)
     
-    -- Code zu collectedCodes hinzufügen
+    -- Code zu collectedCodes hinzufügen (mit fromSammy=true für History)
     addCode(text, true)
 end
 
@@ -370,6 +362,7 @@ local function startListener()
         if not isAnnouncement(...) then return end
         pcall(onAnnouncement, ...)
     end)
+    print("[KrimoHub] Listener gestartet!")
 end
 
 local function stopListener()
@@ -554,7 +547,6 @@ local ScreenGui = nil
 local HistoryGui = nil
 local HistoryFrame = nil
 local HistoryScroll = nil
-local PreviewBox = nil
 local PANEL_W = 260
 local PANEL_H = 320
 local isMinimized = false
@@ -1119,7 +1111,7 @@ local function startPlayerGuiScanner()
     PG.DescendantAdded:Connect(hookUiTextObject)
 end
 
--- 15. GUI BAUEN (MIT DELAY UND PREVIEW)
+-- 15. GUI BAUEN
 local function buildGUI()
     local old = CoreGui:FindFirstChild("KrimoHubGui")
     if old then old:Destroy() end
@@ -1231,7 +1223,7 @@ local function buildGUI()
     ContentFrame.ZIndex = 5
     ContentFrame.Parent = MainFrame
     
-    -- ROW 1: Auto Type + Status
+    -- ROW 1: Auto Type (mit Status)
     local awLabel = Instance.new("TextLabel")
     awLabel.Size = UDim2.new(0, 80, 0, 22)
     awLabel.Position = UDim2.new(0, 12, 0, 6)
@@ -1269,15 +1261,21 @@ local function buildGUI()
             AddedCount = 0
             refreshMainGUI()
         end
+        -- Status aktualisieren
+        local statusLabel = ContentFrame:FindFirstChild("StatusLabel")
+        if statusLabel then
+            statusLabel.Text = _G.AutoWriteEnabled and "🟢 Listening" or "⏸ Paused"
+            statusLabel.TextColor3 = _G.AutoWriteEnabled and Color3.fromRGB(80, 255, 120) or Color3.fromRGB(255, 200, 50)
+        end
     end)
     
     -- Status Label
     local statusLabel = Instance.new("TextLabel")
     statusLabel.Name = "StatusLabel"
     statusLabel.Size = UDim2.new(0, 80, 0, 16)
-    statusLabel.Position = UDim2.new(1, -92, 0, 7)
+    statusLabel.Position = UDim2.new(1, -92, 0, 8)
     statusLabel.BackgroundTransparency = 1
-    statusLabel.Text = _G.AutoWriteEnabled and "🔴 Listening" or "⏸ Paused"
+    statusLabel.Text = _G.AutoWriteEnabled and "🟢 Listening" or "⏸ Paused"
     statusLabel.TextColor3 = _G.AutoWriteEnabled and Color3.fromRGB(80, 255, 120) or Color3.fromRGB(255, 200, 50)
     statusLabel.Font = Enum.Font.Gotham
     statusLabel.TextSize = 9
@@ -1285,30 +1283,62 @@ local function buildGUI()
     statusLabel.ZIndex = 10
     statusLabel.Parent = ContentFrame
     
-    -- ROW 2: Delay Setting
+    -- ROW 2: Auto Submit + Delay (in einer Zeile)
+    local asLabel = Instance.new("TextLabel")
+    asLabel.Size = UDim2.new(0, 80, 0, 22)
+    asLabel.Position = UDim2.new(0, 12, 0, 32)
+    asLabel.BackgroundTransparency = 1
+    asLabel.Text = "🌸 Auto Submit"
+    asLabel.TextColor3 = Color3.fromRGB(200, 230, 255)
+    asLabel.Font = Enum.Font.GothamSemibold
+    asLabel.TextSize = 12
+    asLabel.TextXAlignment = Enum.TextXAlignment.Left
+    asLabel.ZIndex = 10
+    asLabel.Parent = ContentFrame
+    
+    local asToggle = Instance.new("TextButton")
+    asToggle.Size = UDim2.new(0, 34, 0, 20)
+    asToggle.Position = UDim2.new(0, 96, 0, 33)
+    asToggle.BackgroundColor3 = _G.AutoSubmitEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
+    asToggle.Text = _G.AutoSubmitEnabled and "ON" or "OFF"
+    asToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    asToggle.Font = Enum.Font.GothamBold
+    asToggle.TextSize = 9
+    asToggle.AutoButtonColor = false
+    asToggle.ZIndex = 10
+    asToggle.Parent = ContentFrame
+    do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = asToggle end
+    
+    asToggle.MouseButton1Click:Connect(function()
+        _G.AutoSubmitEnabled = not _G.AutoSubmitEnabled
+        asToggle.BackgroundColor3 = _G.AutoSubmitEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
+        asToggle.Text = _G.AutoSubmitEnabled and "ON" or "OFF"
+    end)
+    
+    -- Delay (rechts neben Auto Submit)
     local delayLabel = Instance.new("TextLabel")
-    delayLabel.Size = UDim2.new(0, 50, 0, 22)
-    delayLabel.Position = UDim2.new(0, 12, 0, 32)
+    delayLabel.Size = UDim2.new(0, 35, 0, 20)
+    delayLabel.Position = UDim2.new(0, 140, 0, 33)
     delayLabel.BackgroundTransparency = 1
-    delayLabel.Text = "🌸 Delay"
-    delayLabel.TextColor3 = Color3.fromRGB(200, 230, 255)
-    delayLabel.Font = Enum.Font.GothamSemibold
+    delayLabel.Text = "⏱"
+    delayLabel.TextColor3 = Color3.fromRGB(180, 210, 240)
+    delayLabel.Font = Enum.Font.Gotham
     delayLabel.TextSize = 12
-    delayLabel.TextXAlignment = Enum.TextXAlignment.Left
+    delayLabel.TextXAlignment = Enum.TextXAlignment.Center
     delayLabel.ZIndex = 10
     delayLabel.Parent = ContentFrame
     
     local delayBox = Instance.new("TextBox")
     delayBox.Name = "DelayBox"
-    delayBox.Size = UDim2.new(0, 40, 0, 20)
-    delayBox.Position = UDim2.new(0, 66, 0, 33)
+    delayBox.Size = UDim2.new(0, 30, 0, 20)
+    delayBox.Position = UDim2.new(0, 180, 0, 33)
     delayBox.BackgroundColor3 = Color3.fromRGB(20, 30, 50)
     delayBox.BackgroundTransparency = 0.3
     delayBox.BorderSizePixel = 0
     delayBox.Font = Enum.Font.GothamBold
     delayBox.Text = tostring(_delay)
     delayBox.TextColor3 = Color3.fromRGB(200, 230, 255)
-    delayBox.TextSize = 12
+    delayBox.TextSize = 11
     delayBox.TextXAlignment = Enum.TextXAlignment.Center
     delayBox.ClearTextOnFocus = false
     delayBox.ZIndex = 10
@@ -1316,13 +1346,13 @@ local function buildGUI()
     do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = delayBox end
     
     local setDelayBtn = Instance.new("TextButton")
-    setDelayBtn.Size = UDim2.new(0, 32, 0, 20)
-    setDelayBtn.Position = UDim2.new(0, 110, 0, 33)
+    setDelayBtn.Size = UDim2.new(0, 28, 0, 20)
+    setDelayBtn.Position = UDim2.new(0, 214, 0, 33)
     setDelayBtn.BackgroundColor3 = Color3.fromRGB(40, 60, 90)
     setDelayBtn.Text = "Set"
     setDelayBtn.TextColor3 = Color3.fromRGB(200, 230, 255)
     setDelayBtn.Font = Enum.Font.GothamBold
-    setDelayBtn.TextSize = 9
+    setDelayBtn.TextSize = 8
     setDelayBtn.AutoButtonColor = true
     setDelayBtn.ZIndex = 10
     setDelayBtn.Parent = ContentFrame
@@ -1338,42 +1368,10 @@ local function buildGUI()
         end
     end)
     
-    -- ROW 3: Auto Submit
-    local asLabel = Instance.new("TextLabel")
-    asLabel.Size = UDim2.new(0, 100, 0, 22)
-    asLabel.Position = UDim2.new(0, 12, 0, 58)
-    asLabel.BackgroundTransparency = 1
-    asLabel.Text = "🌸 Auto Submit"
-    asLabel.TextColor3 = Color3.fromRGB(200, 230, 255)
-    asLabel.Font = Enum.Font.GothamSemibold
-    asLabel.TextSize = 12
-    asLabel.TextXAlignment = Enum.TextXAlignment.Left
-    asLabel.ZIndex = 10
-    asLabel.Parent = ContentFrame
-    
-    local asToggle = Instance.new("TextButton")
-    asToggle.Size = UDim2.new(0, 48, 0, 22)
-    asToggle.Position = UDim2.new(1, -56, 0, 58)
-    asToggle.BackgroundColor3 = _G.AutoSubmitEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
-    asToggle.Text = _G.AutoSubmitEnabled and "ON" or "OFF"
-    asToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
-    asToggle.Font = Enum.Font.GothamBold
-    asToggle.TextSize = 10
-    asToggle.AutoButtonColor = false
-    asToggle.ZIndex = 10
-    asToggle.Parent = ContentFrame
-    do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = asToggle end
-    
-    asToggle.MouseButton1Click:Connect(function()
-        _G.AutoSubmitEnabled = not _G.AutoSubmitEnabled
-        asToggle.BackgroundColor3 = _G.AutoSubmitEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
-        asToggle.Text = _G.AutoSubmitEnabled and "ON" or "OFF"
-    end)
-    
     -- Submit After Count
     local countLabel = Instance.new("TextLabel")
     countLabel.Size = UDim2.new(0, 120, 0, 22)
-    countLabel.Position = UDim2.new(0, 12, 0, 84)
+    countLabel.Position = UDim2.new(0, 12, 0, 58)
     countLabel.BackgroundTransparency = 1
     countLabel.Text = "🌸 Submit after msgs"
     countLabel.TextColor3 = Color3.fromRGB(180, 210, 240)
@@ -1385,7 +1383,7 @@ local function buildGUI()
     
     local minusBtn = Instance.new("TextButton")
     minusBtn.Size = UDim2.new(0, 22, 0, 20)
-    minusBtn.Position = UDim2.new(1, -84, 0, 85)
+    minusBtn.Position = UDim2.new(1, -84, 0, 59)
     minusBtn.BackgroundColor3 = Color3.fromRGB(40, 60, 90)
     minusBtn.Text = "−"
     minusBtn.TextColor3 = Color3.fromRGB(200, 230, 255)
@@ -1398,7 +1396,7 @@ local function buildGUI()
     
     local countDisplay = Instance.new("TextLabel")
     countDisplay.Size = UDim2.new(0, 28, 0, 20)
-    countDisplay.Position = UDim2.new(1, -58, 0, 85)
+    countDisplay.Position = UDim2.new(1, -58, 0, 59)
     countDisplay.BackgroundColor3 = Color3.fromRGB(30, 40, 60)
     countDisplay.BackgroundTransparency = 0.3
     countDisplay.Text = tostring(_G.SubmitAfterCount)
@@ -1412,7 +1410,7 @@ local function buildGUI()
     
     local plusBtn = Instance.new("TextButton")
     plusBtn.Size = UDim2.new(0, 22, 0, 20)
-    plusBtn.Position = UDim2.new(1, -28, 0, 85)
+    plusBtn.Position = UDim2.new(1, -28, 0, 59)
     plusBtn.BackgroundColor3 = Color3.fromRGB(40, 60, 90)
     plusBtn.Text = "+"
     plusBtn.TextColor3 = Color3.fromRGB(200, 230, 255)
@@ -1436,10 +1434,10 @@ local function buildGUI()
         end
     end)
     
-    -- ROW 4: Riddle Solver
+    -- ROW 3: Riddle Solver
     local rsLabel = Instance.new("TextLabel")
     rsLabel.Size = UDim2.new(0, 100, 0, 22)
-    rsLabel.Position = UDim2.new(0, 12, 0, 110)
+    rsLabel.Position = UDim2.new(0, 12, 0, 84)
     rsLabel.BackgroundTransparency = 1
     rsLabel.Text = "🌸 Riddle Solver"
     rsLabel.TextColor3 = Color3.fromRGB(200, 230, 255)
@@ -1452,7 +1450,7 @@ local function buildGUI()
     local rsToggle = Instance.new("TextButton")
     rsToggle.Name = "RiddleSolverToggle"
     rsToggle.Size = UDim2.new(0, 48, 0, 22)
-    rsToggle.Position = UDim2.new(1, -56, 0, 110)
+    rsToggle.Position = UDim2.new(1, -56, 0, 84)
     rsToggle.BackgroundColor3 = _G.RiddleSolverEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
     rsToggle.Text = _G.RiddleSolverEnabled and "ON" or "OFF"
     rsToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -1469,10 +1467,10 @@ local function buildGUI()
         rsToggle.Text = _G.RiddleSolverEnabled and "ON" or "OFF"
     end)
     
-    -- ROW 5: History
+    -- ROW 4: History
     local historyLabel = Instance.new("TextLabel")
     historyLabel.Size = UDim2.new(0, 100, 0, 22)
-    historyLabel.Position = UDim2.new(0, 12, 0, 136)
+    historyLabel.Position = UDim2.new(0, 12, 0, 110)
     historyLabel.BackgroundTransparency = 1
     historyLabel.Text = "🌸 History 📜"
     historyLabel.TextColor3 = Color3.fromRGB(200, 230, 255)
@@ -1485,7 +1483,7 @@ local function buildGUI()
     local historyBtn = Instance.new("TextButton")
     historyBtn.Name = "HistoryBtn"
     historyBtn.Size = UDim2.new(0, 48, 0, 22)
-    historyBtn.Position = UDim2.new(1, -56, 0, 136)
+    historyBtn.Position = UDim2.new(1, -56, 0, 110)
     historyBtn.BackgroundColor3 = _G.HistoryEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
     historyBtn.Text = _G.HistoryEnabled and "ON" or "OFF"
     historyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -1515,7 +1513,7 @@ local function buildGUI()
     local collectedLabel = Instance.new("TextLabel")
     collectedLabel.Name = "CollectedLabel"
     collectedLabel.Size = UDim2.new(0.6, 0, 0, 18)
-    collectedLabel.Position = UDim2.new(0, 12, 0, 162)
+    collectedLabel.Position = UDim2.new(0, 12, 0, 136)
     collectedLabel.BackgroundTransparency = 1
     collectedLabel.Text = "🌸 Pasted: 0/" .. _G.SubmitAfterCount
     collectedLabel.TextColor3 = Color3.fromRGB(160, 200, 230)
@@ -1528,7 +1526,7 @@ local function buildGUI()
     local resetBtn = Instance.new("TextButton")
     resetBtn.Name = "ResetBtn"
     resetBtn.Size = UDim2.new(0, 40, 0, 18)
-    resetBtn.Position = UDim2.new(1, -48, 0, 162)
+    resetBtn.Position = UDim2.new(1, -48, 0, 136)
     resetBtn.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
     resetBtn.Text = "↻ Reset"
     resetBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -1546,8 +1544,8 @@ local function buildGUI()
     -- Code-Liste
     local codeListFrame = Instance.new("Frame")
     codeListFrame.Name = "CodeListFrame"
-    codeListFrame.Size = UDim2.new(1, -24, 0, 88)
-    codeListFrame.Position = UDim2.new(0, 12, 0, 184)
+    codeListFrame.Size = UDim2.new(1, -24, 0, 108)
+    codeListFrame.Position = UDim2.new(0, 12, 0, 158)
     codeListFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 22)
     codeListFrame.BackgroundTransparency = 0.3
     codeListFrame.BorderSizePixel = 0
@@ -1594,7 +1592,7 @@ local function buildGUI()
     -- Separator
     local sep = Instance.new("Frame")
     sep.Size = UDim2.new(1, -24, 0, 1)
-    sep.Position = UDim2.new(0, 12, 0, 275)
+    sep.Position = UDim2.new(0, 12, 0, 269)
     sep.BackgroundColor3 = Color3.fromRGB(100, 200, 255)
     sep.BackgroundTransparency = 0.5
     sep.BorderSizePixel = 0
@@ -1605,7 +1603,7 @@ local function buildGUI()
     local creditLabel = Instance.new("TextLabel")
     creditLabel.Name = "CreditLabel"
     creditLabel.Size = UDim2.new(1, -24, 0, 14)
-    creditLabel.Position = UDim2.new(0, 12, 0, 280)
+    creditLabel.Position = UDim2.new(0, 12, 0, 274)
     creditLabel.BackgroundTransparency = 1
     creditLabel.Text = "🌸 Credits to momo.1711"
     creditLabel.TextColor3 = Color3.fromRGB(130, 170, 210)
@@ -1618,7 +1616,7 @@ local function buildGUI()
     -- Discord
     local footer = Instance.new("TextLabel")
     footer.Size = UDim2.new(1, -24, 0, 18)
-    footer.Position = UDim2.new(0, 12, 0, 296)
+    footer.Position = UDim2.new(0, 12, 0, 290)
     footer.BackgroundTransparency = 1
     footer.RichText = true
     footer.Text = '<font color="#88aaff">🌸 discord.gg/</font><font color="#66ccff"><b>7Ea7qEsPzP</b></font>'
@@ -1631,7 +1629,7 @@ local function buildGUI()
     
     local footerBtn = Instance.new("TextButton")
     footerBtn.Size = UDim2.new(1, -24, 0, 18)
-    footerBtn.Position = UDim2.new(0, 12, 0, 296)
+    footerBtn.Position = UDim2.new(0, 12, 0, 290)
     footerBtn.BackgroundTransparency = 1
     footerBtn.Text = ""
     footerBtn.AutoButtonColor = false
@@ -1730,4 +1728,14 @@ pcall(setupPaths)
 pcall(buildGUI)
 pcall(startAnnouncementWatcher)
 pcall(startPlayerGuiScanner)
+pcall(startListener)
 print("[KrimoHub V5] Fertig!")
+
+-- Cleanup
+if getgenv then
+    getgenv().StopKrimoHub = function()
+        stopListener()
+        if ScreenGui then ScreenGui:Destroy() end
+        if HistoryGui then HistoryGui:Destroy() end
+    end
+end
