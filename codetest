@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB V4 - ORIGINAL (ZURÜCK ZUM FUNKTIONIERENDEN STAND)
+-- KRIMO HUB V4 - ORIGINAL (MIT GLEICHEN ON/OFF BUTTONS)
 -- ============================================================
 
 -- 1. GLOBALS
@@ -492,7 +492,7 @@ local function buildHistoryGUI()
     end)
 end
 
--- 9. SUBMIT (SCHNELL)
+-- 9. SUBMIT
 local function fireSignal(sig)
     if not sig then return end
     pcall(function()
@@ -566,7 +566,7 @@ local function saveToHistory(Word, fromSammy)
     end
 end
 
--- 11. CODE HINZUFÜGEN (DAS IST DIE AUTO TYPE LOGIK DIE FUNKTIONIERT!)
+-- 11. CODE HINZUFÜGEN
 local function addCode(Code, fromSammy)
     Code = tostring(Code)
     if Code == "" then return end
@@ -607,13 +607,12 @@ local function addCode(Code, fromSammy)
     end
 end
 
--- 12. WATCHER (AUTO TYPE LOGIK - WIE BEVOR!)
+-- 12. WATCHER
 local function watchLabel(Label)
     if not Label:IsA("TextLabel") then return end
     local text = Label.Text
     if text == "" then return end
     
-    -- Riddle Solver (wenn aktiv)
     if _G.RiddleSolverEnabled then
         local answer = answerQuestion(text)
         if answer then
@@ -622,7 +621,6 @@ local function watchLabel(Label)
         end
     end
     
-    -- Jedes Wort als Code behandeln
     for word in text:gmatch("%S+") do
         addCode(word, true)
     end
@@ -716,7 +714,7 @@ local function startPlayerGuiScanner()
     PG.DescendantAdded:Connect(hookUiTextObject)
 end
 
--- 15. GUI BAUEN
+-- 15. GUI BAUEN (ON/OFF BUTTONS JETZT GLEICH GROSS)
 local function buildGUI()
     local old = CoreGui:FindFirstChild("KrimoHubGui")
     if old then old:Destroy() end
@@ -842,7 +840,7 @@ local function buildGUI()
     awLabel.Parent = ContentFrame
     
     local awToggle = Instance.new("TextButton")
-    awToggle.Size = UDim2.new(0, 48, 0, 22)
+    awToggle.Size = UDim2.new(0, 48, 0, 22)  -- GRÖSSE: 48x22
     awToggle.Position = UDim2.new(1, -56, 0, 6)
     awToggle.BackgroundColor3 = _G.AutoWriteEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
     awToggle.Text = _G.AutoWriteEnabled and "ON" or "OFF"
@@ -865,7 +863,7 @@ local function buildGUI()
         end
     end)
     
-    -- ROW 2: Auto Submit + Delay + ON/OFF
+    -- ROW 2: Auto Submit + Delay
     local asLabel = Instance.new("TextLabel")
     asLabel.Size = UDim2.new(0, 85, 0, 22)
     asLabel.Position = UDim2.new(0, 12, 0, 32)
@@ -931,14 +929,15 @@ local function buildGUI()
         end
     end)
     
+    -- Auto Submit ON/OFF Button (JETZT GLEICH GROSS WIE AUTO TYPE: 48x22)
     local asToggle = Instance.new("TextButton")
-    asToggle.Size = UDim2.new(0, 38, 0, 20)
-    asToggle.Position = UDim2.new(1, -46, 0, 33)
+    asToggle.Size = UDim2.new(0, 48, 0, 22)  -- GLEICHE GRÖSSE WIE AUTO TYPE
+    asToggle.Position = UDim2.new(1, -56, 0, 32)
     asToggle.BackgroundColor3 = _G.AutoSubmitEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
     asToggle.Text = _G.AutoSubmitEnabled and "ON" or "OFF"
     asToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
     asToggle.Font = Enum.Font.GothamBold
-    asToggle.TextSize = 9
+    asToggle.TextSize = 10
     asToggle.AutoButtonColor = false
     asToggle.ZIndex = 10
     asToggle.Parent = ContentFrame
