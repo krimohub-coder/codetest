@@ -45,6 +45,7 @@ loadConfig()
 local Announcements = nil
 local CodeTextBox = nil
 local ConfirmButton = nil
+local _delay = 0.5
 
 -- ============================================================
 -- ACE CODE SNIPER AUTO TYPE LOGIK (KOMPLETT ÜBERNOMMEN)
@@ -52,41 +53,9 @@ local ConfirmButton = nil
 local _seen = {}
 local ACE_CASE_MODE = "EXACT"
 local ACE_WORD_COUNT = 1
-local _capturedParts = {}
-local _lastWatchedBox = nil
-local _boxTextConn = nil
-local _boxAncestryConn = nil
-local _boxVisibilityConns = {}
-local _focused = nil
-local _lastBox = nil
-local _lastNonBlankBoxText = ""
+local aceCollectBuffer = {}
 local aceListenConnection = nil
 local aceNotifyRemote = nil
-
-local function isVisibleChain(inst)
-    local current = inst
-    while current do
-        if current:IsA("GuiObject") and not current.Visible then return false end
-        if current:IsA("ScreenGui") then return current.Enabled end
-        current = current.Parent
-    end
-    return true
-end
-
-local function aceCodeBox()
-    local pg = LocalPlayer:FindFirstChild("PlayerGui")
-    if not pg then return nil end
-    for _, gui in ipairs(pg:GetChildren()) do
-        if gui:IsA("ScreenGui") and gui.Enabled then
-            for _, d in ipairs(gui:GetDescendants()) do
-                if d:IsA("TextBox") and d:IsDescendantOf(gui:FindFirstChild("Codes")) then
-                    return d
-                end
-            end
-        end
-    end
-    return CodeTextBox
-end
 
 local function resolveNotifyRemote()
     if _G.PhiNotifyRemote then return _G.PhiNotifyRemote end
@@ -126,42 +95,28 @@ local function aceTokenize(text)
     return words
 end
 
-local function clearBoxWatchers()
-    if _boxTextConn then pcall(function() _boxTextConn:Disconnect() end) end
-    if _boxAncestryConn then pcall(function() _boxAncestryConn:Disconnect() end) end
-    for _, connection in ipairs(_boxVisibilityConns) do pcall(function() connection:Disconnect() end) end
-    _boxTextConn = nil
-    _boxAncestryConn = nil
-    _boxVisibilityConns = {}
-    _lastWatchedBox = nil
+local function isAceAnnouncement(...)
+    local args = table.pack(...)
+    if args.n == 0 or typeof(args[1]) ~= "string" then return false end
+    local ACE_POSITIONS = {
+        Top = true, Bottom = true, Center = true, Middle = true,
+        Left = true, Right = true, TopRight = true, TopLeft = true,
+        BottomRight = true, BottomLeft = true,
+    }
+    for index = 2, args.n do
+        local value = args[index]
+        if typeof(value) == "string"
+        and (value:find("Sounds%.") or value:find("rbxassetid") or ACE_POSITIONS[value]) then
+            return true
+        end
+    end
+    return false
 end
 
-local function watchBoxForBlankReset(box)
-    if not box or _lastWatchedBox == box then return end
-    clearBoxWatchers()
-    _lastWatchedBox = box
-    if box.Text ~= "" then _lastNonBlankBoxText = box.Text end
-    _boxTextConn = box:GetPropertyChangedSignal("Text"):Connect(function()
-        if box.Text == "" then 
-            _capturedParts = {}
-        else 
-            _lastNonBlankBoxText = box.Text 
-        end
-    end)
-    _boxAncestryConn = box.AncestryChanged:Connect(function(_, parent)
-        if not parent then 
-            _capturedParts = {}
-            clearBoxWatchers() 
-        end
-    end)
-end
-
-local aceCollectBuffer = {}
 local function onAceAnnouncement(...)
     if not _G.ScriptEnabled or not _G.AutoWriteEnabled then return end
     local text = aceStripRich(tostring((...) or ""))
-    text = text:match("^%s*(.-)%s*$") or ""
-    if text == "" or text:find("%s") then return end
+    if text == "" then return end
     
     for _, word in ipairs(aceTokenize(text)) do
         aceCollectBuffer[#aceCollectBuffer + 1] = word
@@ -186,11 +141,16 @@ end
 local function startAceListener()
     if aceListenConnection then return end
     aceNotifyRemote = resolveNotifyRemote()
-    if not aceNotifyRemote then return end
+    if not aceNotifyRemote then 
+        print("[KrimoHub] Notification Remote nicht gefunden!")
+        return 
+    end
     aceListenConnection = aceNotifyRemote.OnClientEvent:Connect(function(...)
         if not _G.ScriptEnabled or not _G.AutoWriteEnabled then return end
+        if not isAceAnnouncement(...) then return end
         pcall(onAceAnnouncement, ...)
     end)
+    print("[KrimoHub] ACE Listener gestartet!")
     if getgenv then 
         getgenv().ACECodeSniperNotifyConnection = aceListenConnection 
     end
@@ -244,7 +204,7 @@ local history = {}          -- { word, time }
 local lastAddedWord = ""    -- für Duplikatschutz
 local submitCooldown = false
 
--- 5. RIDDLE DATABASE (GEKÜRZT)
+-- 5. RIDDLE DATABASE
 local SAB_DB = {
     ["who is the owner"] = "SPYDERSAMMY",
     ["game owner"] = "SPYDERSAMMY",
@@ -385,7 +345,6 @@ local PANEL_W = 260
 local PANEL_H = 320
 local isMinimized = false
 local historyOpen = false
-local _delay = 0.5
 
 -- 7. REFRESH MAIN GUI
 local function refreshMainGUI()
@@ -815,7 +774,8 @@ local function addCode(Code, fromSammy)
         saveToHistory(Code, true)
     end
     
-    if not _G.ScriptEnabled or not _G.AutoWriteEnabled then return end    if not CodeTextBox then setupPaths() end
+    if not _G.ScriptEnabled or not _G.AutoWriteEnabled then return end
+    if not CodeTextBox then setupPaths() end
     if not CodeTextBox then return end
     
     table.insert(collectedCodes, Code)
@@ -1055,9 +1015,9 @@ local function buildGUI()
     ContentFrame.ZIndex = 5
     ContentFrame.Parent = MainFrame
     
-    -- ROW 1: Auto Type (mit Delay vor ON/OFF und Button ganz rechts)
+    -- ROW 1: Auto Type (NUR Auto Type, kein Delay)
     local awLabel = Instance.new("TextLabel")
-    awLabel.Size = UDim2.new(0, 75, 0, 22)
+    awLabel.Size = UDim2.new(0, 100, 0, 22)
     awLabel.Position = UDim2.new(0, 12, 0, 6)
     awLabel.BackgroundTransparency = 1
     awLabel.Text = "🌸 Auto Type"
@@ -1068,74 +1028,21 @@ local function buildGUI()
     awLabel.ZIndex = 10
     awLabel.Parent = ContentFrame
     
-    -- Delay Label (vor ON/OFF)
-    local delayLabel = Instance.new("TextLabel")
-    delayLabel.Size = UDim2.new(0, 35, 0, 20)
-    delayLabel.Position = UDim2.new(0, 90, 0, 7)
-    delayLabel.BackgroundTransparency = 1
-    delayLabel.Text = "⏱"
-    delayLabel.TextColor3 = Color3.fromRGB(180, 210, 240)
-    delayLabel.Font = Enum.Font.Gotham
-    delayLabel.TextSize = 12
-    delayLabel.TextXAlignment = Enum.TextXAlignment.Center
-    delayLabel.ZIndex = 10
-    delayLabel.Parent = ContentFrame
-    
-    local delayBox = Instance.new("TextBox")
-    delayBox.Name = "DelayBox"
-    delayBox.Size = UDim2.new(0, 30, 0, 20)
-    delayBox.Position = UDim2.new(0, 128, 0, 7)
-    delayBox.BackgroundColor3 = Color3.fromRGB(20, 30, 50)
-    delayBox.BackgroundTransparency = 0.3
-    delayBox.BorderSizePixel = 0
-    delayBox.Font = Enum.Font.GothamBold
-    delayBox.Text = tostring(_delay)
-    delayBox.TextColor3 = Color3.fromRGB(200, 230, 255)
-    delayBox.TextSize = 11
-    delayBox.TextXAlignment = Enum.TextXAlignment.Center
-    delayBox.ClearTextOnFocus = false
-    delayBox.ZIndex = 10
-    delayBox.Parent = ContentFrame
-    do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = delayBox end
-    
-    local setDelayBtn = Instance.new("TextButton")
-    setDelayBtn.Size = UDim2.new(0, 28, 0, 20)
-    setDelayBtn.Position = UDim2.new(0, 162, 0, 7)
-    setDelayBtn.BackgroundColor3 = Color3.fromRGB(40, 60, 90)
-    setDelayBtn.Text = "Set"
-    setDelayBtn.TextColor3 = Color3.fromRGB(200, 230, 255)
-    setDelayBtn.Font = Enum.Font.GothamBold
-    setDelayBtn.TextSize = 8
-    setDelayBtn.AutoButtonColor = true
-    setDelayBtn.ZIndex = 10
-    setDelayBtn.Parent = ContentFrame
-    do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = setDelayBtn end
-    
-    setDelayBtn.MouseButton1Click:Connect(function()
-        local val = tonumber(delayBox.Text)
-        if val and val >= 0 then
-            _delay = val
-            delayBox.Text = tostring(_delay)
-        else
-            delayBox.Text = tostring(_delay)
-        end
-    end)
-    
-    -- Status Label (vor ON/OFF)
+    -- Status Label
     local statusLabel = Instance.new("TextLabel")
     statusLabel.Name = "StatusLabel"
     statusLabel.Size = UDim2.new(0, 60, 0, 16)
-    statusLabel.Position = UDim2.new(0, 194, 0, 9)
+    statusLabel.Position = UDim2.new(1, -110, 0, 9)
     statusLabel.BackgroundTransparency = 1
     statusLabel.Text = _G.AutoWriteEnabled and "🟢" or "⏸"
     statusLabel.TextColor3 = _G.AutoWriteEnabled and Color3.fromRGB(80, 255, 120) or Color3.fromRGB(255, 200, 50)
     statusLabel.Font = Enum.Font.Gotham
     statusLabel.TextSize = 12
-    statusLabel.TextXAlignment = Enum.TextXAlignment.Left
+    statusLabel.TextXAlignment = Enum.TextXAlignment.Right
     statusLabel.ZIndex = 10
     statusLabel.Parent = ContentFrame
     
-    -- ON/OFF Button (ganz rechts)
+    -- ON/OFF Button
     local awToggle = Instance.new("TextButton")
     awToggle.Size = UDim2.new(0, 34, 0, 20)
     awToggle.Position = UDim2.new(1, -44, 0, 7)
@@ -1167,9 +1074,9 @@ local function buildGUI()
         end
     end)
     
-    -- ROW 2: Auto Submit
+    -- ROW 2: Auto Submit + Delay
     local asLabel = Instance.new("TextLabel")
-    asLabel.Size = UDim2.new(0, 100, 0, 22)
+    asLabel.Size = UDim2.new(0, 80, 0, 22)
     asLabel.Position = UDim2.new(0, 12, 0, 32)
     asLabel.BackgroundTransparency = 1
     asLabel.Text = "🌸 Auto Submit"
@@ -1181,13 +1088,13 @@ local function buildGUI()
     asLabel.Parent = ContentFrame
     
     local asToggle = Instance.new("TextButton")
-    asToggle.Size = UDim2.new(0, 48, 0, 22)
-    asToggle.Position = UDim2.new(1, -56, 0, 32)
+    asToggle.Size = UDim2.new(0, 34, 0, 20)
+    asToggle.Position = UDim2.new(0, 96, 0, 33)
     asToggle.BackgroundColor3 = _G.AutoSubmitEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
     asToggle.Text = _G.AutoSubmitEnabled and "ON" or "OFF"
     asToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
     asToggle.Font = Enum.Font.GothamBold
-    asToggle.TextSize = 10
+    asToggle.TextSize = 9
     asToggle.AutoButtonColor = false
     asToggle.ZIndex = 10
     asToggle.Parent = ContentFrame
@@ -1197,6 +1104,59 @@ local function buildGUI()
         _G.AutoSubmitEnabled = not _G.AutoSubmitEnabled
         asToggle.BackgroundColor3 = _G.AutoSubmitEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
         asToggle.Text = _G.AutoSubmitEnabled and "ON" or "OFF"
+    end)
+    
+    -- Delay (neben Auto Submit, VOR dem Button)
+    local delayLabel = Instance.new("TextLabel")
+    delayLabel.Size = UDim2.new(0, 35, 0, 20)
+    delayLabel.Position = UDim2.new(0, 140, 0, 33)
+    delayLabel.BackgroundTransparency = 1
+    delayLabel.Text = "⏱"
+    delayLabel.TextColor3 = Color3.fromRGB(180, 210, 240)
+    delayLabel.Font = Enum.Font.Gotham
+    delayLabel.TextSize = 12
+    delayLabel.TextXAlignment = Enum.TextXAlignment.Center
+    delayLabel.ZIndex = 10
+    delayLabel.Parent = ContentFrame
+    
+    local delayBox = Instance.new("TextBox")
+    delayBox.Name = "DelayBox"
+    delayBox.Size = UDim2.new(0, 30, 0, 20)
+    delayBox.Position = UDim2.new(0, 178, 0, 33)
+    delayBox.BackgroundColor3 = Color3.fromRGB(20, 30, 50)
+    delayBox.BackgroundTransparency = 0.3
+    delayBox.BorderSizePixel = 0
+    delayBox.Font = Enum.Font.GothamBold
+    delayBox.Text = tostring(_delay)
+    delayBox.TextColor3 = Color3.fromRGB(200, 230, 255)
+    delayBox.TextSize = 11
+    delayBox.TextXAlignment = Enum.TextXAlignment.Center
+    delayBox.ClearTextOnFocus = false
+    delayBox.ZIndex = 10
+    delayBox.Parent = ContentFrame
+    do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = delayBox end
+    
+    local setDelayBtn = Instance.new("TextButton")
+    setDelayBtn.Size = UDim2.new(0, 28, 0, 20)
+    setDelayBtn.Position = UDim2.new(0, 212, 0, 33)
+    setDelayBtn.BackgroundColor3 = Color3.fromRGB(40, 60, 90)
+    setDelayBtn.Text = "Set"
+    setDelayBtn.TextColor3 = Color3.fromRGB(200, 230, 255)
+    setDelayBtn.Font = Enum.Font.GothamBold
+    setDelayBtn.TextSize = 8
+    setDelayBtn.AutoButtonColor = true
+    setDelayBtn.ZIndex = 10
+    setDelayBtn.Parent = ContentFrame
+    do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = setDelayBtn end
+    
+    setDelayBtn.MouseButton1Click:Connect(function()
+        local val = tonumber(delayBox.Text)
+        if val and val >= 0 then
+            _delay = val
+            delayBox.Text = tostring(_delay)
+        else
+            delayBox.Text = tostring(_delay)
+        end
     end)
     
     -- Submit After Count
