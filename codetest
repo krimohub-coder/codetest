@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB V4 - NEUES DESIGN (SCHWARZ + HELLBLAU FLOWER)
+-- KRIMO HUB V4 - ORIGINAL (ZURÜCK ZUM FUNKTIONIERENDEN STAND)
 -- ============================================================
 
 -- 1. GLOBALS
@@ -43,6 +43,7 @@ loadConfig()
 local Announcements = nil
 local CodeTextBox = nil
 local ConfirmButton = nil
+local _delay = 0.5
 
 local function setupPaths()
     pcall(function()
@@ -80,7 +81,6 @@ local submitCooldown = false
 
 -- 5. RIDDLE DATABASE (GEKÜRZT)
 local SAB_DB = {
-    -- Team
     ["who is the owner"] = "SPYDERSAMMY",
     ["who owns the game"] = "SPYDERSAMMY",
     ["game owner"] = "SPYDERSAMMY",
@@ -97,8 +97,6 @@ local SAB_DB = {
     ["artist"] = "GROWAGARDEN",
     ["who tested the game"] = "RACOONINI JANDELINI",
     ["tester"] = "RACOONINI JANDELINI",
-    
-    -- Statistiken
     ["how old am i"] = "24",
     ["how old is sammy"] = "24",
     ["age"] = "24",
@@ -107,7 +105,6 @@ local SAB_DB = {
     ["favorite color"] = "BLUE",
     ["fav color"] = "BLUE",
     ["color"] = "BLUE",
-    ["favorite football player"] = "RONALDO",
     ["ronaldo"] = "RONALDO",
     ["game created on"] = "FRIDAY",
     ["release date"] = "MAY162025",
@@ -115,8 +112,6 @@ local SAB_DB = {
     ["fire represents"] = "DRAGON",
     ["won the world cup"] = "SPAIN",
     ["world cup winner"] = "SPAIN",
-    
-    -- Mutationen
     ["first mutation"] = "CURSED",
     ["1st mutation"] = "CURSED",
     ["second mutation"] = "DIVINE",
@@ -137,8 +132,6 @@ local SAB_DB = {
     ["9th mutation"] = "DEMONIC",
     ["tenth mutation"] = "VOID",
     ["10th mutation"] = "VOID",
-    
-    -- OGs (nur 6)
     ["first og"] = "STRAWBERRYELEPHANT",
     ["1st og"] = "STRAWBERRYELEPHANT",
     ["second og"] = "SKIBIDITOILET",
@@ -151,8 +144,6 @@ local SAB_DB = {
     ["5th og"] = "HEADLESS HORSEMAN",
     ["sixth og"] = "CERBERUS",
     ["6th og"] = "CERBERUS",
-    
-    -- Codes
     ["code 1"] = "SAB2024",
     ["code 2"] = "SAMMYGIFT",
     ["code 3"] = "BRAINROT",
@@ -163,54 +154,6 @@ local SAB_DB = {
     ["code 8"] = "KEYBOARD",
     ["code 9"] = "ESCAPE",
     ["code 10"] = "RAINBOW",
-    ["code 11"] = "MOO",
-    ["code 12"] = "SECRET",
-    ["code 13"] = "LOKII",
-    ["code 14"] = "GARDEN",
-    ["code 15"] = "RACOON",
-    ["code 16"] = "JANDELINI",
-    ["code 17"] = "KARKER",
-    ["code 18"] = "BRAZIL",
-    ["code 19"] = "RONALDO",
-    ["code 20"] = "SPAIN",
-    
-    -- Maschinen
-    ["first machine"] = "RAINBOW MACHINE",
-    ["1st machine"] = "RAINBOW MACHINE",
-    ["second machine"] = "BUBBLEGUM MACHINE",
-    ["2nd machine"] = "BUBBLEGUM MACHINE",
-    ["third machine"] = "FUSE MACHINE",
-    ["3rd machine"] = "FUSE MACHINE",
-    ["fourth machine"] = "CRAFT MACHINE",
-    ["4th machine"] = "CRAFT MACHINE",
-    ["fifth machine"] = "WITCH FUSE",
-    ["5th machine"] = "WITCH FUSE",
-    ["sixth machine"] = "BRAINROT DEALER",
-    ["6th machine"] = "BRAINROT DEALER",
-    ["seventh machine"] = "BRAINROT TRADER",
-    ["7th machine"] = "BRAINROT TRADER",
-    ["eighth machine"] = "SANTA'S FUSE",
-    ["8th machine"] = "SANTA'S FUSE",
-    ["ninth machine"] = "SANTA'S SHOP",
-    ["9th machine"] = "SANTA'S SHOP",
-    ["tenth machine"] = "NEW YEAR'S MACHINE",
-    ["10th machine"] = "NEW YEAR'S MACHINE",
-    ["eleventh machine"] = "DUELS MACHINE",
-    ["11th machine"] = "DUELS MACHINE",
-    ["twelfth machine"] = "CUPID'S MACHINE",
-    ["12th machine"] = "CUPID'S MACHINE",
-    ["thirteenth machine"] = "TRADE MACHINE",
-    ["13th machine"] = "TRADE MACHINE",
-    ["fourteenth machine"] = "DIVINE FUSE",
-    ["14th machine"] = "DIVINE FUSE",
-    ["fifteenth machine"] = "EGG INCUBATOR",
-    ["15th machine"] = "EGG INCUBATOR",
-    ["sixteenth machine"] = "CYBER CRAFT MACHINE",
-    ["16th machine"] = "CYBER CRAFT MACHINE",
-    ["seventeenth machine"] = "SUMMER FUSE",
-    ["17th machine"] = "SUMMER FUSE",
-    ["eighteenth machine"] = "LOS TRADERS",
-    ["18th machine"] = "LOS TRADERS",
 }
 
 local function answerQuestion(text)
@@ -228,8 +171,8 @@ local ScreenGui = nil
 local HistoryGui = nil
 local HistoryFrame = nil
 local HistoryScroll = nil
-local PANEL_W = 240
-local PANEL_H = 280
+local PANEL_W = 260
+local PANEL_H = 300
 local isMinimized = false
 local historyOpen = false
 
@@ -549,7 +492,7 @@ local function buildHistoryGUI()
     end)
 end
 
--- 9. SUBMIT (SCHNELL - OHNE LANGEN COOLDOWN)
+-- 9. SUBMIT (SCHNELL)
 local function fireSignal(sig)
     if not sig then return end
     pcall(function()
@@ -567,11 +510,10 @@ end
 local function triggerSubmit()
     if submitCooldown then return false end
     submitCooldown = true
-    task.delay(0.15, function() submitCooldown = false end)  -- NUR 0.15 SEKUNDEN
+    task.delay(0.15, function() submitCooldown = false end)
     
     setupPaths()
     
-    -- Erst ConfirmButton versuchen
     if ConfirmButton and ConfirmButton.Parent then
         pcall(function()
             fireSignal(ConfirmButton.MouseButton1Click)
@@ -582,7 +524,6 @@ local function triggerSubmit()
         return true
     end
     
-    -- Alternative: PlayerGui durchsuchen
     local PlayerGui = LocalPlayer:FindFirstChild("PlayerGui")
     if PlayerGui then
         for _, obj in ipairs(PlayerGui:GetDescendants()) do
@@ -604,8 +545,9 @@ local function triggerSubmit()
     return false
 end
 
--- 10. HISTORY SPEICHERN (NUR EINZELNE WÖRTER)
+-- 10. HISTORY SPEICHERN
 local function saveToHistory(Word, fromSammy)
+    if not _G.HistoryEnabled then return end
     if not fromSammy then return end
     if not Word or Word == "" then return end
     if Word:find(" ") then return end
@@ -624,7 +566,7 @@ local function saveToHistory(Word, fromSammy)
     end
 end
 
--- 11. CODE HINZUFÜGEN
+-- 11. CODE HINZUFÜGEN (DAS IST DIE AUTO TYPE LOGIK DIE FUNKTIONIERT!)
 local function addCode(Code, fromSammy)
     Code = tostring(Code)
     if Code == "" then return end
@@ -665,7 +607,7 @@ local function addCode(Code, fromSammy)
     end
 end
 
--- 12. WATCHER (DAS IST DIE AUTO TYPE LOGIK DIE FUNKTIONIERT HAT!)
+-- 12. WATCHER (AUTO TYPE LOGIK - WIE BEVOR!)
 local function watchLabel(Label)
     if not Label:IsA("TextLabel") then return end
     local text = Label.Text
@@ -774,7 +716,7 @@ local function startPlayerGuiScanner()
     PG.DescendantAdded:Connect(hookUiTextObject)
 end
 
--- 15. GUI BAUEN (KLEINER)
+-- 15. GUI BAUEN
 local function buildGUI()
     local old = CoreGui:FindFirstChild("KrimoHubGui")
     if old then old:Destroy() end
@@ -923,9 +865,9 @@ local function buildGUI()
         end
     end)
     
-    -- ROW 2: Auto Submit
+    -- ROW 2: Auto Submit + Delay + ON/OFF
     local asLabel = Instance.new("TextLabel")
-    asLabel.Size = UDim2.new(0, 100, 0, 22)
+    asLabel.Size = UDim2.new(0, 85, 0, 22)
     asLabel.Position = UDim2.new(0, 12, 0, 32)
     asLabel.BackgroundTransparency = 1
     asLabel.Text = "🌸 Auto Submit"
@@ -936,14 +878,67 @@ local function buildGUI()
     asLabel.ZIndex = 10
     asLabel.Parent = ContentFrame
     
+    -- Delay
+    local delayLabel = Instance.new("TextLabel")
+    delayLabel.Size = UDim2.new(0, 16, 0, 20)
+    delayLabel.Position = UDim2.new(0, 100, 0, 33)
+    delayLabel.BackgroundTransparency = 1
+    delayLabel.Text = "⏱"
+    delayLabel.TextColor3 = Color3.fromRGB(180, 210, 240)
+    delayLabel.Font = Enum.Font.Gotham
+    delayLabel.TextSize = 12
+    delayLabel.TextXAlignment = Enum.TextXAlignment.Center
+    delayLabel.ZIndex = 10
+    delayLabel.Parent = ContentFrame
+    
+    local delayBox = Instance.new("TextBox")
+    delayBox.Name = "DelayBox"
+    delayBox.Size = UDim2.new(0, 28, 0, 20)
+    delayBox.Position = UDim2.new(0, 120, 0, 33)
+    delayBox.BackgroundColor3 = Color3.fromRGB(20, 30, 50)
+    delayBox.BackgroundTransparency = 0.3
+    delayBox.BorderSizePixel = 0
+    delayBox.Font = Enum.Font.GothamBold
+    delayBox.Text = tostring(_delay)
+    delayBox.TextColor3 = Color3.fromRGB(200, 230, 255)
+    delayBox.TextSize = 11
+    delayBox.TextXAlignment = Enum.TextXAlignment.Center
+    delayBox.ClearTextOnFocus = false
+    delayBox.ZIndex = 10
+    delayBox.Parent = ContentFrame
+    do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = delayBox end
+    
+    local setDelayBtn = Instance.new("TextButton")
+    setDelayBtn.Size = UDim2.new(0, 26, 0, 20)
+    setDelayBtn.Position = UDim2.new(0, 152, 0, 33)
+    setDelayBtn.BackgroundColor3 = Color3.fromRGB(40, 60, 90)
+    setDelayBtn.Text = "Set"
+    setDelayBtn.TextColor3 = Color3.fromRGB(200, 230, 255)
+    setDelayBtn.Font = Enum.Font.GothamBold
+    setDelayBtn.TextSize = 8
+    setDelayBtn.AutoButtonColor = true
+    setDelayBtn.ZIndex = 10
+    setDelayBtn.Parent = ContentFrame
+    do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = setDelayBtn end
+    
+    setDelayBtn.MouseButton1Click:Connect(function()
+        local val = tonumber(delayBox.Text)
+        if val and val >= 0 then
+            _delay = val
+            delayBox.Text = tostring(_delay)
+        else
+            delayBox.Text = tostring(_delay)
+        end
+    end)
+    
     local asToggle = Instance.new("TextButton")
-    asToggle.Size = UDim2.new(0, 48, 0, 22)
-    asToggle.Position = UDim2.new(1, -56, 0, 32)
+    asToggle.Size = UDim2.new(0, 38, 0, 20)
+    asToggle.Position = UDim2.new(1, -46, 0, 33)
     asToggle.BackgroundColor3 = _G.AutoSubmitEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
     asToggle.Text = _G.AutoSubmitEnabled and "ON" or "OFF"
     asToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
     asToggle.Font = Enum.Font.GothamBold
-    asToggle.TextSize = 10
+    asToggle.TextSize = 9
     asToggle.AutoButtonColor = false
     asToggle.ZIndex = 10
     asToggle.Parent = ContentFrame
@@ -1131,7 +1126,7 @@ local function buildGUI()
     -- Code-Liste
     local codeListFrame = Instance.new("Frame")
     codeListFrame.Name = "CodeListFrame"
-    codeListFrame.Size = UDim2.new(1, -24, 0, 72)
+    codeListFrame.Size = UDim2.new(1, -24, 0, 78)
     codeListFrame.Position = UDim2.new(0, 12, 0, 158)
     codeListFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 22)
     codeListFrame.BackgroundTransparency = 0.3
@@ -1179,7 +1174,7 @@ local function buildGUI()
     -- Separator
     local sep = Instance.new("Frame")
     sep.Size = UDim2.new(1, -24, 0, 1)
-    sep.Position = UDim2.new(0, 12, 0, 233)
+    sep.Position = UDim2.new(0, 12, 0, 239)
     sep.BackgroundColor3 = Color3.fromRGB(100, 200, 255)
     sep.BackgroundTransparency = 0.5
     sep.BorderSizePixel = 0
@@ -1190,7 +1185,7 @@ local function buildGUI()
     local creditLabel = Instance.new("TextLabel")
     creditLabel.Name = "CreditLabel"
     creditLabel.Size = UDim2.new(1, -24, 0, 14)
-    creditLabel.Position = UDim2.new(0, 12, 0, 238)
+    creditLabel.Position = UDim2.new(0, 12, 0, 244)
     creditLabel.BackgroundTransparency = 1
     creditLabel.Text = "🌸 Credits to momo.1711"
     creditLabel.TextColor3 = Color3.fromRGB(130, 170, 210)
@@ -1203,7 +1198,7 @@ local function buildGUI()
     -- Discord
     local footer = Instance.new("TextLabel")
     footer.Size = UDim2.new(1, -24, 0, 18)
-    footer.Position = UDim2.new(0, 12, 0, 254)
+    footer.Position = UDim2.new(0, 12, 0, 260)
     footer.BackgroundTransparency = 1
     footer.RichText = true
     footer.Text = '<font color="#88aaff">🌸 discord.gg/</font><font color="#66ccff"><b>7Ea7qEsPzP</b></font>'
@@ -1216,7 +1211,7 @@ local function buildGUI()
     
     local footerBtn = Instance.new("TextButton")
     footerBtn.Size = UDim2.new(1, -24, 0, 18)
-    footerBtn.Position = UDim2.new(0, 12, 0, 254)
+    footerBtn.Position = UDim2.new(0, 12, 0, 260)
     footerBtn.BackgroundTransparency = 1
     footerBtn.Text = ""
     footerBtn.AutoButtonColor = false
