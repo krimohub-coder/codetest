@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB V4 - MIT RICHTIGER AUTO TYPE LOGIK
+-- KRIMO HUB V4 - NEUES DESIGN (SCHWARZ + HELLBLAU FLOWER)
 -- ============================================================
 
 -- 1. GLOBALS
@@ -16,8 +16,6 @@ local CoreGui = game:GetService("CoreGui")
 local UserInputService = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Stats = game:GetService("Stats")
 
 -- 2. PERSISTENZ
 local CONFIG_PATH = "KrimoHub_config.json"
@@ -46,112 +44,6 @@ local Announcements = nil
 local CodeTextBox = nil
 local ConfirmButton = nil
 
--- ============================================================
--- AUTO TYPE LOGIK (AUS DEINEM ORIGINAL SCRIPT)
--- ============================================================
-local globalRemote = nil
-local isAutoTypeActive = false
-local targetBox = nil
-local KNOWN_HASH = "631ab0616c0445747139929dee141f4f24b2d7393b69ef081421b99587bfe780"
-
--- Die pasteCode Funktion (fügt Code in die Textbox ein)
-local function pasteCode(text)
-    local code = text:gsub("%s+", "")
-    if code == "" then return end
-
-    -- Code zu collectedCodes hinzufügen
-    addCode(code, true)
-end
-
--- Prüft ob es ein Broadcast ist
-local function isGlobalBroadcast(a1, a2, a3)
-    if type(a1) ~= "string" then return false end
-    if #a1 < 1 or #a1 > 500 then return false end
-    if type(a2) ~= "number" then return false end
-    if type(a3) ~= "string" then return false end
-    if not a3:find("Sounds", 1, true) then return false end
-    return true
-end
-
--- Remote hooken
-local function hookRemote(remote)
-    if globalRemote then return end
-    globalRemote = remote
-    isAutoTypeActive = true
-    print("[KrimoHub] Auto Type hooked: " .. remote:GetFullName())
-    remote.OnClientEvent:Connect(function(a1, a2, a3)
-        if not _G.ScriptEnabled or not _G.AutoWriteEnabled then return end
-        if type(a1) ~= "string" or #a1 < 1 then return end
-        print("[KrimoHub] Broadcast: " .. a1)
-        pasteCode(a1)
-    end)
-end
-
--- Remote finden und hooken
-local function startAutoType()
-    if isAutoTypeActive then return end
-    if globalRemote then 
-        isAutoTypeActive = true
-        return 
-    end
-    
-    local ok, net = pcall(function()
-        return ReplicatedStorage:WaitForChild("Packages", 10):WaitForChild("Net", 10)
-    end)
-    if not ok or not net then
-        print("[KrimoHub] Net folder not found")
-        return
-    end
-
-    -- 1) Try known hash
-    local function findByHash(parent)
-        for _, child in ipairs(parent:GetChildren()) do
-            if child:IsA("RemoteEvent") and child.Name:find(KNOWN_HASH, 1, true) then
-                return child
-            end
-            local r = findByHash(child)
-            if r then return r end
-        end
-    end
-    local found = findByHash(net)
-    if found then
-        hookRemote(found)
-        return
-    end
-
-    -- 2) Fallback: auto-detect
-    local function attachCandidate(remote)
-        remote.OnClientEvent:Connect(function(a1, a2, a3)
-            if globalRemote then return end
-            if isGlobalBroadcast(a1, a2, a3) then
-                hookRemote(remote)
-            end
-        end)
-    end
-
-    local function scan(parent)
-        for _, child in ipairs(parent:GetChildren()) do
-            if child:IsA("RemoteEvent") then attachCandidate(child) end
-            pcall(scan, child)
-        end
-    end
-    scan(net)
-    net.DescendantAdded:Connect(function(obj)
-        if obj:IsA("RemoteEvent") and not globalRemote then
-            attachCandidate(obj)
-        end
-    end)
-end
-
-local function stopAutoType()
-    isAutoTypeActive = false
-    -- Remote bleibt, wird aber ignoriert weil _G.AutoWriteEnabled geprüft wird
-end
-
--- ============================================================
--- ENDE AUTO TYPE LOGIK
--- ============================================================
-
 local function setupPaths()
     pcall(function()
         local PlayerGui = LocalPlayer:FindFirstChild("PlayerGui")
@@ -171,7 +63,6 @@ local function setupPaths()
                     CodeTextBox = codeRedeem:FindFirstChild("TextBox")
                     if CodeTextBox then
                         CodeTextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-                        targetBox = CodeTextBox -- Setze targetBox für Auto Type
                     end
                 end
                 ConfirmButton = codesInner:FindFirstChild("Confirm")
@@ -186,9 +77,12 @@ local AddedCount = 0
 local history = {}          -- { word, time }
 local lastAddedWord = ""    -- für Duplikatschutz
 local submitCooldown = false
+local pendingRejectedText = nil
+local pendingRejectedToken = 0
 
 -- 5. RIDDLE DATABASE
 local SAB_DB = {
+    -- Team
     ["who is the owner"] = "SPYDERSAMMY",
     ["who owns the game"] = "SPYDERSAMMY",
     ["game owner"] = "SPYDERSAMMY",
@@ -205,6 +99,8 @@ local SAB_DB = {
     ["artist"] = "GROWAGARDEN",
     ["who tested the game"] = "RACOONINI JANDELINI",
     ["tester"] = "RACOONINI JANDELINI",
+    
+    -- Statistiken
     ["how old am i"] = "24",
     ["how old is sammy"] = "24",
     ["age"] = "24",
@@ -221,6 +117,8 @@ local SAB_DB = {
     ["fire represents"] = "DRAGON",
     ["won the world cup"] = "SPAIN",
     ["world cup winner"] = "SPAIN",
+    
+    -- Mutationen
     ["first mutation"] = "CURSED",
     ["1st mutation"] = "CURSED",
     ["second mutation"] = "DIVINE",
@@ -241,6 +139,8 @@ local SAB_DB = {
     ["9th mutation"] = "DEMONIC",
     ["tenth mutation"] = "VOID",
     ["10th mutation"] = "VOID",
+    
+    -- OGs (nur 6)
     ["first og"] = "STRAWBERRYELEPHANT",
     ["1st og"] = "STRAWBERRYELEPHANT",
     ["second og"] = "SKIBIDITOILET",
@@ -253,6 +153,8 @@ local SAB_DB = {
     ["5th og"] = "HEADLESS HORSEMAN",
     ["sixth og"] = "CERBERUS",
     ["6th og"] = "CERBERUS",
+    
+    -- Codes
     ["code 1"] = "SAB2024",
     ["code 2"] = "SAMMYGIFT",
     ["code 3"] = "BRAINROT",
@@ -273,6 +175,8 @@ local SAB_DB = {
     ["code 18"] = "BRAZIL",
     ["code 19"] = "RONALDO",
     ["code 20"] = "SPAIN",
+    
+    -- Maschinen
     ["first machine"] = "RAINBOW MACHINE",
     ["1st machine"] = "RAINBOW MACHINE",
     ["second machine"] = "BUBBLEGUM MACHINE",
@@ -394,7 +298,7 @@ local function refreshMainGUI()
     end
 end
 
--- 8. HISTORY
+-- 8. HISTORY (MIT ON/OFF TOGGLE)
 local function updateHistoryContent()
     if not HistoryScroll then return end
     
@@ -519,7 +423,7 @@ local function buildHistoryGUI()
     HistoryFrame.Name = "HistoryFrame"
     HistoryFrame.AnchorPoint = Vector2.new(0, 0.5)
     HistoryFrame.Position = UDim2.new(0, 10, 0.5, 0)
-    HistoryFrame.Size = UDim2.new(0, 200, 0, 170)
+    HistoryFrame.Size = UDim2.new(0, 220, 0, 170)  -- Etwas breiter für den Toggle
     HistoryFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
     HistoryFrame.BackgroundTransparency = 0.05
     HistoryFrame.BorderSizePixel = 0
@@ -542,7 +446,7 @@ local function buildHistoryGUI()
     
     local tl = Instance.new("TextLabel")
     tl.Name = "TitleLabel"
-    tl.Size = UDim2.new(0.4, 0, 1, 0)
+    tl.Size = UDim2.new(0.35, 0, 1, 0)
     tl.Position = UDim2.new(0, 8, 0, 0)
     tl.BackgroundTransparency = 1
     tl.Text = "📜 History (0)"
@@ -552,6 +456,31 @@ local function buildHistoryGUI()
     tl.TextXAlignment = Enum.TextXAlignment.Left
     tl.ZIndex = 10
     tl.Parent = tb
+    
+    -- === NEU: ON/OFF Toggle für History ===
+    local historyToggle = Instance.new("TextButton")
+    historyToggle.Name = "HistoryToggle"
+    historyToggle.Size = UDim2.new(0, 38, 0, 18)
+    historyToggle.Position = UDim2.new(0.35, 8, 0.5, -9)
+    historyToggle.BackgroundColor3 = _G.HistoryEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
+    historyToggle.Text = _G.HistoryEnabled and "ON" or "OFF"
+    historyToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    historyToggle.Font = Enum.Font.GothamBold
+    historyToggle.TextSize = 8
+    historyToggle.AutoButtonColor = false
+    historyToggle.ZIndex = 10
+    historyToggle.Parent = tb
+    do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 3) co.Parent = historyToggle end
+    
+    historyToggle.MouseButton1Click:Connect(function()
+        _G.HistoryEnabled = not _G.HistoryEnabled
+        historyToggle.BackgroundColor3 = _G.HistoryEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
+        historyToggle.Text = _G.HistoryEnabled and "ON" or "OFF"
+        -- History GUI aktualisieren wenn ON
+        if _G.HistoryEnabled then
+            updateHistoryContent()
+        end
+    end)
     
     local resetHistoryBtn = Instance.new("TextButton")
     resetHistoryBtn.Name = "ResetHistoryBtn"
@@ -700,8 +629,10 @@ local function triggerSubmit()
     return false
 end
 
--- 10. HISTORY SPEICHERN (NUR EINZELNE WÖRTER)
+-- 10. HISTORY SPEICHERN (NUR WENN _G.HistoryEnabled TRUE IST)
 local function saveToHistory(Word, fromSammy)
+    -- NUR speichern wenn HistoryEnabled TRUE ist
+    if not _G.HistoryEnabled then return end
     if not fromSammy then return end
     if not Word or Word == "" then return end
     if Word:find(" ") then return end
@@ -761,7 +692,7 @@ local function addCode(Code, fromSammy)
     end
 end
 
--- 12. WATCHER (NUR FÜR RIDDLE SOLVER)
+-- 12. WATCHER
 local function watchLabel(Label)
     if not Label:IsA("TextLabel") then return end
     local text = Label.Text
@@ -773,6 +704,10 @@ local function watchLabel(Label)
             addCode(answer, true)
             return
         end
+    end
+    
+    for word in text:gmatch("%S+") do
+        addCode(word, true)
     end
 end
 
@@ -1006,12 +941,7 @@ local function buildGUI()
         _G.AutoWriteEnabled = not _G.AutoWriteEnabled
         awToggle.BackgroundColor3 = _G.AutoWriteEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
         awToggle.Text = _G.AutoWriteEnabled and "ON" or "OFF"
-        if _G.AutoWriteEnabled then
-            if not isAutoTypeActive then
-                startAutoType()
-            end
-        else
-            stopAutoType()
+        if not _G.AutoWriteEnabled then
             table.clear(collectedCodes)
             AddedCount = 0
             refreshMainGUI()
@@ -1410,13 +1340,4 @@ pcall(setupPaths)
 pcall(buildGUI)
 pcall(startAnnouncementWatcher)
 pcall(startPlayerGuiScanner)
-pcall(startAutoType)  -- Auto Type beim Start aktivieren (wenn enabled)
 print("[KrimoHub V4] Fertig!")
-
--- Cleanup
-if getgenv then
-    getgenv().StopKrimoHub = function()
-        if ScreenGui then ScreenGui:Destroy() end
-        if HistoryGui then HistoryGui:Destroy() end
-    end
-end
