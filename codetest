@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB V4 - ORIGINAL (MIT KORREKTEN RIDDLES)
+-- KRIMO HUB V4 - FIXED (RESETTET BEI JEDEM REDEEM)
 -- ============================================================
 
 -- 1. GLOBALS
@@ -44,6 +44,7 @@ local Announcements = nil
 local CodeTextBox = nil
 local ConfirmButton = nil
 local _delay = 0  -- DEFAULT AUF 0
+local _confirmListenerAdded = false
 
 local function setupPaths()
     pcall(function()
@@ -67,6 +68,15 @@ local function setupPaths()
                     end
                 end
                 ConfirmButton = codesInner:FindFirstChild("Confirm")
+                -- NEU: Listener für manuellen Klick auf den Confirm-Button
+                if ConfirmButton and not _confirmListenerAdded then
+                    _confirmListenerAdded = true
+                    ConfirmButton.MouseButton1Click:Connect(function()
+                        -- Verzögerung, damit das Spiel den Code noch verarbeiten kann
+                        task.wait(0.1)
+                        resetCodes()
+                    end)
+                end
             end
         end
     end)
@@ -638,14 +648,13 @@ local function addCode(Code, fromSammy)
     
     if _G.AutoSubmitEnabled and #collectedCodes >= _G.SubmitAfterCount then
         local success = triggerSubmit()
-        if success then
-            task.wait(0.05)
-            table.clear(collectedCodes)
-            AddedCount = 0
-            refreshMainGUI()
-            if CodeTextBox then CodeTextBox.Text = "" end
-        else
-            print("[KrimoHub] Submit fehlgeschlagen, Codes bleiben erhalten")
+        -- *** FIX: Immer zurücksetzen, egal ob Submit erfolgreich war oder nicht ***
+        table.clear(collectedCodes)
+        AddedCount = 0
+        refreshMainGUI()
+        if CodeTextBox then CodeTextBox.Text = "" end
+        if not success then
+            print("[KrimoHub] Submit fehlgeschlagen, aber Codes wurden trotzdem zurückgesetzt.")
         end
     end
 end
