@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB V4 - FIXED (RESETTET BEI JEDEM REDEEM)
+-- KRIMO HUB V4 - HISTORY FIX (Speichert unabhängig vom Fenster)
 -- ============================================================
 
 -- 1. GLOBALS
@@ -43,7 +43,7 @@ loadConfig()
 local Announcements = nil
 local CodeTextBox = nil
 local ConfirmButton = nil
-local _delay = 0  -- DEFAULT AUF 0
+local _delay = 0
 local _confirmListenerAdded = false
 
 local function setupPaths()
@@ -68,11 +68,9 @@ local function setupPaths()
                     end
                 end
                 ConfirmButton = codesInner:FindFirstChild("Confirm")
-                -- NEU: Listener für manuellen Klick auf den Confirm-Button
                 if ConfirmButton and not _confirmListenerAdded then
                     _confirmListenerAdded = true
                     ConfirmButton.MouseButton1Click:Connect(function()
-                        -- Verzögerung, damit das Spiel den Code noch verarbeiten kann
                         task.wait(0.1)
                         resetCodes()
                     end)
@@ -86,7 +84,7 @@ end
 local collectedCodes = {}
 local AddedCount = 0
 local history = {}          -- { word, time }
-local lastAddedWord = ""    -- für Duplikatschutz
+local lastAddedWord = ""
 local submitCooldown = false
 
 -- 5. RIDDLE DATABASE (KORRIGIERT)
@@ -478,18 +476,16 @@ local function buildHistoryGUI()
     closeBtn.ZIndex = 10
     closeBtn.Parent = tb
     do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 3) co.Parent = closeBtn end
+    
+    -- *** ÄNDERUNG: Schließen ohne Statusänderung ***
     closeBtn.MouseButton1Click:Connect(function()
         if HistoryGui then HistoryGui:Destroy() end
         HistoryGui = nil
         HistoryFrame = nil
         HistoryScroll = nil
         historyOpen = false
-        _G.HistoryEnabled = false
-        local historyBtn = MainFrame and MainFrame:FindFirstChild("ContentFrame"):FindFirstChild("HistoryBtn")
-        if historyBtn then
-            historyBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-            historyBtn.Text = "OFF"
-        end
+        -- _G.HistoryEnabled wird NICHT geändert!
+        -- Auch der Haupt-Button wird nicht aktualisiert, da der Status gleich bleibt.
     end)
     
     HistoryScroll = Instance.new("ScrollingFrame")
@@ -598,7 +594,7 @@ end
 
 -- 10. HISTORY SPEICHERN
 local function saveToHistory(Word, fromSammy)
-    if not _G.HistoryEnabled then return end
+    if not _G.HistoryEnabled then return end      -- nur wenn ON
     if not fromSammy then return end
     if not Word or Word == "" then return end
     if Word:find(" ") then return end
@@ -648,13 +644,12 @@ local function addCode(Code, fromSammy)
     
     if _G.AutoSubmitEnabled and #collectedCodes >= _G.SubmitAfterCount then
         local success = triggerSubmit()
-        -- *** FIX: Immer zurücksetzen, egal ob Submit erfolgreich war oder nicht ***
         table.clear(collectedCodes)
         AddedCount = 0
         refreshMainGUI()
         if CodeTextBox then CodeTextBox.Text = "" end
         if not success then
-            print("[KrimoHub] Submit fehlgeschlagen, aber Codes wurden trotzdem zurückgesetzt.")
+            print("[KrimoHub] Submit fehlgeschlagen, aber Codes wurden zurückgesetzt.")
         end
     end
 end
