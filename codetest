@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB V4 - HISTORY FIX (Speichert unabhängig vom Fenster)
+-- KRIMO HUB V4 - HISTORY FIX (Kein ON/OFF im History-Fenster)
 -- ============================================================
 
 -- 1. GLOBALS
@@ -434,7 +434,7 @@ local function buildHistoryGUI()
     
     local tl = Instance.new("TextLabel")
     tl.Name = "TitleLabel"
-    tl.Size = UDim2.new(0.4, 0, 1, 0)
+    tl.Size = UDim2.new(0.6, 0, 1, 0)
     tl.Position = UDim2.new(0, 8, 0, 0)
     tl.BackgroundTransparency = 1
     tl.Text = "📜 History (0)"
@@ -477,15 +477,28 @@ local function buildHistoryGUI()
     closeBtn.Parent = tb
     do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 3) co.Parent = closeBtn end
     
-    -- *** ÄNDERUNG: Schließen ohne Statusänderung ***
+    -- *** WICHTIGE ÄNDERUNG: Schließen setzt HistoryEnabled auf false und aktualisiert den Haupt-Button ***
     closeBtn.MouseButton1Click:Connect(function()
         if HistoryGui then HistoryGui:Destroy() end
         HistoryGui = nil
         HistoryFrame = nil
         HistoryScroll = nil
         historyOpen = false
-        -- _G.HistoryEnabled wird NICHT geändert!
-        -- Auch der Haupt-Button wird nicht aktualisiert, da der Status gleich bleibt.
+        
+        -- History deaktivieren
+        _G.HistoryEnabled = false
+        
+        -- Haupt-Button im MainFrame aktualisieren
+        if MainFrame then
+            local ContentFrame = MainFrame:FindFirstChild("ContentFrame")
+            if ContentFrame then
+                local historyBtn = ContentFrame:FindFirstChild("HistoryBtn")
+                if historyBtn then
+                    historyBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+                    historyBtn.Text = "OFF"
+                end
+            end
+        end
     end)
     
     HistoryScroll = Instance.new("ScrollingFrame")
