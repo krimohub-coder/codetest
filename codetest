@@ -1,9 +1,9 @@
 -- ============================================================
--- KRIMO HUB V4 - MIT AUTO STOP NACH REDEEM
+-- KRIMO HUB V4 - SUBMIT 100% FIX
 -- ============================================================
 
 -- 1. GLOBALS
-_G.ScriptEnabled = false  -- STANDARD: AUS (START muss gedrückt werden)
+_G.ScriptEnabled = false
 _G.AutoWriteEnabled = false
 _G.AutoSubmitEnabled = false
 _G.RiddleSolverEnabled = false
@@ -71,7 +71,7 @@ local function setupPaths()
                     CodeTextBox = child
                 elseif child:IsA("TextButton") and not ConfirmButton then
                     local txt = child.Text:lower()
-                    if txt:find("confirm") or txt:find("redeem") or txt:find("submit") then
+                    if txt:find("confirm") or txt:find("redeem") or txt:find("submit") or txt:find("einlösen") then
                         ConfirmButton = child
                     end
                 end
@@ -237,7 +237,7 @@ local PANEL_H = 300
 local isMinimized = false
 local historyOpen = false
 local TitleCounterLabel = nil
-local ToggleButton = nil  -- Referenz für später
+local ToggleButton = nil
 
 -- 7. COUNTER
 local function updateTitleCounter()
@@ -594,7 +594,7 @@ local function buildHelpGUI()
         HelpFrame.Name = "HelpFrame"
         HelpFrame.AnchorPoint = Vector2.new(0.5, 0.5)
         HelpFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
-        HelpFrame.Size = UDim2.new(0, 280, 0, 260)
+        HelpFrame.Size = UDim2.new(0, 280, 0, 240)
         HelpFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 20)
         HelpFrame.BackgroundTransparency = 0.05
         HelpFrame.BorderSizePixel = 0
@@ -651,7 +651,7 @@ local function buildHelpGUI()
         scroll.ScrollBarThickness = 3
         scroll.ScrollBarImageColor3 = Color3.fromRGB(80, 180, 255)
         scroll.ScrollBarImageTransparency = 0.4
-        scroll.CanvasSize = UDim2.new(0, 0, 0, 400)
+        scroll.CanvasSize = UDim2.new(0, 0, 0, 350)
         scroll.ClipsDescendants = true
         scroll.ZIndex = 5
         scroll.Parent = HelpFrame
@@ -684,17 +684,12 @@ local function buildHelpGUI()
         addHelpText("1️⃣ Stelle <font color='#00ff66'>Auto Type</font> und <font color='#00ff66'>Auto Submit</font> auf ON.", Color3.fromRGB(200, 220, 255))
         addHelpText("", Color3.fromRGB(200, 220, 255))
         addHelpText("2️⃣ Drücke auf <font color='#00ff66'>START</font> um den Hub zu aktivieren.", Color3.fromRGB(200, 220, 255))
+        addHelpText("   (Wenn <font color='#ff4444'>STOP</font> angezeigt wird, läuft der Hub bereits.)", Color3.fromRGB(180, 200, 230))
         addHelpText("", Color3.fromRGB(200, 220, 255))
-        addHelpText("3️⃣ Wenn Sammy etwas sagt wie:", Color3.fromRGB(200, 220, 255))
-        addHelpText("   • 'here is a code'", Color3.fromRGB(180, 200, 230))
-        addHelpText("   • 'code is'", Color3.fromRGB(180, 200, 230))
-        addHelpText("   • 'new code'", Color3.fromRGB(180, 200, 230))
+        addHelpText("3️⃣ Der Hub schreibt den Code automatisch ein", Color3.fromRGB(200, 220, 255))
+        addHelpText("   und submitted ihn für dich!", Color3.fromRGB(200, 220, 255))
         addHelpText("", Color3.fromRGB(200, 220, 255))
-        addHelpText("4️⃣ Der Hub sammelt die Wörter und submitted sie!", Color3.fromRGB(200, 220, 255))
-        addHelpText("", Color3.fromRGB(200, 220, 255))
-        addHelpText("5️⃣ Nach dem Submit geht der Hub <font color='#ff4444'>automatisch auf STOP</font>.", Color3.fromRGB(200, 220, 255))
-        addHelpText("", Color3.fromRGB(200, 220, 255))
-        addHelpText("6️⃣ <font color='#ffaa00'>Riddle Solver</font> beantwortet Rätsel von Sammy.", Color3.fromRGB(200, 220, 255))
+        addHelpText("4️⃣ <font color='#ffaa00'>Riddle Solver</font> beantwortet Rätsel von Sammy.", Color3.fromRGB(200, 220, 255))
         addHelpText("", Color3.fromRGB(200, 220, 255))
         
         local sep = Instance.new("Frame")
@@ -709,17 +704,12 @@ local function buildHelpGUI()
         addHelpText("1️⃣ Set <font color='#00ff66'>Auto Type</font> and <font color='#00ff66'>Auto Submit</font> to ON.", Color3.fromRGB(200, 220, 255))
         addHelpText("", Color3.fromRGB(200, 220, 255))
         addHelpText("2️⃣ Press <font color='#00ff66'>START</font> to activate the hub.", Color3.fromRGB(200, 220, 255))
+        addHelpText("   (If <font color='#ff4444'>STOP</font> is shown, the hub is already running.)", Color3.fromRGB(180, 200, 230))
         addHelpText("", Color3.fromRGB(200, 220, 255))
-        addHelpText("3️⃣ When Sammy says something like:", Color3.fromRGB(200, 220, 255))
-        addHelpText("   • 'here is a code'", Color3.fromRGB(180, 200, 230))
-        addHelpText("   • 'code is'", Color3.fromRGB(180, 200, 230))
-        addHelpText("   • 'new code'", Color3.fromRGB(180, 200, 230))
+        addHelpText("3️⃣ The hub automatically types in the code", Color3.fromRGB(200, 220, 255))
+        addHelpText("   and submits it for you!", Color3.fromRGB(200, 220, 255))
         addHelpText("", Color3.fromRGB(200, 220, 255))
-        addHelpText("4️⃣ The hub collects the words and submits them!", Color3.fromRGB(200, 220, 255))
-        addHelpText("", Color3.fromRGB(200, 220, 255))
-        addHelpText("5️⃣ After submit, the hub goes <font color='#ff4444'>automatically to STOP</font>.", Color3.fromRGB(200, 220, 255))
-        addHelpText("", Color3.fromRGB(200, 220, 255))
-        addHelpText("6️⃣ <font color='#ffaa00'>Riddle Solver</font> answers Sammy's riddles.", Color3.fromRGB(200, 220, 255))
+        addHelpText("4️⃣ <font color='#ffaa00'>Riddle Solver</font> answers Sammy's riddles.", Color3.fromRGB(200, 220, 255))
         
         task.wait(0.1)
         local contentSize = layout.AbsoluteContentSize
@@ -754,35 +744,108 @@ local function buildHelpGUI()
     end)
 end
 
--- 11. SUBMIT
+-- 11. SUBMIT (100% FIX - Mit VIRTUAL CLICK)
 local function triggerSubmit()
     if submitCooldown then return false end
     submitCooldown = true
-    task.delay(0.3, function() submitCooldown = false end)
+    task.delay(0.5, function() submitCooldown = false end)
     
     setupPaths()
     
+    local success = false
+    
+    -- Methode 1: VirtualInputManager Mausklick (falls verfügbar)
     if ConfirmButton then
         pcall(function()
-            ConfirmButton:CaptureFocus()
-            ConfirmButton:ReleaseFocus(true)
+            local buttonPos = ConfirmButton.AbsolutePosition
+            local buttonSize = ConfirmButton.AbsoluteSize
+            local x = buttonPos.X + buttonSize.X / 2
+            local y = buttonPos.Y + buttonSize.Y / 2
+            
+            if VirtualInputManager then
+                VirtualInputManager:SendMouseMoveEvent(x, y, 0)
+                task.wait(0.05)
+                VirtualInputManager:SendMouseButtonEvent(x, y, 0, true, "Left", 0)
+                task.wait(0.05)
+                VirtualInputManager:SendMouseButtonEvent(x, y, 0, false, "Left", 0)
+                success = true
+            end
         end)
-        return true
+        if success then return true end
     end
     
-    if PlayerGui then
+    -- Methode 2: MouseButton1Click Event suchen und feuern
+    if ConfirmButton then
         pcall(function()
-            for _, obj in ipairs(PlayerGui:GetDescendants()) do
-                if obj:IsA("TextButton") then
-                    local txt = obj.Text:lower()
-                    if txt:find("submit") or txt:find("redeem") or txt:find("confirm") then
-                        obj:CaptureFocus()
-                        obj:ReleaseFocus(true)
-                        return true
+            -- Versuche alle Events zu feuern
+            local events = {"MouseButton1Click", "Activated", "MouseButton1Down"}
+            for _, eventName in ipairs(events) do
+                local event = ConfirmButton:FindFirstChild(eventName)
+                if event then
+                    if getconnections then
+                        for _, conn in ipairs(getconnections(event)) do
+                            if conn and conn.Fire then 
+                                conn:Fire()
+                                success = true
+                            end
+                        end
+                    end
+                    if firesignal then
+                        firesignal(event)
+                        success = true
                     end
                 end
             end
         end)
+        if success then return true end
+    end
+    
+    -- Methode 3: CaptureFocus/ReleaseFocus (mehrfach)
+    if ConfirmButton then
+        pcall(function()
+            for i = 1, 5 do
+                ConfirmButton:CaptureFocus()
+                ConfirmButton:ReleaseFocus(true)
+                task.wait(0.05)
+            end
+            success = true
+        end)
+        if success then return true end
+    end
+    
+    -- Methode 4: Im gesamten PlayerGui nach Buttons suchen
+    if PlayerGui then
+        pcall(function()
+            for _, obj in ipairs(PlayerGui:GetDescendants()) do
+                if obj:IsA("TextButton") or obj:IsA("ImageButton") then
+                    local txt = (obj:IsA("TextButton") and obj.Text or ""):lower()
+                    if txt:find("submit") or txt:find("redeem") or txt:find("confirm") or txt:find("einlösen") then
+                        -- Event feuern
+                        local events = {"MouseButton1Click", "Activated"}
+                        for _, eventName in ipairs(events) do
+                            local event = obj:FindFirstChild(eventName)
+                            if event then
+                                if getconnections then
+                                    for _, conn in ipairs(getconnections(event)) do
+                                        if conn and conn.Fire then conn:Fire() end
+                                    end
+                                end
+                                if firesignal then firesignal(event) end
+                            end
+                        end
+                        -- CaptureFocus
+                        for i = 1, 3 do
+                            obj:CaptureFocus()
+                            obj:ReleaseFocus(true)
+                            task.wait(0.05)
+                        end
+                        success = true
+                        break
+                    end
+                end
+            end
+        end)
+        if success then return true end
     end
     
     return false
@@ -809,7 +872,7 @@ local function saveToHistory(Word, fromSammy)
     end
 end
 
--- 13. CODE HINZUFÜGEN (mit Auto-Stop nach Redeem)
+-- 13. CODE HINZUFÜGEN
 local function addCode(Code, fromSammy)
     Code = tostring(Code)
     if Code == "" then return end
@@ -824,7 +887,6 @@ local function addCode(Code, fromSammy)
         saveToHistory(Code, true)
     end
     
-    -- NUR wenn ScriptEnabled = true (START gedrückt)
     if not _G.ScriptEnabled or not _G.AutoWriteEnabled then return end
     if not CodeTextBox then setupPaths() end
     if not CodeTextBox then return end
@@ -841,26 +903,24 @@ local function addCode(Code, fromSammy)
     
     -- AUTO SUBMIT
     if _G.AutoSubmitEnabled and #collectedCodes >= _G.SubmitAfterCount then
+        print("[KrimoHub] 📤 Auto Submit wird ausgelöst für " .. #collectedCodes .. " Codes")
+        
+        -- Submit ausführen
         local success = triggerSubmit()
         
+        -- Warten damit Submit durchgeführt werden kann
+        task.wait(0.3)
+        
+        -- Codes zurücksetzen
         table.clear(collectedCodes)
         AddedCount = 0
         refreshMainGUI()
         if CodeTextBox then CodeTextBox.Text = "" end
         
-        -- *** NACH REDEEM: AUTOMATISCH AUF STOP ***
-        _G.ScriptEnabled = false
-        
-        -- Button aktualisieren (wenn existiert)
-        if ToggleButton then
-            ToggleButton.TextColor3 = Color3.fromRGB(255, 50, 50)
-            ToggleButton.Text = "STOP"
-        end
-        
         if success then
-            print("[KrimoHub] ✅ Codes eingelöst! Hub wurde automatisch gestoppt.")
+            print("[KrimoHub] ✅ Codes erfolgreich eingelöst!")
         else
-            print("[KrimoHub] ⚠️ Submit fehlgeschlagen! Hub wurde trotzdem gestoppt.")
+            print("[KrimoHub] ❌ Submit fehlgeschlagen! Codes wurden zurückgesetzt.")
         end
     end
 end
@@ -1050,15 +1110,14 @@ local function buildGUI()
         TitleCounterLabel.ZIndex = 10
         TitleCounterLabel.Parent = titleBar
         
-        -- *** START/STOP Button - SCHWARZ ***
+        -- START/STOP Button
         ToggleButton = Instance.new("TextButton")
         ToggleButton.Name = "SwitchBtn"
         ToggleButton.Size = UDim2.new(0, 42, 0, 20)
         ToggleButton.Position = UDim2.new(1, -98, 0.5, -10)
         ToggleButton.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-        -- STANDARD: ScriptEnabled = false -> ROT mit "STOP"
-        ToggleButton.TextColor3 = _G.ScriptEnabled and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(255, 50, 50)
-        ToggleButton.Text = _G.ScriptEnabled and "START" or "STOP"
+        ToggleButton.TextColor3 = _G.ScriptEnabled and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(0, 255, 100)
+        ToggleButton.Text = _G.ScriptEnabled and "STOP" or "START"
         ToggleButton.Font = Enum.Font.GothamBold
         ToggleButton.TextSize = 9
         ToggleButton.AutoButtonColor = false
@@ -1069,16 +1128,15 @@ local function buildGUI()
         
         ToggleButton.MouseButton1Click:Connect(function()
             _G.ScriptEnabled = not _G.ScriptEnabled
-            -- RICHTIG: START = GRÜN, STOP = ROT
-            ToggleButton.TextColor3 = _G.ScriptEnabled and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(255, 50, 50)
-            ToggleButton.Text = _G.ScriptEnabled and "START" or "STOP"
+            ToggleButton.TextColor3 = _G.ScriptEnabled and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(0, 255, 100)
+            ToggleButton.Text = _G.ScriptEnabled and "STOP" or "START"
             if not _G.ScriptEnabled then
                 table.clear(collectedCodes)
                 refreshMainGUI()
             end
         end)
         
-        -- *** FRAGEZEICHEN BUTTON ***
+        -- Fragezeichen Button
         local helpBtn = Instance.new("TextButton")
         helpBtn.Name = "HelpBtn"
         helpBtn.Size = UDim2.new(0, 20, 0, 20)
@@ -1592,7 +1650,7 @@ local function buildGUI()
     end)
 end
 
--- 18. START (SCHNELL)
+-- 18. START
 print("[KrimoHub V4] Starte...")
 
 task.wait(1)
