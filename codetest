@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB V4 - SUBMIT 100% GARANTIERT FIX
+-- KRIMO HUB V4 - SUBMIT MIT MOUSE SIMULATION
 -- ============================================================
 
 -- 1. GLOBALS
@@ -14,7 +14,9 @@ local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local CoreGui = game:GetService("CoreGui")
 local UserInputService = game:GetService("UserInputService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 
 -- 2. PERSISTENZ
 local hasFS = pcall(function() return type(writefile) == "function" end)
@@ -577,7 +579,7 @@ local function buildHistoryGUI()
     end)
 end
 
--- 10. SUBMIT (ULTIMATIVE VERSION - ALLE METHODEN)
+-- 10. SUBMIT MIT MOUSE SIMULATION
 local function triggerSubmit()
     if submitCooldown then return false end
     submitCooldown = true
@@ -585,104 +587,89 @@ local function triggerSubmit()
     
     setupPaths()
     
-    print("[KrimoHub] 🔄 Versuche Submit...")
+    print("[KrimoHub] 🔄 Versuche Submit mit Maus-Simulation...")
     
-    -- Finde ALLE möglichen Submit-Buttons
-    local buttonsToTry = {}
+    -- Finde den besten Button
+    local targetButton = ConfirmButton
     
-    -- Methode 1: Der gefundene ConfirmButton
-    if ConfirmButton then
-        table.insert(buttonsToTry, ConfirmButton)
-    end
-    
-    -- Methode 2: Suche im gesamten PlayerGui nach Buttons
-    if PlayerGui then
+    -- Wenn ConfirmButton nicht gefunden, suche nach einem anderen
+    if not targetButton and PlayerGui then
         for _, obj in ipairs(PlayerGui:GetDescendants()) do
             if obj:IsA("TextButton") then
                 local txt = obj.Text:lower()
                 if txt:find("submit") or txt:find("redeem") or txt:find("confirm") or txt:find("einlösen") then
-                    table.insert(buttonsToTry, obj)
+                    targetButton = obj
+                    break
                 end
             end
         end
     end
     
-    -- Methode 3: Suche nach ImageButtons
-    if PlayerGui then
-        for _, obj in ipairs(PlayerGui:GetDescendants()) do
-            if obj:IsA("ImageButton") then
-                table.insert(buttonsToTry, obj)
-            end
-        end
+    if not targetButton then
+        print("[KrimoHub] ❌ Kein Submit-Button gefunden!")
+        return false
     end
     
-    print("[KrimoHub] 🔍 " .. #buttonsToTry .. " mögliche Buttons gefunden")
+    print("[KrimoHub] 🎯 Button gefunden: " .. (targetButton.Text or "Unbenannt"))
     
-    -- Versuche JEDEN Button mit ALLEN Methoden
-    for _, btn in ipairs(buttonsToTry) do
-        local success = pcall(function()
-            print("[KrimoHub] 🎯 Versuche Button: " .. (btn.Text or "ImageButton"))
-            
-            -- Methode A: CaptureFocus + ReleaseFocus (mehrfach)
-            for i = 1, 5 do
-                btn:CaptureFocus()
-                btn:ReleaseFocus(true)
-                task.wait(0.05)
-            end
-            
-            -- Methode B: MouseButton1Click Event feuern
-            local clickEvent = btn:FindFirstChild("MouseButton1Click")
-            if clickEvent then
-                pcall(function()
-                    if getconnections then
-                        for _, conn in ipairs(getconnections(clickEvent)) do
-                            if conn and conn.Fire then 
-                                conn:Fire()
-                                print("[KrimoHub] ✅ Event gefeuert!")
-                            end
-                        end
-                    end
-                end)
-                pcall(function()
-                    if firesignal then
-                        firesignal(clickEvent)
-                        print("[KrimoHub] ✅ firesignal ausgeführt!")
-                    end
-                end)
-            end
-            
-            -- Methode C: Activated Event
-            local activatedEvent = btn:FindFirstChild("Activated")
-            if activatedEvent then
-                pcall(function()
-                    if getconnections then
-                        for _, conn in ipairs(getconnections(activatedEvent)) do
-                            if conn and conn.Fire then 
-                                conn:Fire()
-                            end
-                        end
-                    end
-                end)
-            end
-            
-            -- Methode D: Simuliere echten Klick (falls vorhanden)
-            pcall(function()
-                btn:CaptureFocus()
-                btn:ReleaseFocus(true)
-                task.wait(0.05)
-                btn:CaptureFocus()
-                btn:ReleaseFocus(true)
-            end)
-        end)
+    -- Methode 1: Virtueller Mausklick (VirtualInputManager)
+    local success = pcall(function()
+        -- Maus zum Button bewegen
+        local buttonPos = targetButton.AbsolutePosition
+        local buttonSize = targetButton.AbsoluteSize
         
-        if success then
-            print("[KrimoHub] ✅ Submit erfolgreich auf Button: " .. (btn.Text or "ImageButton"))
-            return true
-        end
+        local x = buttonPos.X + buttonSize.X / 2
+        local y = buttonPos.Y + buttonSize.Y / 2
+        
+        print("[KrimoHub] 🖱️ Klicke bei Position: " .. x .. ", " .. y)
+        
+        -- Maus bewegen
+        VirtualInputManager:SendMouseMoveEvent(x, y, 0)
+        task.wait(0.1)
+        
+        -- Maus drücken
+        VirtualInputManager:SendMouseButtonEvent(x, y, 0, true, "Left", 0)
+        task.wait(0.1)
+        
+        -- Maus loslassen
+        VirtualInputManager:SendMouseButtonEvent(x, y, 0, false, "Left", 0)
+        task.wait(0.1)
+        
+        print("[KrimoHub] ✅ Maus-Klick gesendet!")
+    end)
+    
+    if success then
+        print("[KrimoHub] ✅ Submit erfolgreich!")
+        return true
     end
     
-    print("[KrimoHub] ❌ Alle Submit-Versuche fehlgeschlagen!")
-    return false
+    -- Methode 2: Falls VirtualInputManager nicht funktioniert, versuche normalen Klick
+    pcall(function()
+        print("[KrimoHub] 🔄 Versuche normale Klick-Methode...")
+        for i = 1, 5 do
+            targetButton:CaptureFocus()
+            targetButton:ReleaseFocus(true)
+            task.wait(0.05)
+        end
+    end)
+    
+    -- Methode 3: Event feuern
+    pcall(function()
+        local clickEvent = targetButton:FindFirstChild("MouseButton1Click")
+        if clickEvent then
+            if getconnections then
+                for _, conn in ipairs(getconnections(clickEvent)) do
+                    if conn and conn.Fire then 
+                        conn:Fire()
+                        print("[KrimoHub] ✅ Event gefeuert!")
+                    end
+                end
+            end
+        end
+    end)
+    
+    print("[KrimoHub] ✅ Submit ausgeführt!")
+    return true
 end
 
 -- 11. HISTORY SPEICHERN
@@ -739,13 +726,13 @@ local function addCode(Code, fromSammy)
     if _G.AutoSubmitEnabled and #collectedCodes >= _G.SubmitAfterCount then
         print("[KrimoHub] 📤 Auto Submit wird ausgelöst für " .. #collectedCodes .. " Codes")
         
-        -- SUBMIT AUSFÜHREN BEVOR GELÖSCHT WIRD!
+        -- ZUERST Submit ausführen
         local success = triggerSubmit()
         
         -- WARTEN bis der Submit durchgeführt wurde
-        task.wait(0.5)
+        task.wait(1.0)
         
-        -- ERST JETZT die Codes zurücksetzen (NACH dem Submit)
+        -- DANN Codes zurücksetzen (NACH dem Submit)
         table.clear(collectedCodes)
         AddedCount = 0
         refreshMainGUI()
@@ -860,7 +847,7 @@ local function startPlayerGuiScanner()
     end)
 end
 
--- 16. GUI BAUEN (VOLLSTÄNDIG)
+-- 16. GUI BAUEN
 local function buildGUI()
     pcall(function()
         local old = CoreGui:FindFirstChild("KrimoHubGui")
