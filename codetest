@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB V4 - SUBMIT FIX (Aus deinem funktionierenden Code)
+-- KRIMO HUB V4 - ORIGINAL + AUTO SUBMIT FIX
 -- ============================================================
 
 -- 1. GLOBALS
@@ -14,6 +14,7 @@ local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local CoreGui = game:GetService("CoreGui")
 local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 
 -- 2. PERSISTENZ
 local hasFS = pcall(function() return type(writefile) == "function" end)
@@ -564,7 +565,7 @@ local function buildHistoryGUI()
     end)
 end
 
--- 9. SUBMIT (MIT VIRTUAL CLICK - AUS DEINEM CODE)
+-- 9. SUBMIT (FIXED - MIT VIRTUAL CLICK)
 local function triggerSubmit()
     if submitCooldown then return false end
     submitCooldown = true
@@ -574,7 +575,7 @@ local function triggerSubmit()
     
     local success = false
     
-    -- Versuch 1: Direkt den ConfirmButton mit CaptureFocus/ReleaseFocus
+    -- Versuch 1: Direct ConfirmButton mit CaptureFocus/ReleaseFocus
     if ConfirmButton then
         pcall(function()
             for i = 1, 3 do
@@ -705,8 +706,6 @@ local function addCode(Code, fromSammy)
     
     -- AUTO SUBMIT: ZUERST SUBMIT, DANN LÖSCHEN
     if _G.AutoSubmitEnabled and #collectedCodes >= _G.SubmitAfterCount then
-        print("[KrimoHub] 📤 Auto Submit wird ausgelöst für " .. #collectedCodes .. " Codes")
-        
         -- 1. ZUERST Submit ausführen
         local success = triggerSubmit()
         
@@ -843,7 +842,9 @@ local function buildGUI()
         MainFrame = Instance.new("Frame")
         MainFrame.Name = "MainFrame"
         MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-        MainFrame.Position = UDim2.new(0.5, 0, 0.4, 0)
+        MainFrame.Position = (config.panelX and config.panelY)
+            and UDim2.new(0, config.panelX, 0, config.panelY)
+            or UDim2.new(0.5, 0, 0.4, 0)
         MainFrame.Size = UDim2.new(0, PANEL_W, 0, PANEL_H)
         MainFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 18)
         MainFrame.BackgroundTransparency = 0.05
@@ -1354,7 +1355,9 @@ local function buildGUI()
             else
                 ContentFrame.Visible = true
                 MainFrame.Size = UDim2.new(0, PANEL_W, 0, PANEL_H)
-                MainFrame.Position = UDim2.new(0.5, 0, 0.4, 0)
+                MainFrame.Position = (config.panelX and config.panelY)
+                    and UDim2.new(0, config.panelX, 0, config.panelY)
+                    or UDim2.new(0.5, 0, 0.4, 0)
                 toggleMinBtn.Text = "−"
             end
         end
@@ -1374,6 +1377,9 @@ local function buildGUI()
             local delta = input.Position - dragStart
             local newX = startPos.X.Offset + delta.X
             local newY = startPos.Y.Offset + delta.Y
+            config.panelX = newX
+            config.panelY = newY
+            saveConfig()
             MainFrame.Position = UDim2.new(startPos.X.Scale, newX, startPos.Y.Scale, newY)
         end
         
