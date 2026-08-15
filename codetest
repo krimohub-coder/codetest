@@ -1,10 +1,9 @@
-
 -- ============================================================
--- KRIMO HUB V4 - MIT AUTO SUBMIT FIX + HILFE-GUI
+-- KRIMO HUB V4 - MIT AUTO STOP NACH REDEEM
 -- ============================================================
 
 -- 1. GLOBALS
-_G.ScriptEnabled = true
+_G.ScriptEnabled = false  -- STANDARD: AUS (START muss gedrückt werden)
 _G.AutoWriteEnabled = false
 _G.AutoSubmitEnabled = false
 _G.RiddleSolverEnabled = false
@@ -54,7 +53,6 @@ local function setupPaths()
         PlayerGui = LocalPlayer:FindFirstChild("PlayerGui")
         if not PlayerGui then return end
         
-        -- Codes finden
         local codes = PlayerGui:FindFirstChild("Codes")
         if codes then
             local codesInner = codes:FindFirstChild("Codes")
@@ -67,7 +65,6 @@ local function setupPaths()
             end
         end
         
-        -- Fallback
         if not CodeTextBox or not ConfirmButton then
             for _, child in ipairs(PlayerGui:GetDescendants()) do
                 if child:IsA("TextBox") and not CodeTextBox then
@@ -81,7 +78,6 @@ local function setupPaths()
             end
         end
         
-        -- Announcements
         local topNotif = PlayerGui:FindFirstChild("TopNotification")
         if topNotif then
             Announcements = topNotif:FindFirstChild("TopNotification")
@@ -241,6 +237,7 @@ local PANEL_H = 300
 local isMinimized = false
 local historyOpen = false
 local TitleCounterLabel = nil
+local ToggleButton = nil  -- Referenz für später
 
 -- 7. COUNTER
 local function updateTitleCounter()
@@ -578,7 +575,7 @@ local function buildHistoryGUI()
     end)
 end
 
--- 10. HILFE-GUI (DEUTSCH & ENGLISCH)
+-- 10. HILFE-GUI
 local function buildHelpGUI()
     if HelpGui then
         HelpGui:Destroy()
@@ -608,7 +605,6 @@ local function buildHelpGUI()
         do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 12) co.Parent = HelpFrame end
         do local st = Instance.new("UIStroke") st.Color = Color3.fromRGB(100, 200, 255) st.Thickness = 1.5 st.Transparency = 0.3 st.Parent = HelpFrame end
         
-        -- Titel
         local titleBar = Instance.new("Frame")
         titleBar.Size = UDim2.new(1, 0, 0, 28)
         titleBar.BackgroundColor3 = Color3.fromRGB(15, 20, 45)
@@ -647,7 +643,6 @@ local function buildHelpGUI()
             HelpGui = nil
         end)
         
-        -- Inhalt (Scrolling)
         local scroll = Instance.new("ScrollingFrame")
         scroll.Size = UDim2.new(1, -10, 1, -38)
         scroll.Position = UDim2.new(0, 5, 0, 32)
@@ -684,22 +679,24 @@ local function buildHelpGUI()
             return label
         end
         
-        -- === DEUTSCH ===
         addHelpText("<font color='#66ccff'>🇩🇪 DEUTSCH</font>", Color3.fromRGB(100, 200, 255))
         addHelpText("", Color3.fromRGB(200, 220, 255))
-        addHelpText("1️⃣ Stelle sicher, dass <font color='#00ff66'>Auto Type</font> und <font color='#00ff66'>Auto Submit</font> eingeschaltet sind.", Color3.fromRGB(200, 220, 255))
+        addHelpText("1️⃣ Stelle <font color='#00ff66'>Auto Type</font> und <font color='#00ff66'>Auto Submit</font> auf ON.", Color3.fromRGB(200, 220, 255))
         addHelpText("", Color3.fromRGB(200, 220, 255))
-        addHelpText("2️⃣ Drücke auf <font color='#00ff66'>START</font> wenn Sammy etwas sagt wie:", Color3.fromRGB(200, 220, 255))
+        addHelpText("2️⃣ Drücke auf <font color='#00ff66'>START</font> um den Hub zu aktivieren.", Color3.fromRGB(200, 220, 255))
+        addHelpText("", Color3.fromRGB(200, 220, 255))
+        addHelpText("3️⃣ Wenn Sammy etwas sagt wie:", Color3.fromRGB(200, 220, 255))
         addHelpText("   • 'here is a code'", Color3.fromRGB(180, 200, 230))
         addHelpText("   • 'code is'", Color3.fromRGB(180, 200, 230))
         addHelpText("   • 'new code'", Color3.fromRGB(180, 200, 230))
         addHelpText("", Color3.fromRGB(200, 220, 255))
-        addHelpText("3️⃣ Der Hub sammelt die Wörter und submitted sie automatisch!", Color3.fromRGB(200, 220, 255))
+        addHelpText("4️⃣ Der Hub sammelt die Wörter und submitted sie!", Color3.fromRGB(200, 220, 255))
         addHelpText("", Color3.fromRGB(200, 220, 255))
-        addHelpText("4️⃣ <font color='#ffaa00'>Riddle Solver</font> beantwortet Rätsel von Sammy.", Color3.fromRGB(200, 220, 255))
+        addHelpText("5️⃣ Nach dem Submit geht der Hub <font color='#ff4444'>automatisch auf STOP</font>.", Color3.fromRGB(200, 220, 255))
+        addHelpText("", Color3.fromRGB(200, 220, 255))
+        addHelpText("6️⃣ <font color='#ffaa00'>Riddle Solver</font> beantwortet Rätsel von Sammy.", Color3.fromRGB(200, 220, 255))
         addHelpText("", Color3.fromRGB(200, 220, 255))
         
-        -- Trennlinie
         local sep = Instance.new("Frame")
         sep.Size = UDim2.new(1, 0, 0, 1)
         sep.BackgroundColor3 = Color3.fromRGB(60, 80, 120)
@@ -707,28 +704,29 @@ local function buildHelpGUI()
         sep.BorderSizePixel = 0
         sep.Parent = scroll
         
-        -- === ENGLISCH ===
         addHelpText("<font color='#66ccff'>🇬🇧 ENGLISH</font>", Color3.fromRGB(100, 200, 255))
         addHelpText("", Color3.fromRGB(200, 220, 255))
-        addHelpText("1️⃣ Make sure <font color='#00ff66'>Auto Type</font> and <font color='#00ff66'>Auto Submit</font> are ON.", Color3.fromRGB(200, 220, 255))
+        addHelpText("1️⃣ Set <font color='#00ff66'>Auto Type</font> and <font color='#00ff66'>Auto Submit</font> to ON.", Color3.fromRGB(200, 220, 255))
         addHelpText("", Color3.fromRGB(200, 220, 255))
-        addHelpText("2️⃣ Press <font color='#00ff66'>START</font> when Sammy says something like:", Color3.fromRGB(200, 220, 255))
+        addHelpText("2️⃣ Press <font color='#00ff66'>START</font> to activate the hub.", Color3.fromRGB(200, 220, 255))
+        addHelpText("", Color3.fromRGB(200, 220, 255))
+        addHelpText("3️⃣ When Sammy says something like:", Color3.fromRGB(200, 220, 255))
         addHelpText("   • 'here is a code'", Color3.fromRGB(180, 200, 230))
         addHelpText("   • 'code is'", Color3.fromRGB(180, 200, 230))
         addHelpText("   • 'new code'", Color3.fromRGB(180, 200, 230))
         addHelpText("", Color3.fromRGB(200, 220, 255))
-        addHelpText("3️⃣ The hub collects the words and submits them automatically!", Color3.fromRGB(200, 220, 255))
+        addHelpText("4️⃣ The hub collects the words and submits them!", Color3.fromRGB(200, 220, 255))
         addHelpText("", Color3.fromRGB(200, 220, 255))
-        addHelpText("4️⃣ <font color='#ffaa00'>Riddle Solver</font> answers Sammy's riddles.", Color3.fromRGB(200, 220, 255))
+        addHelpText("5️⃣ After submit, the hub goes <font color='#ff4444'>automatically to STOP</font>.", Color3.fromRGB(200, 220, 255))
+        addHelpText("", Color3.fromRGB(200, 220, 255))
+        addHelpText("6️⃣ <font color='#ffaa00'>Riddle Solver</font> answers Sammy's riddles.", Color3.fromRGB(200, 220, 255))
         
-        -- Canvas aktualisieren
         task.wait(0.1)
         local contentSize = layout.AbsoluteContentSize
         if contentSize then
             scroll.CanvasSize = UDim2.new(0, 0, 0, contentSize.Y + 10)
         end
         
-        -- Drag für Help-Fenster
         local dragging = false
         local dragStart = nil
         local startPos = nil
@@ -756,7 +754,7 @@ local function buildHelpGUI()
     end)
 end
 
--- 11. SUBMIT (FUNKTIONIERENDE VERSION - VON DIR)
+-- 11. SUBMIT
 local function triggerSubmit()
     if submitCooldown then return false end
     submitCooldown = true
@@ -764,7 +762,6 @@ local function triggerSubmit()
     
     setupPaths()
     
-    -- Versuch 1: Direkt den ConfirmButton
     if ConfirmButton then
         pcall(function()
             ConfirmButton:CaptureFocus()
@@ -773,7 +770,6 @@ local function triggerSubmit()
         return true
     end
     
-    -- Versuch 2: Suche nach Redeem/Submit Buttons
     if PlayerGui then
         pcall(function()
             for _, obj in ipairs(PlayerGui:GetDescendants()) do
@@ -813,7 +809,7 @@ local function saveToHistory(Word, fromSammy)
     end
 end
 
--- 13. CODE HINZUFÜGEN (MIT FUNKTIONIERENDER SUBMIT-LOGIK)
+-- 13. CODE HINZUFÜGEN (mit Auto-Stop nach Redeem)
 local function addCode(Code, fromSammy)
     Code = tostring(Code)
     if Code == "" then return end
@@ -828,6 +824,7 @@ local function addCode(Code, fromSammy)
         saveToHistory(Code, true)
     end
     
+    -- NUR wenn ScriptEnabled = true (START gedrückt)
     if not _G.ScriptEnabled or not _G.AutoWriteEnabled then return end
     if not CodeTextBox then setupPaths() end
     if not CodeTextBox then return end
@@ -842,13 +839,29 @@ local function addCode(Code, fromSammy)
     end
     AddedCount = AddedCount + 1
     
-    -- AUTO SUBMIT (funktionierende Logik)
+    -- AUTO SUBMIT
     if _G.AutoSubmitEnabled and #collectedCodes >= _G.SubmitAfterCount then
-        triggerSubmit()
+        local success = triggerSubmit()
+        
         table.clear(collectedCodes)
         AddedCount = 0
         refreshMainGUI()
         if CodeTextBox then CodeTextBox.Text = "" end
+        
+        -- *** NACH REDEEM: AUTOMATISCH AUF STOP ***
+        _G.ScriptEnabled = false
+        
+        -- Button aktualisieren (wenn existiert)
+        if ToggleButton then
+            ToggleButton.TextColor3 = Color3.fromRGB(255, 50, 50)
+            ToggleButton.Text = "STOP"
+        end
+        
+        if success then
+            print("[KrimoHub] ✅ Codes eingelöst! Hub wurde automatisch gestoppt.")
+        else
+            print("[KrimoHub] ⚠️ Submit fehlgeschlagen! Hub wurde trotzdem gestoppt.")
+        end
     end
 end
 
@@ -1038,25 +1051,27 @@ local function buildGUI()
         TitleCounterLabel.Parent = titleBar
         
         -- *** START/STOP Button - SCHWARZ ***
-        local toggleButton = Instance.new("TextButton")
-        toggleButton.Name = "SwitchBtn"
-        toggleButton.Size = UDim2.new(0, 42, 0, 20)
-        toggleButton.Position = UDim2.new(1, -98, 0.5, -10)
-        toggleButton.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-        toggleButton.TextColor3 = _G.ScriptEnabled and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(255, 50, 50)
-        toggleButton.Text = _G.ScriptEnabled and "START" or "STOP"
-        toggleButton.Font = Enum.Font.GothamBold
-        toggleButton.TextSize = 9
-        toggleButton.AutoButtonColor = false
-        toggleButton.ZIndex = 10
-        toggleButton.Parent = titleBar
-        do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = toggleButton end
-        do local st = Instance.new("UIStroke") st.Color = Color3.fromRGB(60, 60, 60) st.Thickness = 1 st.Parent = toggleButton end
+        ToggleButton = Instance.new("TextButton")
+        ToggleButton.Name = "SwitchBtn"
+        ToggleButton.Size = UDim2.new(0, 42, 0, 20)
+        ToggleButton.Position = UDim2.new(1, -98, 0.5, -10)
+        ToggleButton.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+        -- STANDARD: ScriptEnabled = false -> ROT mit "STOP"
+        ToggleButton.TextColor3 = _G.ScriptEnabled and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(255, 50, 50)
+        ToggleButton.Text = _G.ScriptEnabled and "START" or "STOP"
+        ToggleButton.Font = Enum.Font.GothamBold
+        ToggleButton.TextSize = 9
+        ToggleButton.AutoButtonColor = false
+        ToggleButton.ZIndex = 10
+        ToggleButton.Parent = titleBar
+        do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = ToggleButton end
+        do local st = Instance.new("UIStroke") st.Color = Color3.fromRGB(60, 60, 60) st.Thickness = 1 st.Parent = ToggleButton end
         
-        toggleButton.MouseButton1Click:Connect(function()
+        ToggleButton.MouseButton1Click:Connect(function()
             _G.ScriptEnabled = not _G.ScriptEnabled
-            toggleButton.TextColor3 = _G.ScriptEnabled and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(255, 50, 50)
-            toggleButton.Text = _G.ScriptEnabled and "START" or "STOP"
+            -- RICHTIG: START = GRÜN, STOP = ROT
+            ToggleButton.TextColor3 = _G.ScriptEnabled and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(255, 50, 50)
+            ToggleButton.Text = _G.ScriptEnabled and "START" or "STOP"
             if not _G.ScriptEnabled then
                 table.clear(collectedCodes)
                 refreshMainGUI()
@@ -1593,6 +1608,7 @@ local success, err = pcall(startAll)
 
 if success then
     print("[KrimoHub V4] ✅ Erfolgreich gestartet!")
+    print("[KrimoHub V4] Drücke START um den Hub zu aktivieren.")
 else
     print("[KrimoHub V4] ❌ Fehler: " .. tostring(err))
     print("[KrimoHub V4] Versuche es in 2 Sekunden nochmal...")
