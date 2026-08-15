@@ -1,11 +1,11 @@
 -- ============================================================
--- KRIMO HUB V4 - SUBMIT MIT MOUSE SIMULATION
+-- KRIMO HUB V4 - SCHWARZER START/STOP + SCHNELLER LOAD
 -- ============================================================
 
 -- 1. GLOBALS
-_G.ScriptEnabled = false
-_G.AutoWriteEnabled = true
-_G.AutoSubmitEnabled = true
+_G.ScriptEnabled = true
+_G.AutoWriteEnabled = false
+_G.AutoSubmitEnabled = false
 _G.RiddleSolverEnabled = false
 _G.SubmitAfterCount = 3
 _G.HistoryEnabled = false
@@ -14,11 +14,8 @@ local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local CoreGui = game:GetService("CoreGui")
 local UserInputService = game:GetService("UserInputService")
-local VirtualInputManager = game:GetService("VirtualInputManager")
-local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
 
--- 2. PERSISTENZ
+-- 2. PERSISTENZ (Nur wenn verfügbar)
 local hasFS = pcall(function() return type(writefile) == "function" end)
 local config = { panelX = nil, panelY = nil }
 
@@ -49,6 +46,7 @@ local Announcements = nil
 local CodeTextBox = nil
 local ConfirmButton = nil
 local _delay = 0
+local _confirmListenerAdded = false
 local PlayerGui = nil
 
 local function setupPaths()
@@ -69,21 +67,21 @@ local function setupPaths()
             end
         end
         
-        -- Fallback
+        -- Fallback: Suche im gesamten PlayerGui
         if not CodeTextBox or not ConfirmButton then
             for _, child in ipairs(PlayerGui:GetDescendants()) do
                 if child:IsA("TextBox") and not CodeTextBox then
                     CodeTextBox = child
                 elseif child:IsA("TextButton") and not ConfirmButton then
                     local txt = child.Text:lower()
-                    if txt:find("confirm") or txt:find("redeem") or txt:find("submit") or txt:find("einlösen") then
+                    if txt:find("confirm") or txt:find("redeem") or txt:find("submit") then
                         ConfirmButton = child
                     end
                 end
             end
         end
         
-        -- Announcements
+        -- Announcements finden
         local topNotif = PlayerGui:FindFirstChild("TopNotification")
         if topNotif then
             Announcements = topNotif:FindFirstChild("TopNotification")
@@ -241,6 +239,8 @@ local PANEL_W = 260
 local PANEL_H = 300
 local isMinimized = false
 local historyOpen = false
+
+-- Title Counter
 local TitleCounterLabel = nil
 
 -- 7. COUNTER
@@ -579,97 +579,40 @@ local function buildHistoryGUI()
     end)
 end
 
--- 10. SUBMIT MIT MOUSE SIMULATION
+-- 10. SUBMIT (funktionierende Version)
 local function triggerSubmit()
     if submitCooldown then return false end
     submitCooldown = true
-    task.delay(0.5, function() submitCooldown = false end)
+    task.delay(0.3, function() submitCooldown = false end)
     
     setupPaths()
     
-    print("[KrimoHub] 🔄 Versuche Submit mit Maus-Simulation...")
-    
-    -- Finde den besten Button
-    local targetButton = ConfirmButton
-    
-    -- Wenn ConfirmButton nicht gefunden, suche nach einem anderen
-    if not targetButton and PlayerGui then
-        for _, obj in ipairs(PlayerGui:GetDescendants()) do
-            if obj:IsA("TextButton") then
-                local txt = obj.Text:lower()
-                if txt:find("submit") or txt:find("redeem") or txt:find("confirm") or txt:find("einlösen") then
-                    targetButton = obj
-                    break
-                end
-            end
-        end
-    end
-    
-    if not targetButton then
-        print("[KrimoHub] ❌ Kein Submit-Button gefunden!")
-        return false
-    end
-    
-    print("[KrimoHub] 🎯 Button gefunden: " .. (targetButton.Text or "Unbenannt"))
-    
-    -- Methode 1: Virtueller Mausklick (VirtualInputManager)
-    local success = pcall(function()
-        -- Maus zum Button bewegen
-        local buttonPos = targetButton.AbsolutePosition
-        local buttonSize = targetButton.AbsoluteSize
-        
-        local x = buttonPos.X + buttonSize.X / 2
-        local y = buttonPos.Y + buttonSize.Y / 2
-        
-        print("[KrimoHub] 🖱️ Klicke bei Position: " .. x .. ", " .. y)
-        
-        -- Maus bewegen
-        VirtualInputManager:SendMouseMoveEvent(x, y, 0)
-        task.wait(0.1)
-        
-        -- Maus drücken
-        VirtualInputManager:SendMouseButtonEvent(x, y, 0, true, "Left", 0)
-        task.wait(0.1)
-        
-        -- Maus loslassen
-        VirtualInputManager:SendMouseButtonEvent(x, y, 0, false, "Left", 0)
-        task.wait(0.1)
-        
-        print("[KrimoHub] ✅ Maus-Klick gesendet!")
-    end)
-    
-    if success then
-        print("[KrimoHub] ✅ Submit erfolgreich!")
+    -- Versuch 1: Direkt den ConfirmButton
+    if ConfirmButton then
+        pcall(function()
+            ConfirmButton:CaptureFocus()
+            ConfirmButton:ReleaseFocus(true)
+        end)
         return true
     end
     
-    -- Methode 2: Falls VirtualInputManager nicht funktioniert, versuche normalen Klick
-    pcall(function()
-        print("[KrimoHub] 🔄 Versuche normale Klick-Methode...")
-        for i = 1, 5 do
-            targetButton:CaptureFocus()
-            targetButton:ReleaseFocus(true)
-            task.wait(0.05)
-        end
-    end)
-    
-    -- Methode 3: Event feuern
-    pcall(function()
-        local clickEvent = targetButton:FindFirstChild("MouseButton1Click")
-        if clickEvent then
-            if getconnections then
-                for _, conn in ipairs(getconnections(clickEvent)) do
-                    if conn and conn.Fire then 
-                        conn:Fire()
-                        print("[KrimoHub] ✅ Event gefeuert!")
+    -- Versuch 2: Suche nach Redeem/Submit Buttons
+    if PlayerGui then
+        pcall(function()
+            for _, obj in ipairs(PlayerGui:GetDescendants()) do
+                if obj:IsA("TextButton") then
+                    local txt = obj.Text:lower()
+                    if txt:find("submit") or txt:find("redeem") or txt:find("confirm") then
+                        obj:CaptureFocus()
+                        obj:ReleaseFocus(true)
+                        return true
                     end
                 end
             end
-        end
-    end)
+        end)
+    end
     
-    print("[KrimoHub] ✅ Submit ausgeführt!")
-    return true
+    return false
 end
 
 -- 11. HISTORY SPEICHERN
@@ -693,7 +636,7 @@ local function saveToHistory(Word, fromSammy)
     end
 end
 
--- 12. CODE HINZUFÜGEN
+-- 12. CODE HINZUFÜGEN (mit funktionierender Submit-Logik)
 local function addCode(Code, fromSammy)
     Code = tostring(Code)
     if Code == "" then return end
@@ -722,27 +665,13 @@ local function addCode(Code, fromSammy)
     end
     AddedCount = AddedCount + 1
     
-    -- AUTO SUBMIT
+    -- AUTO SUBMIT (funktionierende Logik)
     if _G.AutoSubmitEnabled and #collectedCodes >= _G.SubmitAfterCount then
-        print("[KrimoHub] 📤 Auto Submit wird ausgelöst für " .. #collectedCodes .. " Codes")
-        
-        -- ZUERST Submit ausführen
-        local success = triggerSubmit()
-        
-        -- WARTEN bis der Submit durchgeführt wurde
-        task.wait(1.0)
-        
-        -- DANN Codes zurücksetzen (NACH dem Submit)
+        triggerSubmit()
         table.clear(collectedCodes)
         AddedCount = 0
         refreshMainGUI()
         if CodeTextBox then CodeTextBox.Text = "" end
-        
-        if success then
-            print("[KrimoHub] ✅ Codes wurden eingelöst und zurückgesetzt!")
-        else
-            print("[KrimoHub] ⚠️ Submit fehlgeschlagen, Codes wurden trotzdem zurückgesetzt.")
-        end
     end
 end
 
@@ -850,6 +779,7 @@ end
 -- 16. GUI BAUEN
 local function buildGUI()
     pcall(function()
+        -- Alte GUI löschen
         local old = CoreGui:FindFirstChild("KrimoHubGui")
         if old then old:Destroy() end
         
@@ -892,7 +822,7 @@ local function buildGUI()
         stroke.Transparency = 0.3
         stroke.Parent = MainFrame
         
-        -- TITLE BAR
+        -- Title Bar
         local titleBar = Instance.new("Frame")
         titleBar.Size = UDim2.new(1, 0, 0, 26)
         titleBar.BackgroundColor3 = Color3.fromRGB(15, 20, 40)
@@ -902,6 +832,7 @@ local function buildGUI()
         titleBar.Parent = MainFrame
         do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 12) co.Parent = titleBar end
         
+        -- Title
         local titleLabel = Instance.new("TextLabel")
         titleLabel.Name = "TitleLabel"
         titleLabel.Size = UDim2.new(0, 70, 1, 0)
@@ -915,6 +846,7 @@ local function buildGUI()
         titleLabel.ZIndex = 10
         titleLabel.Parent = titleBar
         
+        -- Counter
         TitleCounterLabel = Instance.new("TextLabel")
         TitleCounterLabel.Name = "TitleCounter"
         TitleCounterLabel.Size = UDim2.new(0, 55, 1, 0)
@@ -928,31 +860,33 @@ local function buildGUI()
         TitleCounterLabel.ZIndex = 10
         TitleCounterLabel.Parent = titleBar
         
-        -- START/STOP Button (ROT = START, GRÜN = STOP)
+        -- *** START/STOP Button - SCHWARZ, START=GRÜN, STOP=ROT ***
         local toggleButton = Instance.new("TextButton")
         toggleButton.Name = "SwitchBtn"
         toggleButton.Size = UDim2.new(0, 48, 0, 20)
         toggleButton.Position = UDim2.new(1, -82, 0.5, -10)
-        toggleButton.BackgroundColor3 = _G.ScriptEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(239, 68, 68)
-        toggleButton.Text = _G.ScriptEnabled and "STOP" or "START"
-        toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+        toggleButton.BackgroundColor3 = Color3.fromRGB(20, 20, 20) -- SCHWARZ
+        toggleButton.TextColor3 = _G.ScriptEnabled and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(255, 50, 50) -- GRÜN oder ROT
+        toggleButton.Text = _G.ScriptEnabled and "START" or "STOP"
         toggleButton.Font = Enum.Font.GothamBold
-        toggleButton.TextSize = 9
+        toggleButton.TextSize = 10
         toggleButton.AutoButtonColor = false
         toggleButton.ZIndex = 10
         toggleButton.Parent = titleBar
         do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = toggleButton end
+        do local st = Instance.new("UIStroke") st.Color = Color3.fromRGB(60, 60, 60) st.Thickness = 1 st.Parent = toggleButton end
         
         toggleButton.MouseButton1Click:Connect(function()
             _G.ScriptEnabled = not _G.ScriptEnabled
-            toggleButton.BackgroundColor3 = _G.ScriptEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(239, 68, 68)
-            toggleButton.Text = _G.ScriptEnabled and "STOP" or "START"
+            toggleButton.TextColor3 = _G.ScriptEnabled and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(255, 50, 50)
+            toggleButton.Text = _G.ScriptEnabled and "START" or "STOP"
             if not _G.ScriptEnabled then
                 table.clear(collectedCodes)
                 refreshMainGUI()
             end
         end)
         
+        -- Minimieren Button
         local toggleMinBtn = Instance.new("TextButton")
         toggleMinBtn.Name = "ToggleMinBtn"
         toggleMinBtn.Size = UDim2.new(0, 22, 0, 20)
@@ -1447,10 +1381,11 @@ local function buildGUI()
     end)
 end
 
--- 17. START
+-- 17. START (SCHNELLER - NUR 1 Sekunde warten)
 print("[KrimoHub V4] Starte...")
 
-task.wait(3)
+-- NUR 1 SEKUNDE warten (statt 3)
+task.wait(1)
 
 local function startAll()
     pcall(setupPaths)
@@ -1462,10 +1397,10 @@ end
 local success, err = pcall(startAll)
 
 if success then
-    print("[KrimoHub V4] ✅ Erfolgreich gestartet!")
+    print("[KrimoHub V4] ✅ Erfolgreich gestartet! GUI ist in der Mitte.")
 else
     print("[KrimoHub V4] ❌ Fehler: " .. tostring(err))
-    print("[KrimoHub V4] Versuche es in 3 Sekunden nochmal...")
-    task.wait(3)
+    print("[KrimoHub V4] Versuche es in 2 Sekunden nochmal...")
+    task.wait(2)
     pcall(startAll)
 end
