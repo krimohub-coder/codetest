@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB V4 - ORIGINAL + AUTO SUBMIT FIX
+-- KRIMO HUB V4 - ORIGINAL (NUR SUBMIT FIX)
 -- ============================================================
 
 -- 1. GLOBALS
@@ -565,7 +565,7 @@ local function buildHistoryGUI()
     end)
 end
 
--- 9. SUBMIT (FIXED - MIT VIRTUAL CLICK)
+-- 9. SUBMIT (NUR HIER WURDE WAS GEÄNDERT!)
 local function triggerSubmit()
     if submitCooldown then return false end
     submitCooldown = true
@@ -575,7 +575,7 @@ local function triggerSubmit()
     
     local success = false
     
-    -- Versuch 1: Direct ConfirmButton mit CaptureFocus/ReleaseFocus
+    -- Versuch 1: Direkt den ConfirmButton (mehrfach)
     if ConfirmButton then
         pcall(function()
             for i = 1, 3 do
@@ -675,7 +675,7 @@ local function saveToHistory(Word, fromSammy)
     end
 end
 
--- 11. CODE HINZUFÜGEN (MIT SUBMIT ZUERST, DANN LÖSCHEN)
+-- 11. CODE HINZUFÜGEN (NUR REIHENFOLGE GEÄNDERT!)
 local function addCode(Code, fromSammy)
     Code = tostring(Code)
     if Code == "" then return end
@@ -827,7 +827,7 @@ local function startPlayerGuiScanner()
     end)
 end
 
--- 15. GUI BAUEN
+-- 15. GUI BAUEN (KOMPLETT ORIGINAL)
 local function buildGUI()
     pcall(function()
         local old = CoreGui:FindFirstChild("KrimoHubGui")
