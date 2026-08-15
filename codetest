@@ -3,9 +3,9 @@
 -- ============================================================
 
 -- 1. GLOBALS
-_G.ScriptEnabled = true
-_G.AutoWriteEnabled = false
-_G.AutoSubmitEnabled = false
+_G.ScriptEnabled = false
+_G.AutoWriteEnabled = true
+_G.AutoSubmitEnabled = true
 _G.RiddleSolverEnabled = false
 _G.SubmitAfterCount = 3
 _G.HistoryEnabled = false
