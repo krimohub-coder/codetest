@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB V4 - MIT SLURP HUB AUTO TYPE + AUTO SUBMIT LOGIK
+-- KRIMO HUB V4 - COUNTER + TEXTFELD VERBUNDEN
 -- ============================================================
 
 -- 1. GLOBALS
@@ -94,10 +94,12 @@ local function setupPaths()
     end)
 end
 
--- 4. COLLECTED CODES & HISTORY (WIE SLURP HUB)
-local collectedCodes = {}        -- Wird für GUI Anzeige verwendet
+-- 4. COLLECTED CODES & HISTORY
+local collectedCodes = {}        -- Für GUI Counter
 local history = {}
 local lastAddedWord = ""
+local submitCooldown = false
+local isSubmitting = false
 
 -- 5. SLURP HUB RIDDLE DATABASE
 local SAB_DB = {
@@ -982,10 +984,9 @@ local function buildHelpGUI()
     end)
 end
 
--- 11. SLURP HUB SUBMIT LOGIK (1:1 ÜBERNOMMEN)
+-- 11. SLURP HUB SUBMIT LOGIK + COUNTER/TEXTFELD VERBUNDEN
 local _capturedParts = {}
 local _seen = {}
-local _submitAfter = _G.SubmitAfterCount
 
 -- Click Button Funktion (aus Slurp Hub)
 local function clickButton(btn)
@@ -1121,7 +1122,7 @@ local function typeAndSubmitCode(code)
     return false
 end
 
--- 12. SLURP HUB APPEND TO BOX LOGIK (AUTO TYPE + AUTO SUBMIT)
+-- 12. APPEND TO BOX (MIT COUNTER + TEXTFELD VERBUNDEN)
 local function appendToBox(text, isRiddleAnswer)
     if not text or text == "" or not _G.ScriptEnabled then return end
     if not _G.AutoWriteEnabled then return end
@@ -1129,7 +1130,7 @@ local function appendToBox(text, isRiddleAnswer)
     -- Riddle Antworten werden direkt in die Box geschrieben
     if isRiddleAnswer then
         if CodeTextBox then
-            if CodeTextBox.Text == "" then
+            if CodeTextBox.Text == "" or CodeTextBox.Text == "Code Here..." then
                 CodeTextBox.Text = text
             else
                 CodeTextBox.Text = CodeTextBox.Text .. text
@@ -1145,21 +1146,21 @@ local function appendToBox(text, isRiddleAnswer)
     local combinedCode = table.concat(_capturedParts)
     local capturedCount = #_capturedParts
 
-    if capturedCount >= _submitAfter then
-        _capturedParts = {}
-        
-        -- In die Box schreiben
-        if CodeTextBox then
-            if CodeTextBox.Text == "" then
-                CodeTextBox.Text = combinedCode
-            else
-                CodeTextBox.Text = CodeTextBox.Text .. combinedCode
-            end
+    -- In die Box schreiben (bei JEDEM Wort)
+    if CodeTextBox then
+        if CodeTextBox.Text == "" or CodeTextBox.Text == "Code Here..." then
+            CodeTextBox.Text = text
+        else
+            CodeTextBox.Text = CodeTextBox.Text .. text
         end
-        
-        -- Codes sammeln für GUI
-        table.insert(collectedCodes, combinedCode)
-        refreshMainGUI()
+    end
+    
+    -- Counter aktualisieren (bei JEDEM Wort)
+    table.insert(collectedCodes, text)
+    refreshMainGUI()
+
+    if capturedCount >= _G.SubmitAfterCount then
+        _capturedParts = {}
         
         -- AUTO SUBMIT
         if _G.AutoSubmitEnabled then
@@ -1169,7 +1170,9 @@ local function appendToBox(text, isRiddleAnswer)
             table.clear(collectedCodes)
             _capturedParts = {}
             refreshMainGUI()
-            if CodeTextBox then CodeTextBox.Text = "" end
+            if CodeTextBox then 
+                CodeTextBox.Text = ""
+            end
             
             -- Automatisch auf STOP
             _G.ScriptEnabled = false
@@ -1215,7 +1218,7 @@ local function watchLabel(Label)
         local text = Label.Text
         if text == "" then return end
         
-        -- RIDDLE SOLVER (wie Slurp Hub)
+        -- RIDDLE SOLVER
         if _G.RiddleSolverEnabled then
             local answer = answerQuestion(text)
             if answer then
@@ -1227,14 +1230,14 @@ local function watchLabel(Label)
         -- Code sammeln (nur einzelne Wörter, wie Slurp Hub)
         if text:find("%s") then return end
         
-        -- Duplikatschutz (wie Slurp Hub)
+        -- Duplikatschutz
         if _seen[text] then return end
         _seen[text] = true
         
         -- In History speichern
         saveToHistory(text, true)
         
-        -- appendToBox aufrufen (sammelt bis _submitAfter erreicht ist)
+        -- appendToBox aufrufen
         appendToBox(text, false)
     end)
 end
@@ -1649,14 +1652,12 @@ local function buildGUI()
         
         plusBtn.MouseButton1Click:Connect(function()
             _G.SubmitAfterCount = _G.SubmitAfterCount + 1
-            _submitAfter = _G.SubmitAfterCount
             countDisplay.Text = tostring(_G.SubmitAfterCount)
             refreshMainGUI()
         end)
         minusBtn.MouseButton1Click:Connect(function()
             if _G.SubmitAfterCount > 1 then
                 _G.SubmitAfterCount = _G.SubmitAfterCount - 1
-                _submitAfter = _G.SubmitAfterCount
                 countDisplay.Text = tostring(_G.SubmitAfterCount)
                 refreshMainGUI()
             end
