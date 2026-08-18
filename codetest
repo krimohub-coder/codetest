@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB V4 - MIT SLURP SUBMIT LOGIK (1:1 INTEGRATION)
+-- KRIMO HUB V4 - MIT ECHTEM REDEEM EVENT
 -- ============================================================
 
 -- 1. GLOBALS
@@ -14,6 +14,7 @@ local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local CoreGui = game:GetService("CoreGui")
 local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- 2. PERSISTENZ
 local hasFS = pcall(function() return type(writefile) == "function" end)
@@ -45,14 +46,50 @@ loadConfig()
 local Announcements = nil
 local CodeTextBox = nil
 local ConfirmButton = nil
+local RedeemRemote = nil
 local _delay = 0
 local PlayerGui = nil
 local ToggleButton = nil
+
+-- FIND REDEEM REMOTE EVENT
+local function findRedeemRemote()
+    if RedeemRemote then return RedeemRemote end
+    
+    -- Suche in ReplicatedStorage nach Redeem-ähnlichen RemoteEvents
+    for _, child in ipairs(ReplicatedStorage:GetDescendants()) do
+        if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
+            local name = child.Name:lower()
+            if name:find("redeem") or name:find("code") or name:find("submit") or name:find("claim") then
+                RedeemRemote = child
+                print("[KrimoHub] ✅ Redeem Remote gefunden: " .. child.Name)
+                return RedeemRemote
+            end
+        end
+    end
+    
+    -- Suche im gesamten game
+    for _, child in ipairs(game:GetDescendants()) do
+        if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
+            local name = child.Name:lower()
+            if name:find("redeem") or name:find("code") or name:find("submit") or name:find("claim") then
+                RedeemRemote = child
+                print("[KrimoHub] ✅ Redeem Remote gefunden: " .. child.Name)
+                return RedeemRemote
+            end
+        end
+    end
+    
+    print("[KrimoHub] ⚠️ Kein Redeem Remote gefunden!")
+    return nil
+end
 
 local function setupPaths()
     pcall(function()
         PlayerGui = LocalPlayer:FindFirstChild("PlayerGui")
         if not PlayerGui then return end
+        
+        -- Finde Redeem Remote
+        findRedeemRemote()
         
         local codes = PlayerGui:FindFirstChild("Codes")
         if codes then
@@ -200,7 +237,7 @@ local SAB_DB = {
     ["10th mutation"] = "Phantom",
     ["11th mutation"] = "Crystal",
     
-    -- MACHINES
+    -- MACHINES (ALLE 18)
     ["first machine"] = "RAINBOW MACHINE",
     ["1st machine"] = "RAINBOW MACHINE",
     ["what was the first machine"] = "RAINBOW MACHINE",
@@ -802,7 +839,7 @@ local function buildHistoryGUI()
     end)
 end
 
--- 10. HILFE-GUI (ANGEPASST)
+-- 10. HILFE-GUI
 local function buildHelpGUI()
     if HelpGui then
         HelpGui:Destroy()
@@ -984,108 +1021,7 @@ local function buildHelpGUI()
     end)
 end
 
--- 11. SUBMIT (EXAKT WIE IN SLURP HUB - 1:1 ÜBERNOMMEN)
-local function typeAndSubmitCode(code)
-    local pg = PlayerGui or LocalPlayer:FindFirstChildOfClass("PlayerGui")
-    if not pg then return false end
-
-    local codesGui = pg:FindFirstChild("Codes")
-    if codesGui then
-        if codesGui:IsA("ScreenGui") then codesGui.Enabled = true end
-        local codesFrame = codesGui:FindFirstChild("Codes") or codesGui
-        if codesFrame then
-            if codesFrame:IsA("GuiObject") then codesFrame.Visible = true end
-            local cur = codesFrame
-            while cur and cur ~= codesGui do
-                if cur:IsA("GuiObject") then cur.Visible = true end
-                cur = cur.Parent
-            end
-
-            local box = nil
-            for _, d in ipairs(codesFrame:GetDescendants()) do
-                if d:IsA("TextBox") then
-                    box = d
-                    break
-                end
-            end
-
-            local submitBtn = nil
-            for _, d in ipairs(codesFrame:GetDescendants()) do
-                if (d:IsA("TextButton") or d:IsA("ImageButton")) then
-                    local n = d.Name:lower()
-                    local txt = ""
-                    pcall(function() txt = d.Text:lower() end)
-                    if n:find("submit") or txt:find("submit") or n:find("redeem") or txt:find("redeem") or n:find("claim") or txt:find("confirm") or n:find("enter") then
-                        submitBtn = d
-                        break
-                    end
-                end
-            end
-
-            if box then
-                box.Text = code
-                if submitBtn then
-                    pcall(function() 
-                        submitBtn.MouseButton1Click:Fire()
-                        submitBtn.Activated:Fire()
-                        submitBtn:CaptureFocus()
-                        submitBtn:ReleaseFocus(true)
-                    end)
-                end
-                pcall(function()
-                    box.FocusLost:Fire(true)
-                    box:CaptureFocus()
-                    box:ReleaseFocus(true)
-                end)
-                return true
-            end
-        end
-    end
-
-    -- Fallback: Suche im gesamten PlayerGui
-    local box = nil
-    for _, d in ipairs(pg:GetDescendants()) do
-        if d:IsA("TextBox") and not box then
-            box = d
-            break
-        end
-    end
-
-    if box then
-        box.Text = code
-        pcall(function()
-            box.FocusLost:Fire(true)
-            box:CaptureFocus()
-            box:ReleaseFocus(true)
-        end)
-        
-        local p = box.Parent
-        for _ = 1, 6 do
-            if not p then break end
-            for _, d in ipairs(p:GetDescendants()) do
-                if d:IsA("TextButton") or d:IsA("ImageButton") then
-                    local n = d.Name:lower()
-                    local txt = ""
-                    pcall(function() txt = d.Text:lower() end)
-                    if n:find("submit") or txt:find("submit") or n:find("redeem") or txt:find("redeem") or n:find("confirm") or txt:find("confirm") then
-                        pcall(function()
-                            d.MouseButton1Click:Fire()
-                            d.Activated:Fire()
-                            d:CaptureFocus()
-                            d:ReleaseFocus(true)
-                        end)
-                        return true
-                    end
-                end
-            end
-            p = p.Parent
-        end
-        return true
-    end
-    
-    return false
-end
-
+-- 11. SUBMIT (MIT ECHTEM REDEEM EVENT)
 local function triggerSubmit()
     if submitCooldown then return false end
     submitCooldown = true
@@ -1101,10 +1037,62 @@ local function triggerSubmit()
     
     if combinedCode == "" then return false end
     
-    -- Submit mit Slurp Methode 1:1
-    local success = typeAndSubmitCode(combinedCode)
+    print("[KrimoHub] 📤 Versuche Code einzulösen: " .. combinedCode)
     
-    return success
+    -- Methode 1: Redeem RemoteEvent finden und feuern
+    local remote = findRedeemRemote()
+    if remote and remote:IsA("RemoteEvent") then
+        local success = pcall(function()
+            remote:FireServer(combinedCode)
+            print("[KrimoHub] ✅ Redeem RemoteEvent gefeuert!")
+        end)
+        if success then return true end
+    end
+    
+    -- Methode 2: RemoteFunction
+    if remote and remote:IsA("RemoteFunction") then
+        local success = pcall(function()
+            remote:InvokeServer(combinedCode)
+            print("[KrimoHub] ✅ Redeem RemoteFunction gefeuert!")
+        end)
+        if success then return true end
+    end
+    
+    -- Methode 3: ConfirmButton klicken (falls vorhanden)
+    if ConfirmButton then
+        local success = pcall(function()
+            for i = 1, 3 do
+                ConfirmButton:CaptureFocus()
+                ConfirmButton:ReleaseFocus(true)
+                task.wait(0.05)
+            end
+            print("[KrimoHub] ✅ ConfirmButton geklickt!")
+        end)
+        if success then return true end
+    end
+    
+    -- Methode 4: Im gesamten PlayerGui nach Submit-Buttons suchen
+    if PlayerGui then
+        for _, obj in ipairs(PlayerGui:GetDescendants()) do
+            if obj:IsA("TextButton") then
+                local txt = obj.Text:lower()
+                if txt:find("submit") or txt:find("redeem") or txt:find("confirm") or txt:find("einlösen") then
+                    pcall(function()
+                        for i = 1, 3 do
+                            obj:CaptureFocus()
+                            obj:ReleaseFocus(true)
+                            task.wait(0.05)
+                        end
+                        print("[KrimoHub] ✅ Fallback Button geklickt!")
+                    end)
+                    return true
+                end
+            end
+        end
+    end
+    
+    print("[KrimoHub] ❌ Keine Submit-Methode funktioniert!")
+    return false
 end
 
 -- 12. HISTORY SPEICHERN
@@ -1159,7 +1147,6 @@ local function addCode(Code, fromSammy)
     
     -- AUTO SUBMIT: ZUERST SUBMIT, DANN LÖSCHEN
     if _G.AutoSubmitEnabled and #collectedCodes >= _G.SubmitAfterCount then
-        if _delay > 0 then task.wait(_delay) end
         local success = triggerSubmit()
         task.wait(0.3)
         table.clear(collectedCodes)
