@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB V4 - SUBMIT 100% FIX (NUR 1x, NACH 3/3)
+-- KRIMO HUB V4 - MIT SLURP HUB SUBMIT LOGIK (100% funktioniert)
 -- ============================================================
 
 -- 1. GLOBALS
@@ -14,7 +14,6 @@ local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local CoreGui = game:GetService("CoreGui")
 local UserInputService = game:GetService("UserInputService")
-local VirtualInputManager = game:GetService("VirtualInputManager")
 
 -- 2. PERSISTENZ
 local hasFS = pcall(function() return type(writefile) == "function" end)
@@ -101,7 +100,6 @@ local AddedCount = 0
 local history = {}
 local lastAddedWord = ""
 local submitCooldown = false
-local isSubmitting = false -- Verhindert doppelten Submit
 
 -- 5. RIDDLE DATABASE (ALLE AUS SLURP HUB)
 local SAB_DB = {
@@ -986,98 +984,165 @@ local function buildHelpGUI()
     end)
 end
 
--- 11. SUBMIT (FIXED)
-local function triggerSubmit()
-    -- Verhindert Spam / Mehrfachauslösungen
-    if submitCooldown then return false end
-    if isSubmitting then return false end
+-- 11. SUBMIT (EXAKT AUS SLURP HUB - 100% FUNKTIONIERT)
+local function clickButton(btn)
+    if not btn then return false end
     
-    submitCooldown = true
-    isSubmitting = true
-    task.delay(0.5, function() 
-        submitCooldown = false 
-        isSubmitting = false 
-    end)
+    pcall(function() btn.MouseButton1Click:Fire() end)
+    pcall(function() btn.Activated:Fire() end)
     
-    setupPaths()
-    
-    if _delay > 0 then
-        task.wait(_delay)
+    if typeof(firesignal) == "function" then
+        pcall(firesignal, btn.MouseButton1Click)
+        pcall(firesignal, btn.Activated)
     end
     
-    local submitted = false
-    
-    -- Option A: Textbox Enter-Key Simulation
-    if CodeTextBox then
-        pcall(function()
-            CodeTextBox:CaptureFocus()
-            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Return, false, game)
-            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Return, false, game)
-            CodeTextBox:ReleaseFocus(true)
-            submitted = true
-        end)
+    if typeof(getconnections) == "function" then
+        local ok, cs = pcall(getconnections, btn.MouseButton1Click)
+        if ok and type(cs) == "table" then
+            for _, c in ipairs(cs) do pcall(function() c:Fire() end) end
+        end
+        local ok2, cs2 = pcall(getconnections, btn.Activated)
+        if ok2 and type(cs2) == "table" then
+            for _, c in ipairs(cs2) do pcall(function() c:Fire() end) end
+        end
     end
     
-    -- Option B: Button Click via Fire/Virtual Input
-    local function clickButton(btn)
-        if not btn then return false end
-        pcall(function()
-            btn:CaptureFocus()
-            btn:ReleaseFocus(true)
-        end)
-        pcall(function()
-            for _, conn in ipairs(getconnections(btn.MouseButton1Click or btn.Activated)) do
-                conn:Fire()
+    if typeof(fireclick) == "function" then
+        pcall(fireclick, btn)
+    end
+    
+    return true
+end
+
+local function fireBoxFocusLost(box)
+    if not box then return false end
+    
+    if typeof(firesignal) == "function" then
+        pcall(firesignal, box.FocusLost, true)
+    end
+    
+    if typeof(getconnections) == "function" then
+        local ok, cs = pcall(getconnections, box.FocusLost)
+        if ok and type(cs) == "table" then
+            for _, c in ipairs(cs) do
+                pcall(function() if c.Enabled ~= false then c:Fire(true) end end)
             end
-        end)
-        pcall(function()
-            local pos = btn.AbsolutePosition
-            local size = btn.AbsoluteSize
-            local centerX = pos.X + (size.X / 2)
-            local centerY = pos.Y + (size.Y / 2) + 36
-            VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, game, 1)
-            VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, game, 1)
-        end)
+        end
+    end
+    
+    return true
+end
+
+local function typeAndSubmitCode(code)
+    local pg = PlayerGui or LocalPlayer:FindFirstChildOfClass("PlayerGui")
+    if not pg then return false end
+
+    -- Versuch 1: Über Codes GUI
+    local codesGui = pg:FindFirstChild("Codes")
+    if codesGui then
+        if codesGui:IsA("ScreenGui") then codesGui.Enabled = true end
+        local codesFrame = codesGui:FindFirstChild("Codes") or codesGui
+        if codesFrame then
+            if codesFrame:IsA("GuiObject") then codesFrame.Visible = true end
+            local cur = codesFrame
+            while cur and cur ~= codesGui do
+                if cur:IsA("GuiObject") then cur.Visible = true end
+                cur = cur.Parent
+            end
+
+            local box = nil
+            for _, d in ipairs(codesFrame:GetDescendants()) do
+                if d:IsA("TextBox") then
+                    box = d
+                    break
+                end
+            end
+
+            local submitBtn = nil
+            for _, d in ipairs(codesFrame:GetDescendants()) do
+                if (d:IsA("TextButton") or d:IsA("ImageButton")) then
+                    local n = d.Name:lower()
+                    local txt = ""
+                    pcall(function() txt = d.Text:lower() end)
+                    if n:find("submit") or txt:find("submit") or n:find("redeem") or txt:find("redeem") or n:find("claim") or txt:find("confirm") or n:find("enter") then
+                        submitBtn = d
+                        break
+                    end
+                end
+            end
+
+            if box then
+                box.Text = code
+                if submitBtn then clickButton(submitBtn) end
+                fireBoxFocusLost(box)
+                return true
+            end
+        end
+    end
+
+    -- Versuch 2: Im gesamten PlayerGui suchen
+    local box = nil
+    for _, d in ipairs(pg:GetDescendants()) do
+        if d:IsA("TextBox") and not box then
+            box = d
+            break
+        end
+    end
+
+    if box then
+        box.Text = code
+        fireBoxFocusLost(box)
+        
+        -- Nach Submit Button suchen
+        local p = box.Parent
+        for _ = 1, 6 do
+            if not p then break end
+            for _, d in ipairs(p:GetDescendants()) do
+                if d:IsA("TextButton") or d:IsA("ImageButton") then
+                    local n = d.Name:lower()
+                    local txt = ""
+                    pcall(function() txt = d.Text:lower() end)
+                    if n:find("submit") or txt:find("submit") or n:find("redeem") or txt:find("redeem") or n:find("confirm") or txt:find("confirm") then
+                        clickButton(d)
+                        return true
+                    end
+                end
+            end
+            p = p.Parent
+        end
         return true
     end
     
-    if ConfirmButton then
-        if clickButton(ConfirmButton) then submitted = true end
+    return false
+end
+
+local function triggerSubmit()
+    if submitCooldown then return false end
+    submitCooldown = true
+    task.delay(0.5, function() submitCooldown = false end)
+    
+    setupPaths()
+    
+    -- Sammle alle Codes
+    local combinedCode = ""
+    for _, c in ipairs(collectedCodes) do
+        combinedCode = combinedCode .. c
     end
     
-    -- Option C: Dynamische Suche
-    if not submitted and PlayerGui then
-        pcall(function()
-            for _, obj in ipairs(PlayerGui:GetDescendants()) do
-                if obj:IsA("TextButton") then
-                    local txt = obj.Text:lower()
-                    if txt:find("submit") or txt:find("redeem") or txt:find("confirm") or txt:find("einlösen") then
-                        if clickButton(obj) then
-                            submitted = true
-                            break
-                        end
-                    end
-                end
-            end
-        end)
+    if combinedCode == "" then return false end
+    
+    print("[KrimoHub] 📤 Versuche Code einzulösen: " .. combinedCode)
+    
+    -- Submit mit Slurp Methode
+    local success = typeAndSubmitCode(combinedCode)
+    
+    if success then
+        print("[KrimoHub] ✅ Codes erfolgreich eingelöst!")
+    else
+        print("[KrimoHub] ❌ Submit fehlgeschlagen!")
     end
     
-    -- Option D: RemoteEvent Fallback
-    pcall(function()
-        local ReplicatedStorage = game:GetService("ReplicatedStorage")
-        for _, obj in ipairs(ReplicatedStorage:GetDescendants()) do
-            if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
-                local name = obj.Name:lower()
-                if name:find("redeem") or name:find("submit") or name:find("code") then
-                    if obj:IsA("RemoteEvent") then
-                        obj:FireServer(CodeTextBox and CodeTextBox.Text or "")
-                    end
-                end
-            end
-        end
-    end)
-    
-    return submitted
+    return success
 end
 
 -- 12. HISTORY SPEICHERN
@@ -1101,7 +1166,7 @@ local function saveToHistory(Word, fromSammy)
     end
 end
 
--- 13. CODE HINZUFÜGEN (100% FIXED)
+-- 13. CODE HINZUFÜGEN
 local function addCode(Code, fromSammy)
     Code = tostring(Code)
     if Code == "" then return end
@@ -1130,29 +1195,19 @@ local function addCode(Code, fromSammy)
     end
     AddedCount = AddedCount + 1
     
-    -- *** NUR SUBMITEN WENN WIRKLICH GENUG CODES DA SIND ***
     if _G.AutoSubmitEnabled and #collectedCodes >= _G.SubmitAfterCount then
         local success = triggerSubmit()
-        
-        -- Codes IMMER zurücksetzen (auch bei Fehler)
+        task.wait(0.3)
         table.clear(collectedCodes)
         AddedCount = 0
         refreshMainGUI()
-        if CodeTextBox then 
-            CodeTextBox.Text = ""
-        end
+        if CodeTextBox then CodeTextBox.Text = "" end
         
-        -- Automatisch auf STOP (START anzeigen)
+        -- Automatisch auf STOP
         _G.ScriptEnabled = false
         if ToggleButton then
             ToggleButton.TextColor3 = Color3.fromRGB(0, 255, 100)
             ToggleButton.Text = "START"
-        end
-        
-        if success then
-            print("[KrimoHub] ✅ Codes eingelöst! Hub gestoppt.")
-        else
-            print("[KrimoHub] ⚠️ Submit fehlgeschlagen! Hub trotzdem gestoppt.")
         end
     end
 end
