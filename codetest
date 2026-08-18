@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB V4 - SUBMIT 100% FIX (FÜR DEINE GUI)
+-- KRIMO HUB V4 - SUBMIT 100% FIX (KOMPLETT NEU)
 -- ============================================================
 
 -- 1. GLOBALS
@@ -44,7 +44,7 @@ loadConfig()
 -- 3. PFADE
 local Announcements = nil
 local CodeTextBox = nil
-local SubmitButton = nil  -- Jetzt SEND Button
+local SubmitButton = nil
 local _delay = 0
 local PlayerGui = nil
 local ToggleButton = nil
@@ -54,7 +54,6 @@ local function setupPaths()
         PlayerGui = LocalPlayer:FindFirstChild("PlayerGui")
         if not PlayerGui then return end
         
-        -- 1. Versuch: Codes GUI
         local codes = PlayerGui:FindFirstChild("Codes")
         if codes then
             local codesInner = codes:FindFirstChild("Codes")
@@ -62,23 +61,19 @@ local function setupPaths()
                 local codeRedeem = codesInner:FindFirstChild("CodeRedeem")
                 if codeRedeem then
                     CodeTextBox = codeRedeem:FindFirstChild("TextBox")
-                    -- Suche nach SEND Button
                     for _, child in ipairs(codeRedeem:GetDescendants()) do
                         if child:IsA("TextButton") then
                             local txt = child.Text:lower()
                             if txt:find("send") or txt:find("submit") or txt:find("redeem") or txt:find("confirm") then
                                 SubmitButton = child
-                                print("[KrimoHub] SEND Button gefunden:", child.Text)
                                 break
                             end
                         end
                     end
-                    -- Falls nicht gefunden, nimm den ersten Button
                     if not SubmitButton then
                         for _, child in ipairs(codeRedeem:GetDescendants()) do
                             if child:IsA("TextButton") then
                                 SubmitButton = child
-                                print("[KrimoHub] Fallback Button:", child.Text)
                                 break
                             end
                         end
@@ -87,7 +82,6 @@ local function setupPaths()
             end
         end
         
-        -- 2. Versuch: Im gesamten PlayerGui suchen
         if not CodeTextBox or not SubmitButton then
             for _, child in ipairs(PlayerGui:GetDescendants()) do
                 if child:IsA("TextBox") and not CodeTextBox then
@@ -96,13 +90,11 @@ local function setupPaths()
                     local txt = child.Text:lower()
                     if txt:find("send") or txt:find("submit") or txt:find("redeem") or txt:find("confirm") or txt:find("einlösen") then
                         SubmitButton = child
-                        print("[KrimoHub] Button gefunden (Fallback):", child.Text)
                     end
                 end
             end
         end
         
-        -- Announcements finden
         local topNotif = PlayerGui:FindFirstChild("TopNotification")
         if topNotif then
             Announcements = topNotif:FindFirstChild("TopNotification")
@@ -115,18 +107,6 @@ local function setupPaths()
                 end
             end
         end
-        
-        if CodeTextBox then
-            print("[KrimoHub] CodeTextBox gefunden!")
-        else
-            print("[KrimoHub] CodeTextBox NICHT gefunden!")
-        end
-        
-        if SubmitButton then
-            print("[KrimoHub] SubmitButton gefunden:", SubmitButton.Text)
-        else
-            print("[KrimoHub] SubmitButton NICHT gefunden!")
-        end
     end)
 end
 
@@ -134,10 +114,10 @@ end
 local collectedCodes = {}
 local history = {}
 local submitCooldown = false
-local isSubmitting = false
 local _capturedParts = {}
+local isProcessingSubmit = false
 
--- 5. RIDDLE DATABASE (SLURP HUB)
+-- 5. RIDDLE DATABASE
 local SAB_DB = {
     ["how old am i"] = "24",
     ["how old is sammy"] = "24",
@@ -321,24 +301,26 @@ local isMinimized = false
 local historyOpen = false
 local TitleCounterLabel = nil
 
-local function resetAllOnStart()
+-- 7. HARD RESET FUNKTION
+local function hardReset()
     table.clear(collectedCodes)
     _capturedParts = {}
+    isProcessingSubmit = false
     refreshMainGUI()
     if CodeTextBox then 
         CodeTextBox.Text = ""
     end
-    print("[KrimoHub] 🔄 Reset beim START ausgeführt!")
+    print("[KrimoHub] 🔄 Hard Reset ausgeführt!")
 end
 
--- 7. COUNTER
+-- 8. COUNTER
 local function updateTitleCounter()
     if TitleCounterLabel then
         TitleCounterLabel.Text = "📊 " .. #collectedCodes .. "/" .. _G.SubmitAfterCount
     end
 end
 
--- 8. REFRESH MAIN GUI
+-- 9. REFRESH MAIN GUI
 local function refreshMainGUI()
     if not MainFrame then return end
     pcall(function()
@@ -405,7 +387,7 @@ local function refreshMainGUI()
     end)
 end
 
--- 9. HISTORY
+-- 10. HISTORY
 local function updateHistoryContent()
     if not HistoryScroll then return end
     pcall(function()
@@ -667,7 +649,7 @@ local function buildHistoryGUI()
     end)
 end
 
--- 10. HILFE-GUI
+-- 11. HILFE-GUI
 local function buildHelpGUI()
     if HelpGui then
         HelpGui:Destroy()
@@ -849,11 +831,17 @@ local function buildHelpGUI()
     end)
 end
 
--- 11. SUBMIT (NEU GESCHRIEBEN - FÜR DEINE GUI)
+-- 12. SUBMIT FUNKTION
 local function doSubmit()
-    if submitCooldown then return false end
+    if submitCooldown or isProcessingSubmit then return false end
+    
     submitCooldown = true
-    task.delay(0.3, function() submitCooldown = false end)
+    isProcessingSubmit = true
+    
+    task.delay(0.5, function() 
+        submitCooldown = false
+        isProcessingSubmit = false
+    end)
     
     setupPaths()
     
@@ -863,26 +851,28 @@ local function doSubmit()
         combinedCode = combinedCode .. c
     end
     
-    if combinedCode == "" then return false end
+    if combinedCode == "" then 
+        isProcessingSubmit = false
+        return false 
+    end
     
     print("[KrimoHub] 📤 Versuche Code einzulösen: " .. combinedCode)
     
-    -- Schritt 1: Code in die Box schreiben
+    -- Code in die Box schreiben
     if CodeTextBox then
         CodeTextBox.Text = combinedCode
         print("[KrimoHub] Code in Box geschrieben")
     else
         print("[KrimoHub] ❌ Keine CodeBox gefunden!")
+        isProcessingSubmit = false
         return false
     end
     
-    -- Schritt 2: Warten damit der Code gesetzt wird
     task.wait(0.1)
     
-    -- Schritt 3: Den SEND Button finden und klicken
+    -- Den SEND Button finden und klicken
     local foundButton = SubmitButton
     
-    -- Falls SubmitButton nicht gefunden wurde, suche jetzt
     if not foundButton and PlayerGui then
         for _, child in ipairs(PlayerGui:GetDescendants()) do
             if child:IsA("TextButton") then
@@ -904,7 +894,7 @@ local function doSubmit()
             print("[KrimoHub] CaptureFocus/ReleaseFocus ausgeführt")
         end)
         
-        -- Methode 2: MouseButton1Click Event feuern
+        -- Methode 2: MouseButton1Click Event
         pcall(function()
             if foundButton.MouseButton1Click then
                 foundButton.MouseButton1Click:Fire()
@@ -916,20 +906,14 @@ local function doSubmit()
             end
         end)
         
-        -- Methode 3: getconnections (falls vorhanden)
+        -- Methode 3: getconnections
         pcall(function()
             if getconnections then
                 for _, conn in ipairs(getconnections(foundButton.MouseButton1Click)) do
-                    if conn and conn.Fire then 
-                        conn:Fire()
-                        print("[KrimoHub] Connection gefeuert")
-                    end
+                    if conn and conn.Fire then conn:Fire() end
                 end
                 for _, conn in ipairs(getconnections(foundButton.Activated)) do
-                    if conn and conn.Fire then 
-                        conn:Fire()
-                        print("[KrimoHub] Connection (Activated) gefeuert")
-                    end
+                    if conn and conn.Fire then conn:Fire() end
                 end
             end
         end)
@@ -942,10 +926,11 @@ local function doSubmit()
     end
 end
 
--- 12. APPEND TO BOX
+-- 13. APPEND TO BOX
 local function appendToBox(text, isRiddleAnswer)
     if not text or text == "" or not _G.ScriptEnabled then return end
     if not _G.AutoWriteEnabled then return end
+    if isProcessingSubmit then return end
     
     -- Riddle Antworten
     if isRiddleAnswer then
@@ -980,18 +965,12 @@ local function appendToBox(text, isRiddleAnswer)
     refreshMainGUI()
 
     -- Submit wenn genug Wörter
-    if capturedCount >= _G.SubmitAfterCount and _G.AutoSubmitEnabled then
-        -- ZUERST Parts zurücksetzen
-        _capturedParts = {}
-        
+    if capturedCount >= _G.SubmitAfterCount and _G.AutoSubmitEnabled and not isProcessingSubmit then
+        -- Submit ausführen
         local success = doSubmit()
         
-        -- Codes zurücksetzen
-        table.clear(collectedCodes)
-        refreshMainGUI()
-        if CodeTextBox then 
-            CodeTextBox.Text = ""
-        end
+        -- NACH dem Submit: Alles zurücksetzen
+        hardReset()
         
         -- Automatisch auf STOP
         _G.ScriptEnabled = false
@@ -1008,7 +987,7 @@ local function appendToBox(text, isRiddleAnswer)
     end
 end
 
--- 13. HISTORY SPEICHERN
+-- 14. HISTORY SPEICHERN
 local function saveToHistory(Word, fromSammy)
     if not _G.HistoryEnabled then return end
     if not fromSammy then return end
@@ -1029,12 +1008,13 @@ local function saveToHistory(Word, fromSammy)
     end
 end
 
--- 14. WATCHER
+-- 15. WATCHER
 local function watchLabel(Label)
     pcall(function()
         if not Label:IsA("TextLabel") then return end
         local text = Label.Text
         if text == "" then return end
+        if isProcessingSubmit then return end
         
         if _G.RiddleSolverEnabled then
             local answer = answerQuestion(text)
@@ -1062,15 +1042,12 @@ local function startAnnouncementWatcher()
     end)
 end
 
--- 15. RESET
+-- 16. RESET
 local function resetCodes()
-    table.clear(collectedCodes)
-    _capturedParts = {}
-    refreshMainGUI()
-    if CodeTextBox then CodeTextBox.Text = "" end
+    hardReset()
 end
 
--- 16. SPYDERSAMMY ERKENNUNG
+-- 17. SPYDERSAMMY ERKENNUNG
 local targetUserId = nil
 task.spawn(function()
     pcall(function() 
@@ -1131,7 +1108,7 @@ local function startPlayerGuiScanner()
     end)
 end
 
--- 17. GUI BAUEN (NUR DER WICHTIGE TEIL - TITLE BAR)
+-- 18. GUI BAUEN
 local function buildGUI()
     pcall(function()
         local old = CoreGui:FindFirstChild("KrimoHubGui")
@@ -1233,9 +1210,8 @@ local function buildGUI()
             ToggleButton.TextColor3 = _G.ScriptEnabled and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(0, 255, 100)
             ToggleButton.Text = _G.ScriptEnabled and "STOP" or "START"
             
-            if _G.ScriptEnabled then
-                resetAllOnStart()
-            end
+            -- *** IMMER HARD RESET BEIM START/STOP ***
+            hardReset()
         end)
         
         -- Fragezeichen Button
@@ -1272,7 +1248,7 @@ local function buildGUI()
         toggleMinBtn.Parent = titleBar
         do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = toggleMinBtn end
         
-        -- Content
+        -- Content (Rest wie gehabt)
         local ContentFrame = Instance.new("Frame")
         ContentFrame.Name = "ContentFrame"
         ContentFrame.Size = UDim2.new(1, 0, 1, -26)
@@ -1312,9 +1288,7 @@ local function buildGUI()
             awToggle.BackgroundColor3 = _G.AutoWriteEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
             awToggle.Text = _G.AutoWriteEnabled and "ON" or "OFF"
             if not _G.AutoWriteEnabled then
-                table.clear(collectedCodes)
-                _capturedParts = {}
-                refreshMainGUI()
+                hardReset()
             end
         end)
         
@@ -1572,7 +1546,7 @@ local function buildGUI()
         do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = resetBtn end
         
         resetBtn.MouseButton1Click:Connect(function()
-            resetCodes()
+            hardReset()
         end)
         
         -- Code-Liste
@@ -1752,7 +1726,7 @@ local function buildGUI()
     end)
 end
 
--- 18. START
+-- 19. START
 print("[KrimoHub V4] Starte...")
 
 task.wait(3)
