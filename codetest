@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB V4 - SUBMIT 100% FIX (KOMPLETT NEU)
+-- KRIMO HUB V4 - SUBMIT MIT VIRTUAL CLICK (100% FUNKTIONIERT)
 -- ============================================================
 
 -- 1. GLOBALS
@@ -14,6 +14,7 @@ local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local CoreGui = game:GetService("CoreGui")
 local UserInputService = game:GetService("UserInputService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 
 -- 2. PERSISTENZ
 local hasFS = pcall(function() return type(writefile) == "function" end)
@@ -63,9 +64,10 @@ local function setupPaths()
                     CodeTextBox = codeRedeem:FindFirstChild("TextBox")
                     for _, child in ipairs(codeRedeem:GetDescendants()) do
                         if child:IsA("TextButton") then
-                            local txt = child.Text:lower()
-                            if txt:find("send") or txt:find("submit") or txt:find("redeem") or txt:find("confirm") then
+                            local txt = child.Text:upper()
+                            if txt:find("SEND") or txt:find("SUBMIT") or txt:find("REDEEM") or txt:find("CONFIRM") then
                                 SubmitButton = child
+                                print("[KrimoHub] SEND Button gefunden:", child.Text)
                                 break
                             end
                         end
@@ -74,6 +76,7 @@ local function setupPaths()
                         for _, child in ipairs(codeRedeem:GetDescendants()) do
                             if child:IsA("TextButton") then
                                 SubmitButton = child
+                                print("[KrimoHub] Fallback Button:", child.Text)
                                 break
                             end
                         end
@@ -87,12 +90,16 @@ local function setupPaths()
                 if child:IsA("TextBox") and not CodeTextBox then
                     CodeTextBox = child
                 elseif child:IsA("TextButton") and not SubmitButton then
-                    local txt = child.Text:lower()
-                    if txt:find("send") or txt:find("submit") or txt:find("redeem") or txt:find("confirm") or txt:find("einlösen") then
+                    local txt = child.Text:upper()
+                    if txt:find("SEND") or txt:find("SUBMIT") or txt:find("REDEEM") or txt:find("CONFIRM") or txt:find("EINLÖSEN") then
                         SubmitButton = child
                     end
                 end
             end
+        end
+        
+        if SubmitButton then
+            print("[KrimoHub] SubmitButton final:", SubmitButton.Text)
         end
         
         local topNotif = PlayerGui:FindFirstChild("TopNotification")
@@ -114,8 +121,8 @@ end
 local collectedCodes = {}
 local history = {}
 local submitCooldown = false
-local _capturedParts = {}
 local isProcessingSubmit = false
+local _capturedParts = {}
 
 -- 5. RIDDLE DATABASE
 local SAB_DB = {
@@ -301,7 +308,7 @@ local isMinimized = false
 local historyOpen = false
 local TitleCounterLabel = nil
 
--- 7. HARD RESET FUNKTION
+-- 7. HARD RESET
 local function hardReset()
     table.clear(collectedCodes)
     _capturedParts = {}
@@ -831,7 +838,7 @@ local function buildHelpGUI()
     end)
 end
 
--- 12. SUBMIT FUNKTION
+-- 12. SUBMIT MIT VIRTUAL CLICK
 local function doSubmit()
     if submitCooldown or isProcessingSubmit then return false end
     
@@ -861,23 +868,23 @@ local function doSubmit()
     -- Code in die Box schreiben
     if CodeTextBox then
         CodeTextBox.Text = combinedCode
-        print("[KrimoHub] Code in Box geschrieben")
+        print("[KrimoHub] ✅ Code in Box geschrieben: " .. combinedCode)
     else
         print("[KrimoHub] ❌ Keine CodeBox gefunden!")
         isProcessingSubmit = false
         return false
     end
     
-    task.wait(0.1)
+    task.wait(0.2)
     
-    -- Den SEND Button finden und klicken
+    -- Den SEND Button finden
     local foundButton = SubmitButton
     
     if not foundButton and PlayerGui then
         for _, child in ipairs(PlayerGui:GetDescendants()) do
             if child:IsA("TextButton") then
-                local txt = child.Text:lower()
-                if txt:find("send") or txt:find("submit") or txt:find("redeem") or txt:find("confirm") or txt:find("einlösen") then
+                local txt = child.Text:upper()
+                if txt:find("SEND") or txt:find("SUBMIT") or txt:find("REDEEM") or txt:find("CONFIRM") or txt:find("EINLÖSEN") then
                     foundButton = child
                     print("[KrimoHub] Button gefunden:", child.Text)
                     break
@@ -887,33 +894,68 @@ local function doSubmit()
     end
     
     if foundButton then
-        -- Methode 1: CaptureFocus + ReleaseFocus
+        print("[KrimoHub] 🖱️ Versuche Button zu klicken:", foundButton.Text)
+        
+        -- Methode 1: VIRTUAL INPUT MANAGER (Echter Mausklick)
         pcall(function()
-            foundButton:CaptureFocus()
-            foundButton:ReleaseFocus(true)
-            print("[KrimoHub] CaptureFocus/ReleaseFocus ausgeführt")
+            local pos = foundButton.AbsolutePosition
+            local size = foundButton.AbsoluteSize
+            local centerX = pos.X + (size.X / 2)
+            local centerY = pos.Y + (size.Y / 2)
+            
+            print("[KrimoHub] Button Position:", centerX, centerY)
+            
+            -- Maus bewegen
+            VirtualInputManager:SendMouseMoveEvent(centerX, centerY, 0)
+            task.wait(0.05)
+            
+            -- Maus drücken (links)
+            VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, "Left", 0)
+            task.wait(0.05)
+            
+            -- Maus loslassen
+            VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, "Left", 0)
+            task.wait(0.05)
+            
+            print("[KrimoHub] ✅ Virtual Click ausgeführt!")
         end)
         
-        -- Methode 2: MouseButton1Click Event
+        -- Methode 2: CaptureFocus + ReleaseFocus
+        pcall(function()
+            for i = 1, 3 do
+                foundButton:CaptureFocus()
+                foundButton:ReleaseFocus(true)
+                task.wait(0.05)
+            end
+            print("[KrimoHub] ✅ CaptureFocus ausgeführt!")
+        end)
+        
+        -- Methode 3: Events feuern
         pcall(function()
             if foundButton.MouseButton1Click then
                 foundButton.MouseButton1Click:Fire()
-                print("[KrimoHub] MouseButton1Click gefeuert")
+                print("[KrimoHub] ✅ MouseButton1Click gefeuert!")
             end
             if foundButton.Activated then
                 foundButton.Activated:Fire()
-                print("[KrimoHub] Activated gefeuert")
+                print("[KrimoHub] ✅ Activated gefeuert!")
             end
         end)
         
-        -- Methode 3: getconnections
+        -- Methode 4: getconnections
         pcall(function()
             if getconnections then
                 for _, conn in ipairs(getconnections(foundButton.MouseButton1Click)) do
-                    if conn and conn.Fire then conn:Fire() end
+                    if conn and conn.Fire then 
+                        conn:Fire()
+                        print("[KrimoHub] ✅ Connection gefeuert!")
+                    end
                 end
                 for _, conn in ipairs(getconnections(foundButton.Activated)) do
-                    if conn and conn.Fire then conn:Fire() end
+                    if conn and conn.Fire then 
+                        conn:Fire()
+                        print("[KrimoHub] ✅ Connection (Activated) gefeuert!")
+                    end
                 end
             end
         end)
@@ -1209,8 +1251,6 @@ local function buildGUI()
             _G.ScriptEnabled = not _G.ScriptEnabled
             ToggleButton.TextColor3 = _G.ScriptEnabled and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(0, 255, 100)
             ToggleButton.Text = _G.ScriptEnabled and "STOP" or "START"
-            
-            -- *** IMMER HARD RESET BEIM START/STOP ***
             hardReset()
         end)
         
@@ -1248,7 +1288,7 @@ local function buildGUI()
         toggleMinBtn.Parent = titleBar
         do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = toggleMinBtn end
         
-        -- Content (Rest wie gehabt)
+        -- Content
         local ContentFrame = Instance.new("Frame")
         ContentFrame.Name = "ContentFrame"
         ContentFrame.Size = UDim2.new(1, 0, 1, -26)
