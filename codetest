@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB V4 - MIT FIXED AUTO-SUBMIT (NUR 1x, NACH 3/3)
+-- KRIMO HUB V4 - SUBMIT 100% FIX (NUR 1x, NACH 3/3)
 -- ============================================================
 
 -- 1. GLOBALS
@@ -47,7 +47,6 @@ local Announcements = nil
 local CodeTextBox = nil
 local ConfirmButton = nil
 local _delay = 0
-local _confirmListenerAdded = false
 local PlayerGui = nil
 local ToggleButton = nil
 
@@ -102,7 +101,7 @@ local AddedCount = 0
 local history = {}
 local lastAddedWord = ""
 local submitCooldown = false
-local isSubmitting = false -- NEU: Verhindert doppelten Submit
+local isSubmitting = false -- Verhindert doppelten Submit
 
 -- 5. RIDDLE DATABASE (ALLE AUS SLURP HUB)
 local SAB_DB = {
@@ -987,11 +986,11 @@ local function buildHelpGUI()
     end)
 end
 
--- 11. SUBMIT (FIXED - NUR 1x, NACH 3/3)
+-- 11. SUBMIT (FIXED)
 local function triggerSubmit()
     -- Verhindert Spam / Mehrfachauslösungen
     if submitCooldown then return false end
-    if isSubmitting then return false end -- NEU: Verhindert doppelten Submit
+    if isSubmitting then return false end
     
     submitCooldown = true
     isSubmitting = true
@@ -1000,7 +999,7 @@ local function triggerSubmit()
         isSubmitting = false 
     end)
     
-    setupPaths() -- Pfade im PlayerGui aktualisieren
+    setupPaths()
     
     if _delay > 0 then
         task.wait(_delay)
@@ -1035,7 +1034,7 @@ local function triggerSubmit()
             local pos = btn.AbsolutePosition
             local size = btn.AbsoluteSize
             local centerX = pos.X + (size.X / 2)
-            local centerY = pos.Y + (size.Y / 2) + 36 -- Offset für Top-Bar
+            local centerY = pos.Y + (size.Y / 2) + 36
             VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, game, 1)
             VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, game, 1)
         end)
@@ -1102,7 +1101,7 @@ local function saveToHistory(Word, fromSammy)
     end
 end
 
--- 13. CODE HINZUFÜGEN (FIXED)
+-- 13. CODE HINZUFÜGEN (100% FIXED)
 local function addCode(Code, fromSammy)
     Code = tostring(Code)
     if Code == "" then return end
@@ -1131,12 +1130,11 @@ local function addCode(Code, fromSammy)
     end
     AddedCount = AddedCount + 1
     
-    -- *** FIX: NUR SUBMITEN WENN WIRKLICH 3/3 ERREICHT SIND ***
-    -- UND NUR 1x, NICHT MEHRFACH
-    if _G.AutoSubmitEnabled and #collectedCodes >= _G.SubmitAfterCount and not isSubmitting then
+    -- *** NUR SUBMITEN WENN WIRKLICH GENUG CODES DA SIND ***
+    if _G.AutoSubmitEnabled and #collectedCodes >= _G.SubmitAfterCount then
         local success = triggerSubmit()
         
-        -- Codes immer zurücksetzen (auch wenn Submit fehlschlägt)
+        -- Codes IMMER zurücksetzen (auch bei Fehler)
         table.clear(collectedCodes)
         AddedCount = 0
         refreshMainGUI()
@@ -1144,19 +1142,17 @@ local function addCode(Code, fromSammy)
             CodeTextBox.Text = ""
         end
         
-        -- *** NACH SUBMIT: AUTOMATISCH AUF STOP (Script aus) ***
+        -- Automatisch auf STOP (START anzeigen)
         _G.ScriptEnabled = false
-        
-        -- Button aktualisieren
         if ToggleButton then
-            ToggleButton.TextColor3 = Color3.fromRGB(0, 255, 100) -- GRÜN = START
+            ToggleButton.TextColor3 = Color3.fromRGB(0, 255, 100)
             ToggleButton.Text = "START"
         end
         
         if success then
-            print("[KrimoHub] ✅ Codes erfolgreich eingelöst! Hub wurde automatisch gestoppt.")
+            print("[KrimoHub] ✅ Codes eingelöst! Hub gestoppt.")
         else
-            print("[KrimoHub] ⚠️ Submit fehlgeschlagen! Hub wurde trotzdem gestoppt.")
+            print("[KrimoHub] ⚠️ Submit fehlgeschlagen! Hub trotzdem gestoppt.")
         end
     end
 end
