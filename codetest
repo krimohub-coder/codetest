@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB V4 - MIT SLURP AUTO SUBMIT + ALLE RIDDLES
+-- KRIMO HUB V4 - MIT SLURP SUBMIT LOGIK 1:1
 -- ============================================================
 
 -- 1. GLOBALS
@@ -403,36 +403,30 @@ local function answerQuestion(text)
     
     local clean = text:lower():gsub("[%?%.%,!']", ""):gsub("^%s+", ""):gsub("%s+$", "")
     
-    -- Remove "what", "whats", "what was", "what is"
     local removedWhat = clean:gsub("^what%s+", ""):gsub("^whats%s+", ""):gsub("^whatwas%s+", ""):gsub("^whatis%s+", "")
     if removedWhat ~= clean and SAB_DB[removedWhat] then
         return SAB_DB[removedWhat]
     end
     
-    -- Remove "who", "who is", "who was"
     local removedWho = clean:gsub("^who%s+", ""):gsub("^whois%s+", ""):gsub("^whowas%s+", "")
     if removedWho ~= clean and SAB_DB[removedWho] then
         return SAB_DB[removedWho]
     end
     
-    -- Direct match
     if SAB_DB[clean] then 
         return SAB_DB[clean] 
     end
     
-    -- Remove spaces
     local noSpace = clean:gsub("%s+", "")
     if SAB_DB[noSpace] then
         return SAB_DB[noSpace]
     end
     
-    -- Replace "fav" with "favorite"
     local replaced = clean:gsub("fav", "favorite")
     if SAB_DB[replaced] then
         return SAB_DB[replaced]
     end
     
-    -- Check if text CONTAINS any key
     local bestMatch = nil
     local maxMatchLength = 0
     
@@ -808,7 +802,7 @@ local function buildHistoryGUI()
     end)
 end
 
--- 10. HILFE-GUI
+-- 10. HILFE-GUI (ANGEPASST)
 local function buildHelpGUI()
     if HelpGui then
         HelpGui:Destroy()
@@ -917,13 +911,18 @@ local function buildHelpGUI()
         addHelpText("", Color3.fromRGB(200, 220, 255))
         addHelpText("1️⃣ Stelle <font color='#00ff66'>Auto Type</font> und <font color='#00ff66'>Auto Submit</font> auf ON.", Color3.fromRGB(200, 220, 255))
         addHelpText("", Color3.fromRGB(200, 220, 255))
-        addHelpText("2️⃣ Drücke auf <font color='#00ff66'>START</font> um den Hub zu aktivieren.", Color3.fromRGB(200, 220, 255))
+        addHelpText("2️⃣ Wenn Sammy etwas sagt wie:", Color3.fromRGB(200, 220, 255))
+        addHelpText("   • 'code is'", Color3.fromRGB(180, 200, 230))
+        addHelpText("   • 'here is a code'", Color3.fromRGB(180, 200, 230))
+        addHelpText("   • 'new code'", Color3.fromRGB(180, 200, 230))
+        addHelpText("", Color3.fromRGB(200, 220, 255))
+        addHelpText("3️⃣ Drücke auf <font color='#00ff66'>START</font> um den Hub zu aktivieren.", Color3.fromRGB(200, 220, 255))
         addHelpText("   (Wenn <font color='#ff4444'>STOP</font> angezeigt wird, läuft der Hub bereits.)", Color3.fromRGB(180, 200, 230))
         addHelpText("", Color3.fromRGB(200, 220, 255))
-        addHelpText("3️⃣ Der Hub schreibt den Code automatisch ein", Color3.fromRGB(200, 220, 255))
+        addHelpText("4️⃣ Der Hub schreibt den Code automatisch ein", Color3.fromRGB(200, 220, 255))
         addHelpText("   und submitted ihn für dich!", Color3.fromRGB(200, 220, 255))
         addHelpText("", Color3.fromRGB(200, 220, 255))
-        addHelpText("4️⃣ <font color='#ffaa00'>Riddle Solver</font> beantwortet Rätsel von Sammy.", Color3.fromRGB(200, 220, 255))
+        addHelpText("5️⃣ <font color='#ffaa00'>Riddle Solver</font> beantwortet Rätsel von Sammy.", Color3.fromRGB(200, 220, 255))
         addHelpText("", Color3.fromRGB(200, 220, 255))
         
         -- Trennlinie
@@ -939,13 +938,18 @@ local function buildHelpGUI()
         addHelpText("", Color3.fromRGB(200, 220, 255))
         addHelpText("1️⃣ Set <font color='#00ff66'>Auto Type</font> and <font color='#00ff66'>Auto Submit</font> to ON.", Color3.fromRGB(200, 220, 255))
         addHelpText("", Color3.fromRGB(200, 220, 255))
-        addHelpText("2️⃣ Press <font color='#00ff66'>START</font> to activate the hub.", Color3.fromRGB(200, 220, 255))
+        addHelpText("2️⃣ When Sammy says something like:", Color3.fromRGB(200, 220, 255))
+        addHelpText("   • 'code is'", Color3.fromRGB(180, 200, 230))
+        addHelpText("   • 'here is a code'", Color3.fromRGB(180, 200, 230))
+        addHelpText("   • 'new code'", Color3.fromRGB(180, 200, 230))
+        addHelpText("", Color3.fromRGB(200, 220, 255))
+        addHelpText("3️⃣ Press <font color='#00ff66'>START</font> to activate the hub.", Color3.fromRGB(200, 220, 255))
         addHelpText("   (If <font color='#ff4444'>STOP</font> is shown, the hub is already running.)", Color3.fromRGB(180, 200, 230))
         addHelpText("", Color3.fromRGB(200, 220, 255))
-        addHelpText("3️⃣ The hub automatically types in the code", Color3.fromRGB(200, 220, 255))
+        addHelpText("4️⃣ The hub automatically types in the code", Color3.fromRGB(200, 220, 255))
         addHelpText("   and submits it for you!", Color3.fromRGB(200, 220, 255))
         addHelpText("", Color3.fromRGB(200, 220, 255))
-        addHelpText("4️⃣ <font color='#ffaa00'>Riddle Solver</font> answers Sammy's riddles.", Color3.fromRGB(200, 220, 255))
+        addHelpText("5️⃣ <font color='#ffaa00'>Riddle Solver</font> answers Sammy's riddles.", Color3.fromRGB(200, 220, 255))
         
         task.wait(0.1)
         local contentSize = layout.AbsoluteContentSize
@@ -980,12 +984,11 @@ local function buildHelpGUI()
     end)
 end
 
--- 11. SUBMIT (AUS SLURP HUB - ULTRA FAST)
+-- 11. SUBMIT (EXAKT WIE IN SLURP HUB - 1:1 ÜBERNOMMEN)
 local function typeAndSubmitCode(code)
     local pg = PlayerGui or LocalPlayer:FindFirstChildOfClass("PlayerGui")
     if not pg then return false end
-    
-    -- Versuch 1: Direkt über Codes GUI
+
     local codesGui = pg:FindFirstChild("Codes")
     if codesGui then
         if codesGui:IsA("ScreenGui") then codesGui.Enabled = true end
@@ -997,7 +1000,7 @@ local function typeAndSubmitCode(code)
                 if cur:IsA("GuiObject") then cur.Visible = true end
                 cur = cur.Parent
             end
-            
+
             local box = nil
             for _, d in ipairs(codesFrame:GetDescendants()) do
                 if d:IsA("TextBox") then
@@ -1005,7 +1008,7 @@ local function typeAndSubmitCode(code)
                     break
                 end
             end
-            
+
             local submitBtn = nil
             for _, d in ipairs(codesFrame:GetDescendants()) do
                 if (d:IsA("TextButton") or d:IsA("ImageButton")) then
@@ -1018,7 +1021,7 @@ local function typeAndSubmitCode(code)
                     end
                 end
             end
-            
+
             if box then
                 box.Text = code
                 if submitBtn then
@@ -1038,8 +1041,8 @@ local function typeAndSubmitCode(code)
             end
         end
     end
-    
-    -- Versuch 2: Im gesamten PlayerGui suchen
+
+    -- Fallback: Suche im gesamten PlayerGui
     local box = nil
     for _, d in ipairs(pg:GetDescendants()) do
         if d:IsA("TextBox") and not box then
@@ -1047,7 +1050,7 @@ local function typeAndSubmitCode(code)
             break
         end
     end
-    
+
     if box then
         box.Text = code
         pcall(function()
@@ -1056,7 +1059,6 @@ local function typeAndSubmitCode(code)
             box:ReleaseFocus(true)
         end)
         
-        -- Nach Submit Button suchen
         local p = box.Parent
         for _ = 1, 6 do
             if not p then break end
@@ -1099,7 +1101,7 @@ local function triggerSubmit()
     
     if combinedCode == "" then return false end
     
-    -- Submit mit Slurp Methode
+    -- Submit mit Slurp Methode 1:1
     local success = typeAndSubmitCode(combinedCode)
     
     return success
