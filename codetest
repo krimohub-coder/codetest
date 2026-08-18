@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB V4 - SUBMIT FIX (NUR 1x, KEIN LÖSCHEN)
+-- KRIMO HUB V4 - SUBMIT FIX (RESET BEI START)
 -- ============================================================
 
 -- 1. GLOBALS
@@ -465,6 +465,17 @@ local PANEL_H = 300
 local isMinimized = false
 local historyOpen = false
 local TitleCounterLabel = nil
+
+-- *** NEUE FUNKTION: RESET BEI START ***
+local function resetAllOnStart()
+    table.clear(collectedCodes)
+    _capturedParts = {}
+    refreshMainGUI()
+    if CodeTextBox then 
+        CodeTextBox.Text = ""
+    end
+    print("[KrimoHub] 🔄 Reset beim START ausgeführt!")
+end
 
 -- 7. COUNTER
 local function updateTitleCounter()
@@ -984,7 +995,7 @@ local function buildHelpGUI()
     end)
 end
 
--- 11. SLURP HUB SUBMIT LOGIK + COUNTER/TEXTFELD
+-- 11. SLURP HUB SUBMIT LOGIK
 local function clickButton(btn)
     if not btn then return false end
     
@@ -1113,7 +1124,7 @@ local function typeAndSubmitCode(code)
     return false
 end
 
--- 12. APPEND TO BOX (FIXED - KEIN LÖSCHEN MEHR)
+-- 12. APPEND TO BOX
 local function appendToBox(text, isRiddleAnswer)
     if not text or text == "" or not _G.ScriptEnabled then return end
     if not _G.AutoWriteEnabled then return end
@@ -1137,7 +1148,7 @@ local function appendToBox(text, isRiddleAnswer)
     local combinedCode = table.concat(_capturedParts)
     local capturedCount = #_capturedParts
 
-    -- In die Box schreiben (bei JEDEM Wort)
+    -- In die Box schreiben
     if CodeTextBox then
         if CodeTextBox.Text == "" or CodeTextBox.Text == "Code Here..." then
             CodeTextBox.Text = text
@@ -1150,9 +1161,9 @@ local function appendToBox(text, isRiddleAnswer)
     table.insert(collectedCodes, text)
     refreshMainGUI()
 
-    -- *** FIX: NUR SUBMITEN WENN GENUG WÖRTER GESAMMELT SIND ***
+    -- Submit wenn genug Wörter
     if capturedCount >= _G.SubmitAfterCount and _G.AutoSubmitEnabled then
-        -- Wichtig: ZUERST die Parts zurücksetzen (verhindert doppelten Submit)
+        -- ZUERST Parts zurücksetzen (verhindert doppelten Submit)
         _capturedParts = {}
         
         local success = typeAndSubmitCode(combinedCode)
@@ -1403,6 +1414,12 @@ local function buildGUI()
             _G.ScriptEnabled = not _G.ScriptEnabled
             ToggleButton.TextColor3 = _G.ScriptEnabled and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(0, 255, 100)
             ToggleButton.Text = _G.ScriptEnabled and "STOP" or "START"
+            
+            -- *** FIX: BEIM START ALLES ZURÜCKSETZEN ***
+            if _G.ScriptEnabled then
+                resetAllOnStart()
+            end
+            
             if not _G.ScriptEnabled then
                 table.clear(collectedCodes)
                 _capturedParts = {}
