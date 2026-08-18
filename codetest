@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB V4 - MIT ECHTEM REDEEM EVENT
+-- KRIMO HUB V4 - MIT DEINER FUNKTIONIERENDEN SUBMIT LOGIK
 -- ============================================================
 
 -- 1. GLOBALS
@@ -14,7 +14,6 @@ local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local CoreGui = game:GetService("CoreGui")
 local UserInputService = game:GetService("UserInputService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- 2. PERSISTENZ
 local hasFS = pcall(function() return type(writefile) == "function" end)
@@ -46,50 +45,15 @@ loadConfig()
 local Announcements = nil
 local CodeTextBox = nil
 local ConfirmButton = nil
-local RedeemRemote = nil
 local _delay = 0
+local _confirmListenerAdded = false
 local PlayerGui = nil
 local ToggleButton = nil
-
--- FIND REDEEM REMOTE EVENT
-local function findRedeemRemote()
-    if RedeemRemote then return RedeemRemote end
-    
-    -- Suche in ReplicatedStorage nach Redeem-ähnlichen RemoteEvents
-    for _, child in ipairs(ReplicatedStorage:GetDescendants()) do
-        if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
-            local name = child.Name:lower()
-            if name:find("redeem") or name:find("code") or name:find("submit") or name:find("claim") then
-                RedeemRemote = child
-                print("[KrimoHub] ✅ Redeem Remote gefunden: " .. child.Name)
-                return RedeemRemote
-            end
-        end
-    end
-    
-    -- Suche im gesamten game
-    for _, child in ipairs(game:GetDescendants()) do
-        if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
-            local name = child.Name:lower()
-            if name:find("redeem") or name:find("code") or name:find("submit") or name:find("claim") then
-                RedeemRemote = child
-                print("[KrimoHub] ✅ Redeem Remote gefunden: " .. child.Name)
-                return RedeemRemote
-            end
-        end
-    end
-    
-    print("[KrimoHub] ⚠️ Kein Redeem Remote gefunden!")
-    return nil
-end
 
 local function setupPaths()
     pcall(function()
         PlayerGui = LocalPlayer:FindFirstChild("PlayerGui")
         if not PlayerGui then return end
-        
-        -- Finde Redeem Remote
-        findRedeemRemote()
         
         local codes = PlayerGui:FindFirstChild("Codes")
         if codes then
@@ -768,8 +732,7 @@ local function buildHistoryGUI()
         closeBtn.AutoButtonColor = true
         closeBtn.ZIndex = 10
         closeBtn.Parent = tb
-        do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 3) co.Parent = closeBtn end
-        
+        do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 3) co.Parent = closeBtn end        
         closeBtn.MouseButton1Click:Connect(function()
             if HistoryGui then HistoryGui:Destroy() end
             HistoryGui = nil
@@ -1021,7 +984,7 @@ local function buildHelpGUI()
     end)
 end
 
--- 11. SUBMIT (MIT ECHTEM REDEEM EVENT)
+-- 11. SUBMIT (DEINE FUNKTIONIERENDE LOGIK - 1:1 ÜBERNOMMEN)
 local function triggerSubmit()
     if submitCooldown then return false end
     submitCooldown = true
@@ -1029,69 +992,31 @@ local function triggerSubmit()
     
     setupPaths()
     
-    -- Sammle alle Codes
-    local combinedCode = ""
-    for _, c in ipairs(collectedCodes) do
-        combinedCode = combinedCode .. c
-    end
-    
-    if combinedCode == "" then return false end
-    
-    print("[KrimoHub] 📤 Versuche Code einzulösen: " .. combinedCode)
-    
-    -- Methode 1: Redeem RemoteEvent finden und feuern
-    local remote = findRedeemRemote()
-    if remote and remote:IsA("RemoteEvent") then
-        local success = pcall(function()
-            remote:FireServer(combinedCode)
-            print("[KrimoHub] ✅ Redeem RemoteEvent gefeuert!")
-        end)
-        if success then return true end
-    end
-    
-    -- Methode 2: RemoteFunction
-    if remote and remote:IsA("RemoteFunction") then
-        local success = pcall(function()
-            remote:InvokeServer(combinedCode)
-            print("[KrimoHub] ✅ Redeem RemoteFunction gefeuert!")
-        end)
-        if success then return true end
-    end
-    
-    -- Methode 3: ConfirmButton klicken (falls vorhanden)
+    -- Versuch 1: Direkt den ConfirmButton
     if ConfirmButton then
-        local success = pcall(function()
-            for i = 1, 3 do
-                ConfirmButton:CaptureFocus()
-                ConfirmButton:ReleaseFocus(true)
-                task.wait(0.05)
-            end
-            print("[KrimoHub] ✅ ConfirmButton geklickt!")
+        pcall(function()
+            ConfirmButton:CaptureFocus()
+            ConfirmButton:ReleaseFocus(true)
         end)
-        if success then return true end
+        return true
     end
     
-    -- Methode 4: Im gesamten PlayerGui nach Submit-Buttons suchen
+    -- Versuch 2: Suche nach Redeem/Submit Buttons
     if PlayerGui then
-        for _, obj in ipairs(PlayerGui:GetDescendants()) do
-            if obj:IsA("TextButton") then
-                local txt = obj.Text:lower()
-                if txt:find("submit") or txt:find("redeem") or txt:find("confirm") or txt:find("einlösen") then
-                    pcall(function()
-                        for i = 1, 3 do
-                            obj:CaptureFocus()
-                            obj:ReleaseFocus(true)
-                            task.wait(0.05)
-                        end
-                        print("[KrimoHub] ✅ Fallback Button geklickt!")
-                    end)
-                    return true
+        pcall(function()
+            for _, obj in ipairs(PlayerGui:GetDescendants()) do
+                if obj:IsA("TextButton") then
+                    local txt = obj.Text:lower()
+                    if txt:find("submit") or txt:find("redeem") or txt:find("confirm") then
+                        obj:CaptureFocus()
+                        obj:ReleaseFocus(true)
+                        return true
+                    end
                 end
             end
-        end
+        end)
     end
     
-    print("[KrimoHub] ❌ Keine Submit-Methode funktioniert!")
     return false
 end
 
@@ -1116,7 +1041,7 @@ local function saveToHistory(Word, fromSammy)
     end
 end
 
--- 13. CODE HINZUFÜGEN
+-- 13. CODE HINZUFÜGEN (MIT DEINER SUBMIT REIHENFOLGE)
 local function addCode(Code, fromSammy)
     Code = tostring(Code)
     if Code == "" then return end
@@ -1145,19 +1070,13 @@ local function addCode(Code, fromSammy)
     end
     AddedCount = AddedCount + 1
     
-    -- AUTO SUBMIT: ZUERST SUBMIT, DANN LÖSCHEN
+    -- AUTO SUBMIT: WIE IN DEINEM CODE
     if _G.AutoSubmitEnabled and #collectedCodes >= _G.SubmitAfterCount then
-        local success = triggerSubmit()
-        task.wait(0.3)
+        triggerSubmit()
         table.clear(collectedCodes)
         AddedCount = 0
         refreshMainGUI()
         if CodeTextBox then CodeTextBox.Text = "" end
-        if success then
-            print("[KrimoHub] ✅ Codes erfolgreich eingelöst!")
-        else
-            print("[KrimoHub] ❌ Submit fehlgeschlagen! Codes wurden zurückgesetzt.")
-        end
     end
 end
 
