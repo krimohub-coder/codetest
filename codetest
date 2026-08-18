@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB V4 - MIT DEINER SUBMIT LOGIK 1:1
+-- KRIMO HUB V4 - MIT VERBESSERTER AUTO-SUBMIT LOGIK
 -- ============================================================
 
 -- 1. GLOBALS
@@ -14,6 +14,7 @@ local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local CoreGui = game:GetService("CoreGui")
 local UserInputService = game:GetService("UserInputService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 
 -- 2. PERSISTENZ
 local hasFS = pcall(function() return type(writefile) == "function" end)
@@ -985,43 +986,91 @@ local function buildHelpGUI()
     end)
 end
 
--- 11. SUBMIT (DEINE LOGIK - 1:1 UNVERÄNDERT)
-local submitCooldown = false
-
+-- 11. SUBMIT (OPTIMIERTE STARKE LOGIK)
 local function triggerSubmit()
-    -- Verhindert Spam / Mehrfachauslösungen
     if submitCooldown then return false end
     submitCooldown = true
     task.delay(0.3, function() submitCooldown = false end)
     
     setupPaths() -- Pfade im PlayerGui aktualisieren
     
-    -- Versuch 1: Gefundenen ConfirmButton ausführen
-    if ConfirmButton then
+    if _delay > 0 then
+        task.wait(_delay)
+    end
+    
+    local submitted = false
+    
+    -- Option A: Textbox Enter-Key Simulation
+    if CodeTextBox then
         pcall(function()
-            ConfirmButton:CaptureFocus()
-            ConfirmButton:ReleaseFocus(true)
+            CodeTextBox:CaptureFocus()
+            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Return, false, game)
+            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Return, false, game)
+            CodeTextBox:ReleaseFocus(true)
+            submitted = true
+        end)
+    end
+    
+    -- Option B: Button Click via Fire/Virtual Input
+    local function clickButton(btn)
+        if not btn then return false end
+        pcall(function()
+            btn:CaptureFocus()
+            btn:ReleaseFocus(true)
+        end)
+        pcall(function()
+            for _, conn in ipairs(getconnections(btn.MouseButton1Click or btn.Activated)) do
+                conn:Fire()
+            end
+        end)
+        pcall(function()
+            local pos = btn.AbsolutePosition
+            local size = btn.AbsoluteSize
+            local centerX = pos.X + (size.X / 2)
+            local centerY = pos.Y + (size.Y / 2) + 36 -- Offset für Top-Bar
+            VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, game, 1)
+            VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, game, 1)
         end)
         return true
     end
     
-    -- Versuch 2: Dynamische Suche im PlayerGui nach Submit/Redeem/Confirm Buttons
-    if PlayerGui then
+    if ConfirmButton then
+        if clickButton(ConfirmButton) then submitted = true end
+    end
+    
+    -- Option C: Dynamische Suche
+    if not submitted and PlayerGui then
         pcall(function()
             for _, obj in ipairs(PlayerGui:GetDescendants()) do
                 if obj:IsA("TextButton") then
                     local txt = obj.Text:lower()
-                    if txt:find("submit") or txt:find("redeem") or txt:find("confirm") then
-                        obj:CaptureFocus()
-                        obj:ReleaseFocus(true)
-                        return true
+                    if txt:find("submit") or txt:find("redeem") or txt:find("confirm") or txt:find("einlösen") then
+                        if clickButton(obj) then
+                            submitted = true
+                            break
+                        end
                     end
                 end
             end
         end)
     end
     
-    return false
+    -- Option D: RemoteEvent Fallback
+    pcall(function()
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+        for _, obj in ipairs(ReplicatedStorage:GetDescendants()) do
+            if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
+                local name = obj.Name:lower()
+                if name:find("redeem") or name:find("submit") or name:find("code") then
+                    if obj:IsA("RemoteEvent") then
+                        obj:FireServer(CodeTextBox and CodeTextBox.Text or "")
+                    end
+                end
+            end
+        end
+    end)
+    
+    return submitted
 end
 
 -- 12. HISTORY SPEICHERN
@@ -1045,7 +1094,7 @@ local function saveToHistory(Word, fromSammy)
     end
 end
 
--- 13. CODE HINZUFÜGEN (DEINE LOGIK - 1:1 UNVERÄNDERT)
+-- 13. CODE HINZUFÜGEN
 local function addCode(Code, fromSammy)
     Code = tostring(Code)
     if Code == "" then return end
