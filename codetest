@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB V4 - SUBMIT MIT VIRTUAL CLICK (100% FUNKTIONIERT)
+-- KRIMO HUB V4 - MIT SLURP HUB LOGIK (Riddle + Auto Type + Auto Submit)
 -- ============================================================
 
 -- 1. GLOBALS
@@ -14,7 +14,8 @@ local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local CoreGui = game:GetService("CoreGui")
 local UserInputService = game:GetService("UserInputService")
-local VirtualInputManager = game:GetService("VirtualInputManager")
+local HttpService = game:GetService("HttpService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- 2. PERSISTENZ
 local hasFS = pcall(function() return type(writefile) == "function" end)
@@ -24,7 +25,7 @@ local function loadConfig()
     if not hasFS then return end
     pcall(function()
         if isfile and isfile("KrimoHub_config.json") then
-            local data = game:GetService("HttpService"):JSONDecode(readfile("KrimoHub_config.json"))
+            local data = HttpService:JSONDecode(readfile("KrimoHub_config.json"))
             if type(data) == "table" then
                 for k, v in pairs(data) do config[k] = v end
             end
@@ -36,7 +37,7 @@ local function saveConfig()
     if not hasFS then return end
     pcall(function() 
         if writefile then 
-            writefile("KrimoHub_config.json", game:GetService("HttpService"):JSONEncode(config)) 
+            writefile("KrimoHub_config.json", HttpService:JSONEncode(config)) 
         end
     end)
 end
@@ -67,7 +68,6 @@ local function setupPaths()
                             local txt = child.Text:upper()
                             if txt:find("SEND") or txt:find("SUBMIT") or txt:find("REDEEM") or txt:find("CONFIRM") then
                                 SubmitButton = child
-                                print("[KrimoHub] SEND Button gefunden:", child.Text)
                                 break
                             end
                         end
@@ -76,7 +76,6 @@ local function setupPaths()
                         for _, child in ipairs(codeRedeem:GetDescendants()) do
                             if child:IsA("TextButton") then
                                 SubmitButton = child
-                                print("[KrimoHub] Fallback Button:", child.Text)
                                 break
                             end
                         end
@@ -91,15 +90,11 @@ local function setupPaths()
                     CodeTextBox = child
                 elseif child:IsA("TextButton") and not SubmitButton then
                     local txt = child.Text:upper()
-                    if txt:find("SEND") or txt:find("SUBMIT") or txt:find("REDEEM") or txt:find("CONFIRM") or txt:find("EINLÖSEN") then
+                    if txt:find("SEND") or txt:find("SUBMIT") or txt:find("REDEEM") or txt:find("CONFIRM") then
                         SubmitButton = child
                     end
                 end
             end
-        end
-        
-        if SubmitButton then
-            print("[KrimoHub] SubmitButton final:", SubmitButton.Text)
         end
         
         local topNotif = PlayerGui:FindFirstChild("TopNotification")
@@ -117,85 +112,191 @@ local function setupPaths()
     end)
 end
 
--- 4. COLLECTED CODES & HISTORY
-local collectedCodes = {}
-local history = {}
-local submitCooldown = false
-local isProcessingSubmit = false
-local _capturedParts = {}
-
--- 5. RIDDLE DATABASE
-local SAB_DB = {
+-- 4. SLURP HUB RIDDLE DATABASE (KOMPLETT)
+local SLURP_DB = {
+    -- AGE
     ["how old am i"] = "24",
     ["how old is sammy"] = "24",
+    ["how old is he"] = "24",
     ["my age"] = "24",
     ["sammy age"] = "24",
+    ["his age"] = "24",
     ["age"] = "24",
-    ["where am i from"] = "BRAZIL",
-    ["where is sammy from"] = "BRAZIL",
-    ["my country"] = "BRAZIL",
-    ["sammy country"] = "BRAZIL",
-    ["favorite color"] = "BLUE",
-    ["fav color"] = "BLUE",
-    ["my color"] = "BLUE",
-    ["sammy color"] = "BLUE",
-    ["color"] = "BLUE",
-    ["favorite football player"] = "RONALDO",
-    ["fav football player"] = "RONALDO",
-    ["my favorite football player"] = "RONALDO",
-    ["ronaldo"] = "RONALDO",
-    ["game created on"] = "FRIDAY",
-    ["created on"] = "FRIDAY",
-    ["what day was the game created"] = "FRIDAY",
-    ["what day was sab created"] = "FRIDAY",
-    ["game creation day"] = "FRIDAY",
-    ["seventh mutation"] = "CURSED",
-    ["7th mutation"] = "CURSED",
-    ["eighth mutation"] = "DIVINE",
-    ["8th mutation"] = "DIVINE",
-    ["ninth mutation"] = "CYBER",
-    ["9th mutation"] = "CYBER",
-    ["tenth mutation"] = "PHANTOM",
-    ["10th mutation"] = "PHANTOM",
+    ["old"] = "24",
+    ["what is sammys age"] = "24",
+    ["whats sammys age"] = "24",
+    ["what is sammy age"] = "24",
+    ["whats sammy age"] = "24",
+    ["sammy years old"] = "24",
+    ["how many years old is sammy"] = "24",
+    ["how many years old is he"] = "24",
+    
+    -- ARTIST
+    ["what is my favorite artist"] = "drake",
+    ["what is my fav artist"] = "drake",
+    ["my favorite artist"] = "drake",
+    ["my fav artist"] = "drake",
+    ["favorite artist"] = "drake",
+    ["fav artist"] = "drake",
+    ["who is my favorite artist"] = "drake",
+    ["who is my fav artist"] = "drake",
+    ["artist"] = "drake",
+    ["my artist"] = "drake",
+    ["sammy artist"] = "drake",
+    ["favorite artist name"] = "drake",
+    ["fav artist name"] = "drake",
+    ["who is your favorite artist"] = "drake",
+    ["who is your fav artist"] = "drake",
+    ["what artist"] = "drake",
+    ["favourite artist"] = "drake",
+    ["who is sammys favorite artist"] = "drake",
+    ["what is sammys favorite artist"] = "drake",
+    ["who is sammy's favorite artist"] = "drake",
+    ["what is sammy's favorite artist"] = "drake",
+    
+    -- EVENT MUTATIONS
+    ["what was the 1st event mutation"] = "Bloodrot",
+    ["what was the first event mutation"] = "Bloodrot",
+    ["1st event mutation"] = "Bloodrot",
+    ["first event mutation"] = "Bloodrot",
+    ["what was the 2nd event mutation"] = "Candy",
+    ["what was the second event mutation"] = "Candy",
+    ["2nd event mutation"] = "Candy",
+    ["second event mutation"] = "Candy",
+    ["what was the 3rd event mutation"] = "Lava",
+    ["what was the third event mutation"] = "Lava",
+    ["3rd event mutation"] = "Lava",
+    ["third event mutation"] = "Lava",
+    ["what was the 4th event mutation"] = "Galaxy",
+    ["what was the fourth event mutation"] = "Galaxy",
+    ["4th event mutation"] = "Galaxy",
+    ["fourth event mutation"] = "Galaxy",
+    ["what was the 5th event mutation"] = "Yin Yang",
+    ["what was the fifth event mutation"] = "Yin Yang",
+    ["5th event mutation"] = "Yin Yang",
+    ["fifth event mutation"] = "Yin Yang",
+    ["what was the 6th event mutation"] = "Radioactive",
+    ["what was the sixth event mutation"] = "Radioactive",
+    ["6th event mutation"] = "Radioactive",
+    ["sixth event mutation"] = "Radioactive",
+    ["what was the 7th event mutation"] = "Cursed",
+    ["what was the seventh event mutation"] = "Cursed",
+    ["7th event mutation"] = "Cursed",
+    ["seventh event mutation"] = "Cursed",
+    ["what was the 8th event mutation"] = "Divine",
+    ["what was the eighth event mutation"] = "Divine",
+    ["8th event mutation"] = "Divine",
+    ["eighth event mutation"] = "Divine",
+    ["what was the 9th event mutation"] = "Cyber",
+    ["what was the ninth event mutation"] = "Cyber",
+    ["9th event mutation"] = "Cyber",
+    ["ninth event mutation"] = "Cyber",
+    ["what was the 10th event mutation"] = "Phantom",
+    ["what was the tenth event mutation"] = "Phantom",
+    ["10th event mutation"] = "Phantom",
+    ["tenth event mutation"] = "Phantom",
+    ["what was the 11th event mutation"] = "Crystal",
+    ["what was the eleventh event mutation"] = "Crystal",
+    ["11th event mutation"] = "Crystal",
+    ["eleventh event mutation"] = "Crystal",
+    ["1st mutation"] = "Bloodrot",
+    ["2nd mutation"] = "Candy",
+    ["3rd mutation"] = "Lava",
+    ["4th mutation"] = "Galaxy",
+    ["5th mutation"] = "Yin Yang",
+    ["6th mutation"] = "Radioactive",
+    ["7th mutation"] = "Cursed",
+    ["8th mutation"] = "Divine",
+    ["9th mutation"] = "Cyber",
+    ["10th mutation"] = "Phantom",
+    ["11th mutation"] = "Crystal",
+    
+    -- MACHINES
     ["first machine"] = "RAINBOW MACHINE",
     ["1st machine"] = "RAINBOW MACHINE",
+    ["what was the first machine"] = "RAINBOW MACHINE",
+    ["what was the 1st machine"] = "RAINBOW MACHINE",
+    ["what is the first machine"] = "RAINBOW MACHINE",
+    ["what is the 1st machine"] = "RAINBOW MACHINE",
     ["second machine"] = "BUBBLEGUM MACHINE",
     ["2nd machine"] = "BUBBLEGUM MACHINE",
+    ["what was the second machine"] = "BUBBLEGUM MACHINE",
+    ["what was the 2nd machine"] = "BUBBLEGUM MACHINE",
     ["third machine"] = "FUSE MACHINE",
     ["3rd machine"] = "FUSE MACHINE",
+    ["what was the third machine"] = "FUSE MACHINE",
+    ["what was the 3rd machine"] = "FUSE MACHINE",
     ["fourth machine"] = "CRAFT MACHINE",
     ["4th machine"] = "CRAFT MACHINE",
+    ["what was the fourth machine"] = "CRAFT MACHINE",
+    ["what was the 4th machine"] = "CRAFT MACHINE",
     ["fifth machine"] = "WITCH FUSE",
     ["5th machine"] = "WITCH FUSE",
+    ["what was the fifth machine"] = "WITCH FUSE",
+    ["what was the 5th machine"] = "WITCH FUSE",
     ["sixth machine"] = "BRAINROT DEALER",
     ["6th machine"] = "BRAINROT DEALER",
+    ["what was the sixth machine"] = "BRAINROT DEALER",
+    ["what was the 6th machine"] = "BRAINROT DEALER",
     ["seventh machine"] = "BRAINROT TRADER",
     ["7th machine"] = "BRAINROT TRADER",
+    ["what was the seventh machine"] = "BRAINROT TRADER",
+    ["what was the 7th machine"] = "BRAINROT TRADER",
     ["eighth machine"] = "SANTA'S FUSE",
     ["8th machine"] = "SANTA'S FUSE",
+    ["what was the eighth machine"] = "SANTA'S FUSE",
+    ["what was the 8th machine"] = "SANTA'S FUSE",
     ["ninth machine"] = "SANTA'S SHOP",
     ["9th machine"] = "SANTA'S SHOP",
+    ["what was the ninth machine"] = "SANTA'S SHOP",
+    ["what was the 9th machine"] = "SANTA'S SHOP",
     ["tenth machine"] = "NEW YEAR'S MACHINE",
     ["10th machine"] = "NEW YEAR'S MACHINE",
+    ["what was the tenth machine"] = "NEW YEAR'S MACHINE",
+    ["what was the 10th machine"] = "NEW YEAR'S MACHINE",
     ["eleventh machine"] = "DUELS MACHINE",
     ["11th machine"] = "DUELS MACHINE",
+    ["what was the eleventh machine"] = "DUELS MACHINE",
+    ["what was the 11th machine"] = "DUELS MACHINE",
     ["twelfth machine"] = "CUPID'S MACHINE",
     ["12th machine"] = "CUPID'S MACHINE",
+    ["what was the twelfth machine"] = "CUPID'S MACHINE",
+    ["what was the 12th machine"] = "CUPID'S MACHINE",
     ["thirteenth machine"] = "TRADE MACHINE",
     ["13th machine"] = "TRADE MACHINE",
+    ["what was the thirteenth machine"] = "TRADE MACHINE",
+    ["what was the 13th machine"] = "TRADE MACHINE",
     ["fourteenth machine"] = "DIVINE FUSE",
     ["14th machine"] = "DIVINE FUSE",
+    ["what was the fourteenth machine"] = "DIVINE FUSE",
+    ["what was the 14th machine"] = "DIVINE FUSE",
     ["fifteenth machine"] = "EGG INCUBATOR",
     ["15th machine"] = "EGG INCUBATOR",
+    ["what was the fifteenth machine"] = "EGG INCUBATOR",
+    ["what was the 15th machine"] = "EGG INCUBATOR",
     ["sixteenth machine"] = "CYBER CRAFT MACHINE",
     ["16th machine"] = "CYBER CRAFT MACHINE",
+    ["what was the sixteenth machine"] = "CYBER CRAFT MACHINE",
+    ["what was the 16th machine"] = "CYBER CRAFT MACHINE",
     ["seventeenth machine"] = "SUMMER FUSE",
     ["17th machine"] = "SUMMER FUSE",
+    ["what was the seventeenth machine"] = "SUMMER FUSE",
+    ["what was the 17th machine"] = "SUMMER FUSE",
     ["eighteenth machine"] = "LOS TRADERS",
     ["18th machine"] = "LOS TRADERS",
+    ["what was the eighteenth machine"] = "LOS TRADERS",
+    ["what was the 18th machine"] = "LOS TRADERS",
+    
+    -- OG / RARITY
     ["og brainrot cannot be obtained"] = "HEADLESS HORSEMAN",
     ["headless horseman"] = "HEADLESS HORSEMAN",
+    ["what was the first og"] = "STRAWBERRYELEPHANT",
+    ["what is the first og"] = "STRAWBERRYELEPHANT",
+    ["whats the first og"] = "STRAWBERRYELEPHANT",
+    ["whats was the first og"] = "STRAWBERRYELEPHANT",
+    ["what was first og"] = "STRAWBERRYELEPHANT",
     ["first og added"] = "STRAWBERRYELEPHANT",
+    ["first og"] = "STRAWBERRYELEPHANT",
     ["1st og"] = "STRAWBERRYELEPHANT",
     ["second og added"] = "MEOWL",
     ["2nd og"] = "MEOWL",
@@ -204,6 +305,11 @@ local SAB_DB = {
     ["fifth og added"] = "JOHNPORK",
     ["5th og"] = "JOHNPORK",
     ["highest rarity"] = "OG",
+    ["rarest rarity"] = "OG",
+    ["what is the rarest rarity"] = "OG",
+    ["what is the highest rarity"] = "OG",
+    
+    -- OTHER FACTS
     ["fire represents"] = "DRAGON",
     ["fire stands for"] = "DRAGON",
     ["won the world cup"] = "ARGENTINA",
@@ -219,9 +325,24 @@ local SAB_DB = {
     ["max server size"] = "EIGHT",
     ["brother of hydra bunny"] = "CERBERUS",
     ["hydra bunny brother"] = "CERBERUS",
+    
+    -- DATES
     ["release month"] = "MAY",
     ["release year"] = "2025",
     ["release date"] = "MAY162025",
+    ["when did sab create"] = "2025",
+    ["which month create sab"] = "MAY",
+    ["which month did sab release"] = "MAY",
+    ["which month did sab create"] = "MAY",
+    ["which month did steal a brainrot release"] = "MAY",
+    ["which month did steal a brainrot create"] = "MAY",
+    ["game created on"] = "FRIDAY",
+    ["created on"] = "FRIDAY",
+    ["what day was the game created"] = "FRIDAY",
+    ["what day was sab created"] = "FRIDAY",
+    ["game creation day"] = "FRIDAY",
+    
+    -- CODES
     ["code 1"] = "SAB2024",
     ["code 2"] = "SAMMYGIFT",
     ["code 3"] = "BRAINROT",
@@ -238,41 +359,90 @@ local SAB_DB = {
     ["rare codes"] = "12",
     ["legendary codes"] = "3",
     ["mythic codes"] = "1",
+    
+    -- LOCATION / COUNTRY
+    ["where am i from"] = "BRAZIL",
+    ["where is sammy from"] = "BRAZIL",
+    ["where is he from"] = "BRAZIL",
+    ["where is he"] = "BRAZIL",
+    ["my country"] = "BRAZIL",
+    ["sammy country"] = "BRAZIL",
+    ["his country"] = "BRAZIL",
+    ["country"] = "BRAZIL",
+    ["sammy nationality"] = "BRAZILIAN",
+    
+    -- COLOR
+    ["favorite color"] = "BLUE",
+    ["fav color"] = "BLUE",
+    ["my color"] = "BLUE",
+    ["sammy color"] = "BLUE",
+    ["his color"] = "BLUE",
+    ["color"] = "BLUE",
+    ["what is sammys favorite color"] = "BLUE",
+    ["whats sammys favorite color"] = "BLUE",
+    ["whats sammys fav color"] = "BLUE",
+    ["what is sammys fav color"] = "BLUE",
+    
+    -- FOOTBALL
+    ["favorite football player"] = "RONALDO",
+    ["fav football player"] = "RONALDO",
+    ["my favorite football player"] = "RONALDO",
+    ["ronaldo"] = "RONALDO",
+    ["who is sammys favorite football player"] = "RONALDO",
+    ["who is sammys fav football player"] = "RONALDO",
+    
+    -- WORST GAMES
+    ["worst roblox game"] = "KEYBOARDESCAPE",
+    ["worst roblox game ever"] = "KEYBOARDESCAPE",
+    ["worst game on roblox"] = "KEYBOARDESCAPE",
+    
+    -- SAMMY
+    ["who is sammy"] = "SPYDERSAMMY",
+    ["sammy real name"] = "SAMBRAKTA",
+    ["what is sammys real name"] = "SAMBRAKTA",
+    ["sammys real name"] = "SAMBRAKTA",
+    ["what is sammy"] = "SPYDERSAMMY",
+    ["sammy roblox username"] = "SPYDERSAMMY",
+    ["sammy username"] = "SPYDERSAMMY",
+    ["who created steal a brainrot"] = "SAMMY",
+    ["who made steal a brainrot"] = "SAMMY",
+    ["who owns steal a brainrot"] = "SAMMY",
 }
 
+-- 5. SLURP HUB ANSWER FUNCTION
 local function answerQuestion(text)
     if not _G.RiddleSolverEnabled or not text or text == "" then return nil end
     
     local clean = text:lower():gsub("[%?%.%,!']", ""):gsub("^%s+", ""):gsub("%s+$", "")
     
     local removedWhat = clean:gsub("^what%s+", ""):gsub("^whats%s+", ""):gsub("^whatwas%s+", ""):gsub("^whatis%s+", "")
-    if removedWhat ~= clean and SAB_DB[removedWhat] then
-        return SAB_DB[removedWhat]
+    if removedWhat ~= clean and SLURP_DB[removedWhat] then
+        return SLURP_DB[removedWhat]
     end
     
     local removedWho = clean:gsub("^who%s+", ""):gsub("^whois%s+", ""):gsub("^whowas%s+", "")
-    if removedWho ~= clean and SAB_DB[removedWho] then
-        return SAB_DB[removedWho]
+    if removedWho ~= clean and SLURP_DB[removedWho] then
+        return SLURP_DB[removedWho]
     end
     
-    if SAB_DB[clean] then 
-        return SAB_DB[clean] 
+    if SLURP_DB[clean] then 
+        return SLURP_DB[clean] 
     end
     
     local noSpace = clean:gsub("%s+", "")
-    if SAB_DB[noSpace] then
-        return SAB_DB[noSpace]
+    if SLURP_DB[noSpace] then
+        return SLURP_DB[noSpace]
     end
     
     local replaced = clean:gsub("fav", "favorite")
-    if SAB_DB[replaced] then
-        return SAB_DB[replaced]
+    if SLURP_DB[replaced] then
+        return SLURP_DB[replaced]
     end
     
     local bestMatch = nil
     local maxMatchLength = 0
     
-    for key, value in pairs(SAB_DB) do
+    for key, value in pairs(SLURP_DB) do
         if clean:find(key, 1, true) then
             if #key > maxMatchLength then
                 maxMatchLength = #key
@@ -282,7 +452,7 @@ local function answerQuestion(text)
     end
     
     if not bestMatch and removedWhat ~= clean then
-        for key, value in pairs(SAB_DB) do
+        for key, value in pairs(SLURP_DB) do
             if removedWhat:find(key, 1, true) then
                 if #key > maxMatchLength then
                     maxMatchLength = #key
@@ -295,7 +465,138 @@ local function answerQuestion(text)
     return bestMatch
 end
 
--- 6. GUI ELEMENTE
+-- 6. SLURP HUB TYPE AND SUBMIT CODE
+local function clickButton(btn)
+    if not btn then return false end
+    
+    pcall(function() btn.MouseButton1Click:Fire() end)
+    pcall(function() btn.Activated:Fire() end)
+    
+    if typeof(firesignal) == "function" then
+        pcall(firesignal, btn.MouseButton1Click)
+        pcall(firesignal, btn.Activated)
+    end
+    
+    if typeof(getconnections) == "function" then
+        local ok, cs = pcall(getconnections, btn.MouseButton1Click)
+        if ok and type(cs) == "table" then
+            for _, c in ipairs(cs) do pcall(function() c:Fire() end) end
+        end
+        local ok2, cs2 = pcall(getconnections, btn.Activated)
+        if ok2 and type(cs2) == "table" then
+            for _, c in ipairs(cs2) do pcall(function() c:Fire() end) end
+        end
+    end
+    
+    if typeof(fireclick) == "function" then
+        pcall(fireclick, btn)
+    end
+    
+    return true
+end
+
+local function fireBoxFocusLost(box)
+    if not box then return false end
+    
+    if typeof(firesignal) == "function" then
+        pcall(firesignal, box.FocusLost, true)
+    end
+    
+    if typeof(getconnections) == "function" then
+        local ok, cs = pcall(getconnections, box.FocusLost)
+        if ok and type(cs) == "table" then
+            for _, c in ipairs(cs) do
+                pcall(function() if c.Enabled ~= false then c:Fire(true) end end)
+            end
+        end
+    end
+    
+    return true
+end
+
+local function typeAndSubmitCode(code)
+    local pg = PlayerGui or LocalPlayer:FindFirstChildOfClass("PlayerGui")
+    if not pg then return false end
+
+    -- Versuch 1: Über Codes GUI
+    local codesGui = pg:FindFirstChild("Codes")
+    if codesGui then
+        if codesGui:IsA("ScreenGui") then codesGui.Enabled = true end
+        local codesFrame = codesGui:FindFirstChild("Codes") or codesGui
+        if codesFrame then
+            if codesFrame:IsA("GuiObject") then codesFrame.Visible = true end
+            local cur = codesFrame
+            while cur and cur ~= codesGui do
+                if cur:IsA("GuiObject") then cur.Visible = true end
+                cur = cur.Parent
+            end
+
+            local box = nil
+            for _, d in ipairs(codesFrame:GetDescendants()) do
+                if d:IsA("TextBox") then
+                    box = d
+                    break
+                end
+            end
+
+            local submitBtn = nil
+            for _, d in ipairs(codesFrame:GetDescendants()) do
+                if (d:IsA("TextButton") or d:IsA("ImageButton")) then
+                    local n = d.Name:lower()
+                    local txt = ""
+                    pcall(function() txt = d.Text:lower() end)
+                    if n:find("submit") or txt:find("submit") or n:find("redeem") or txt:find("redeem") or n:find("claim") or txt:find("confirm") or n:find("enter") or n:find("send") then
+                        submitBtn = d
+                        break
+                    end
+                end
+            end
+
+            if box then
+                box.Text = code
+                if submitBtn then clickButton(submitBtn) end
+                fireBoxFocusLost(box)
+                return true
+            end
+        end
+    end
+
+    -- Versuch 2: Im gesamten PlayerGui suchen
+    local box = nil
+    for _, d in ipairs(pg:GetDescendants()) do
+        if d:IsA("TextBox") and not box then
+            box = d
+            break
+        end
+    end
+
+    if box then
+        box.Text = code
+        fireBoxFocusLost(box)
+        
+        local p = box.Parent
+        for _ = 1, 6 do
+            if not p then break end
+            for _, d in ipairs(p:GetDescendants()) do
+                if d:IsA("TextButton") or d:IsA("ImageButton") then
+                    local n = d.Name:lower()
+                    local txt = ""
+                    pcall(function() txt = d.Text:lower() end)
+                    if n:find("submit") or txt:find("submit") or n:find("redeem") or txt:find("redeem") or n:find("confirm") or txt:find("confirm") or n:find("send") or txt:find("send") then
+                        clickButton(d)
+                        return true
+                    end
+                end
+            end
+            p = p.Parent
+        end
+        return true
+    end
+    
+    return false
+end
+
+-- 7. GUI ELEMENTE
 local MainFrame = nil
 local ScreenGui = nil
 local HelpGui = nil
@@ -308,10 +609,17 @@ local isMinimized = false
 local historyOpen = false
 local TitleCounterLabel = nil
 
--- 7. HARD RESET
+-- 8. SLURP HUB STATE VARIABLES
+local _capturedParts = {}
+local _seen = {}
+local _submitAfter = _G.SubmitAfterCount
+local isProcessingSubmit = false
+
+-- 9. HARD RESET
 local function hardReset()
     table.clear(collectedCodes)
     _capturedParts = {}
+    _seen = {}
     isProcessingSubmit = false
     refreshMainGUI()
     if CodeTextBox then 
@@ -320,14 +628,18 @@ local function hardReset()
     print("[KrimoHub] 🔄 Hard Reset ausgeführt!")
 end
 
--- 8. COUNTER
+-- 10. COLLECTED CODES & HISTORY
+local collectedCodes = {}
+local history = {}
+
+-- 11. COUNTER
 local function updateTitleCounter()
     if TitleCounterLabel then
         TitleCounterLabel.Text = "📊 " .. #collectedCodes .. "/" .. _G.SubmitAfterCount
     end
 end
 
--- 9. REFRESH MAIN GUI
+-- 12. REFRESH MAIN GUI
 local function refreshMainGUI()
     if not MainFrame then return end
     pcall(function()
@@ -394,7 +706,7 @@ local function refreshMainGUI()
     end)
 end
 
--- 10. HISTORY
+-- 13. HISTORY
 local function updateHistoryContent()
     if not HistoryScroll then return end
     pcall(function()
@@ -656,7 +968,7 @@ local function buildHistoryGUI()
     end)
 end
 
--- 11. HILFE-GUI
+-- 14. HILFE-GUI
 local function buildHelpGUI()
     if HelpGui then
         HelpGui:Destroy()
@@ -838,137 +1150,7 @@ local function buildHelpGUI()
     end)
 end
 
--- 12. SUBMIT MIT VIRTUAL CLICK
-local function doSubmit()
-    if submitCooldown or isProcessingSubmit then return false end
-    
-    submitCooldown = true
-    isProcessingSubmit = true
-    
-    task.delay(0.5, function() 
-        submitCooldown = false
-        isProcessingSubmit = false
-    end)
-    
-    setupPaths()
-    
-    -- Sammle alle Codes
-    local combinedCode = ""
-    for _, c in ipairs(collectedCodes) do
-        combinedCode = combinedCode .. c
-    end
-    
-    if combinedCode == "" then 
-        isProcessingSubmit = false
-        return false 
-    end
-    
-    print("[KrimoHub] 📤 Versuche Code einzulösen: " .. combinedCode)
-    
-    -- Code in die Box schreiben
-    if CodeTextBox then
-        CodeTextBox.Text = combinedCode
-        print("[KrimoHub] ✅ Code in Box geschrieben: " .. combinedCode)
-    else
-        print("[KrimoHub] ❌ Keine CodeBox gefunden!")
-        isProcessingSubmit = false
-        return false
-    end
-    
-    task.wait(0.2)
-    
-    -- Den SEND Button finden
-    local foundButton = SubmitButton
-    
-    if not foundButton and PlayerGui then
-        for _, child in ipairs(PlayerGui:GetDescendants()) do
-            if child:IsA("TextButton") then
-                local txt = child.Text:upper()
-                if txt:find("SEND") or txt:find("SUBMIT") or txt:find("REDEEM") or txt:find("CONFIRM") or txt:find("EINLÖSEN") then
-                    foundButton = child
-                    print("[KrimoHub] Button gefunden:", child.Text)
-                    break
-                end
-            end
-        end
-    end
-    
-    if foundButton then
-        print("[KrimoHub] 🖱️ Versuche Button zu klicken:", foundButton.Text)
-        
-        -- Methode 1: VIRTUAL INPUT MANAGER (Echter Mausklick)
-        pcall(function()
-            local pos = foundButton.AbsolutePosition
-            local size = foundButton.AbsoluteSize
-            local centerX = pos.X + (size.X / 2)
-            local centerY = pos.Y + (size.Y / 2)
-            
-            print("[KrimoHub] Button Position:", centerX, centerY)
-            
-            -- Maus bewegen
-            VirtualInputManager:SendMouseMoveEvent(centerX, centerY, 0)
-            task.wait(0.05)
-            
-            -- Maus drücken (links)
-            VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, "Left", 0)
-            task.wait(0.05)
-            
-            -- Maus loslassen
-            VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, "Left", 0)
-            task.wait(0.05)
-            
-            print("[KrimoHub] ✅ Virtual Click ausgeführt!")
-        end)
-        
-        -- Methode 2: CaptureFocus + ReleaseFocus
-        pcall(function()
-            for i = 1, 3 do
-                foundButton:CaptureFocus()
-                foundButton:ReleaseFocus(true)
-                task.wait(0.05)
-            end
-            print("[KrimoHub] ✅ CaptureFocus ausgeführt!")
-        end)
-        
-        -- Methode 3: Events feuern
-        pcall(function()
-            if foundButton.MouseButton1Click then
-                foundButton.MouseButton1Click:Fire()
-                print("[KrimoHub] ✅ MouseButton1Click gefeuert!")
-            end
-            if foundButton.Activated then
-                foundButton.Activated:Fire()
-                print("[KrimoHub] ✅ Activated gefeuert!")
-            end
-        end)
-        
-        -- Methode 4: getconnections
-        pcall(function()
-            if getconnections then
-                for _, conn in ipairs(getconnections(foundButton.MouseButton1Click)) do
-                    if conn and conn.Fire then 
-                        conn:Fire()
-                        print("[KrimoHub] ✅ Connection gefeuert!")
-                    end
-                end
-                for _, conn in ipairs(getconnections(foundButton.Activated)) do
-                    if conn and conn.Fire then 
-                        conn:Fire()
-                        print("[KrimoHub] ✅ Connection (Activated) gefeuert!")
-                    end
-                end
-            end
-        end)
-        
-        print("[KrimoHub] ✅ Submit ausgeführt!")
-        return true
-    else
-        print("[KrimoHub] ❌ Kein Submit Button gefunden!")
-        return false
-    end
-end
-
--- 13. APPEND TO BOX
+-- 15. SLURP HUB APPEND TO BOX (AUTO TYPE + AUTO SUBMIT)
 local function appendToBox(text, isRiddleAnswer)
     if not text or text == "" or not _G.ScriptEnabled then return end
     if not _G.AutoWriteEnabled then return end
@@ -988,7 +1170,7 @@ local function appendToBox(text, isRiddleAnswer)
         return
     end
     
-    -- Code sammeln
+    -- Code sammeln (wie Slurp Hub)
     _capturedParts[#_capturedParts + 1] = text
     local combinedCode = table.concat(_capturedParts)
     local capturedCount = #_capturedParts
@@ -1006,13 +1188,22 @@ local function appendToBox(text, isRiddleAnswer)
     table.insert(collectedCodes, text)
     refreshMainGUI()
 
-    -- Submit wenn genug Wörter
-    if capturedCount >= _G.SubmitAfterCount and _G.AutoSubmitEnabled and not isProcessingSubmit then
-        -- Submit ausführen
-        local success = doSubmit()
+    -- Submit wenn genug Wörter (wie Slurp Hub)
+    if capturedCount >= _submitAfter and _G.AutoSubmitEnabled and not isProcessingSubmit then
+        isProcessingSubmit = true
         
-        -- NACH dem Submit: Alles zurücksetzen
-        hardReset()
+        -- Parts zurücksetzen (wie Slurp Hub)
+        _capturedParts = {}
+        
+        -- Submit ausführen
+        local success = typeAndSubmitCode(combinedCode)
+        
+        -- Codes zurücksetzen
+        table.clear(collectedCodes)
+        refreshMainGUI()
+        if CodeTextBox then 
+            CodeTextBox.Text = ""
+        end
         
         -- Automatisch auf STOP
         _G.ScriptEnabled = false
@@ -1020,6 +1211,8 @@ local function appendToBox(text, isRiddleAnswer)
             ToggleButton.TextColor3 = Color3.fromRGB(0, 255, 100)
             ToggleButton.Text = "START"
         end
+        
+        isProcessingSubmit = false
         
         if success then
             print("[KrimoHub] ✅ Codes erfolgreich eingelöst! Hub gestoppt.")
@@ -1029,7 +1222,7 @@ local function appendToBox(text, isRiddleAnswer)
     end
 end
 
--- 14. HISTORY SPEICHERN
+-- 16. SAVE TO HISTORY
 local function saveToHistory(Word, fromSammy)
     if not _G.HistoryEnabled then return end
     if not fromSammy then return end
@@ -1050,7 +1243,7 @@ local function saveToHistory(Word, fromSammy)
     end
 end
 
--- 15. WATCHER
+-- 17. WATCHER (WIE SLURP HUB)
 local function watchLabel(Label)
     pcall(function()
         if not Label:IsA("TextLabel") then return end
@@ -1058,6 +1251,7 @@ local function watchLabel(Label)
         if text == "" then return end
         if isProcessingSubmit then return end
         
+        -- RIDDLE SOLVER
         if _G.RiddleSolverEnabled then
             local answer = answerQuestion(text)
             if answer then
@@ -1066,9 +1260,17 @@ local function watchLabel(Label)
             end
         end
         
+        -- Code sammeln (nur einzelne Wörter)
         if text:find("%s") then return end
         
+        -- Duplikatschutz (wie Slurp Hub)
+        if _seen[text] then return end
+        _seen[text] = true
+        
+        -- In History speichern
         saveToHistory(text, true)
+        
+        -- appendToBox aufrufen
         appendToBox(text, false)
     end)
 end
@@ -1084,12 +1286,12 @@ local function startAnnouncementWatcher()
     end)
 end
 
--- 16. RESET
+-- 18. RESET
 local function resetCodes()
     hardReset()
 end
 
--- 17. SPYDERSAMMY ERKENNUNG
+-- 19. SPYDERSAMMY ERKENNUNG
 local targetUserId = nil
 task.spawn(function()
     pcall(function() 
@@ -1150,7 +1352,7 @@ local function startPlayerGuiScanner()
     end)
 end
 
--- 18. GUI BAUEN
+-- 20. GUI BAUEN (KRIMO HUB GUI)
 local function buildGUI()
     pcall(function()
         local old = CoreGui:FindFirstChild("KrimoHubGui")
@@ -1251,7 +1453,13 @@ local function buildGUI()
             _G.ScriptEnabled = not _G.ScriptEnabled
             ToggleButton.TextColor3 = _G.ScriptEnabled and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(0, 255, 100)
             ToggleButton.Text = _G.ScriptEnabled and "STOP" or "START"
-            hardReset()
+            
+            -- Beim START: Alles zurücksetzen (wie Slurp Hub)
+            if _G.ScriptEnabled then
+                hardReset()
+            else
+                hardReset()
+            end
         end)
         
         -- Fragezeichen Button
@@ -1288,7 +1496,7 @@ local function buildGUI()
         toggleMinBtn.Parent = titleBar
         do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = toggleMinBtn end
         
-        -- Content
+        -- Content (KRIMO HUB GUI)
         local ContentFrame = Instance.new("Frame")
         ContentFrame.Name = "ContentFrame"
         ContentFrame.Size = UDim2.new(1, 0, 1, -26)
@@ -1412,6 +1620,7 @@ local function buildGUI()
         
         asToggle.MouseButton1Click:Connect(function()
             _G.AutoSubmitEnabled = not _G.AutoSubmitEnabled
+            _submitAfter = _G.SubmitAfterCount
             asToggle.BackgroundColor3 = _G.AutoSubmitEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
             asToggle.Text = _G.AutoSubmitEnabled and "ON" or "OFF"
         end)
@@ -1471,12 +1680,14 @@ local function buildGUI()
         
         plusBtn.MouseButton1Click:Connect(function()
             _G.SubmitAfterCount = _G.SubmitAfterCount + 1
+            _submitAfter = _G.SubmitAfterCount
             countDisplay.Text = tostring(_G.SubmitAfterCount)
             refreshMainGUI()
         end)
         minusBtn.MouseButton1Click:Connect(function()
             if _G.SubmitAfterCount > 1 then
                 _G.SubmitAfterCount = _G.SubmitAfterCount - 1
+                _submitAfter = _G.SubmitAfterCount
                 countDisplay.Text = tostring(_G.SubmitAfterCount)
                 refreshMainGUI()
             end
@@ -1766,7 +1977,7 @@ local function buildGUI()
     end)
 end
 
--- 19. START
+-- 21. START
 print("[KrimoHub V4] Starte...")
 
 task.wait(3)
