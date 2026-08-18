@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB V4 - MIT DEINER FUNKTIONIERENDEN SUBMIT LOGIK
+-- KRIMO HUB V4 - MIT DEINER SUBMIT LOGIK 1:1
 -- ============================================================
 
 -- 1. GLOBALS
@@ -732,7 +732,8 @@ local function buildHistoryGUI()
         closeBtn.AutoButtonColor = true
         closeBtn.ZIndex = 10
         closeBtn.Parent = tb
-        do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 3) co.Parent = closeBtn end        
+        do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 3) co.Parent = closeBtn end
+        
         closeBtn.MouseButton1Click:Connect(function()
             if HistoryGui then HistoryGui:Destroy() end
             HistoryGui = nil
@@ -984,15 +985,18 @@ local function buildHelpGUI()
     end)
 end
 
--- 11. SUBMIT (DEINE FUNKTIONIERENDE LOGIK - 1:1 ÜBERNOMMEN)
+-- 11. SUBMIT (DEINE LOGIK - 1:1 UNVERÄNDERT)
+local submitCooldown = false
+
 local function triggerSubmit()
+    -- Verhindert Spam / Mehrfachauslösungen
     if submitCooldown then return false end
     submitCooldown = true
     task.delay(0.3, function() submitCooldown = false end)
     
-    setupPaths()
+    setupPaths() -- Pfade im PlayerGui aktualisieren
     
-    -- Versuch 1: Direkt den ConfirmButton
+    -- Versuch 1: Gefundenen ConfirmButton ausführen
     if ConfirmButton then
         pcall(function()
             ConfirmButton:CaptureFocus()
@@ -1001,7 +1005,7 @@ local function triggerSubmit()
         return true
     end
     
-    -- Versuch 2: Suche nach Redeem/Submit Buttons
+    -- Versuch 2: Dynamische Suche im PlayerGui nach Submit/Redeem/Confirm Buttons
     if PlayerGui then
         pcall(function()
             for _, obj in ipairs(PlayerGui:GetDescendants()) do
@@ -1041,7 +1045,7 @@ local function saveToHistory(Word, fromSammy)
     end
 end
 
--- 13. CODE HINZUFÜGEN (MIT DEINER SUBMIT REIHENFOLGE)
+-- 13. CODE HINZUFÜGEN (DEINE LOGIK - 1:1 UNVERÄNDERT)
 local function addCode(Code, fromSammy)
     Code = tostring(Code)
     if Code == "" then return end
@@ -1070,13 +1074,14 @@ local function addCode(Code, fromSammy)
     end
     AddedCount = AddedCount + 1
     
-    -- AUTO SUBMIT: WIE IN DEINEM CODE
     if _G.AutoSubmitEnabled and #collectedCodes >= _G.SubmitAfterCount then
-        triggerSubmit()
-        table.clear(collectedCodes)
+        triggerSubmit()                  -- Bestätigung auslösen
+        table.clear(collectedCodes)       -- Liste zurücksetzen
         AddedCount = 0
-        refreshMainGUI()
-        if CodeTextBox then CodeTextBox.Text = "" end
+        refreshMainGUI()                 -- Anzeige aktualisieren
+        if CodeTextBox then 
+            CodeTextBox.Text = ""        -- Textfeld leeren
+        end
     end
 end
 
