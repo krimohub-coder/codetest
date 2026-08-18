@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB V4 - JEDES WORT WIRD GESCHRIEBEN (AUCH DOPPELT)
+-- KRIMO HUB V4 - SUBMIT FIX (NUR 1x, KEIN LÖSCHEN)
 -- ============================================================
 
 -- 1. GLOBALS
@@ -99,6 +99,7 @@ local collectedCodes = {}
 local history = {}
 local submitCooldown = false
 local isSubmitting = false
+local _capturedParts = {}  -- Sammelt Wörter bis Submit
 
 -- 5. SLURP HUB RIDDLE DATABASE
 local SAB_DB = {
@@ -983,10 +984,7 @@ local function buildHelpGUI()
     end)
 end
 
--- 11. SLURP HUB SUBMIT LOGIK + COUNTER/TEXTFELD VERBUNDEN
-local _capturedParts = {}
-
--- Click Button Funktion (aus Slurp Hub)
+-- 11. SLURP HUB SUBMIT LOGIK + COUNTER/TEXTFELD
 local function clickButton(btn)
     if not btn then return false end
     
@@ -1016,7 +1014,6 @@ local function clickButton(btn)
     return true
 end
 
--- FocusLost Fire (aus Slurp Hub)
 local function fireBoxFocusLost(box)
     if not box then return false end
     
@@ -1036,12 +1033,10 @@ local function fireBoxFocusLost(box)
     return true
 end
 
--- Type and Submit Code (aus Slurp Hub)
 local function typeAndSubmitCode(code)
     local pg = PlayerGui or LocalPlayer:FindFirstChildOfClass("PlayerGui")
     if not pg then return false end
 
-    -- Versuch 1: Über Codes GUI
     local codesGui = pg:FindFirstChild("Codes")
     if codesGui then
         if codesGui:IsA("ScreenGui") then codesGui.Enabled = true end
@@ -1084,7 +1079,6 @@ local function typeAndSubmitCode(code)
         end
     end
 
-    -- Versuch 2: Im gesamten PlayerGui suchen
     local box = nil
     for _, d in ipairs(pg:GetDescendants()) do
         if d:IsA("TextBox") and not box then
@@ -1097,7 +1091,6 @@ local function typeAndSubmitCode(code)
         box.Text = code
         fireBoxFocusLost(box)
         
-        -- Nach Submit Button suchen
         local p = box.Parent
         for _ = 1, 6 do
             if not p then break end
@@ -1120,12 +1113,12 @@ local function typeAndSubmitCode(code)
     return false
 end
 
--- 12. APPEND TO BOX (OHNE DUPLIKATSCHUTZ)
+-- 12. APPEND TO BOX (FIXED - KEIN LÖSCHEN MEHR)
 local function appendToBox(text, isRiddleAnswer)
     if not text or text == "" or not _G.ScriptEnabled then return end
     if not _G.AutoWriteEnabled then return end
     
-    -- Riddle Antworten werden direkt in die Box geschrieben
+    -- Riddle Antworten
     if isRiddleAnswer then
         if CodeTextBox then
             if CodeTextBox.Text == "" or CodeTextBox.Text == "Code Here..." then
@@ -1139,12 +1132,12 @@ local function appendToBox(text, isRiddleAnswer)
         return
     end
     
-    -- Code sammeln (wie Slurp Hub)
+    -- Code sammeln
     _capturedParts[#_capturedParts + 1] = text
     local combinedCode = table.concat(_capturedParts)
     local capturedCount = #_capturedParts
 
-    -- In die Box schreiben (bei JEDEM Wort - OHNE DUPLIKATSCHUTZ)
+    -- In die Box schreiben (bei JEDEM Wort)
     if CodeTextBox then
         if CodeTextBox.Text == "" or CodeTextBox.Text == "Code Here..." then
             CodeTextBox.Text = text
@@ -1153,38 +1146,35 @@ local function appendToBox(text, isRiddleAnswer)
         end
     end
     
-    -- Counter aktualisieren (bei JEDEM Wort - OHNE DUPLIKATSCHUTZ)
+    -- Counter aktualisieren
     table.insert(collectedCodes, text)
     refreshMainGUI()
 
-    -- Wenn genug Wörter gesammelt wurden → Submit
-    if capturedCount >= _G.SubmitAfterCount then
+    -- *** FIX: NUR SUBMITEN WENN GENUG WÖRTER GESAMMELT SIND ***
+    if capturedCount >= _G.SubmitAfterCount and _G.AutoSubmitEnabled then
+        -- Wichtig: ZUERST die Parts zurücksetzen (verhindert doppelten Submit)
         _capturedParts = {}
         
-        -- AUTO SUBMIT
-        if _G.AutoSubmitEnabled then
-            local success = typeAndSubmitCode(combinedCode)
-            
-            -- Codes zurücksetzen
-            table.clear(collectedCodes)
-            _capturedParts = {}
-            refreshMainGUI()
-            if CodeTextBox then 
-                CodeTextBox.Text = ""
-            end
-            
-            -- Automatisch auf STOP
-            _G.ScriptEnabled = false
-            if ToggleButton then
-                ToggleButton.TextColor3 = Color3.fromRGB(0, 255, 100)
-                ToggleButton.Text = "START"
-            end
-            
-            if success then
-                print("[KrimoHub] ✅ Codes erfolgreich eingelöst! Hub gestoppt.")
-            else
-                print("[KrimoHub] ⚠️ Submit fehlgeschlagen! Hub trotzdem gestoppt.")
-            end
+        local success = typeAndSubmitCode(combinedCode)
+        
+        -- Codes zurücksetzen
+        table.clear(collectedCodes)
+        refreshMainGUI()
+        if CodeTextBox then 
+            CodeTextBox.Text = ""
+        end
+        
+        -- Automatisch auf STOP
+        _G.ScriptEnabled = false
+        if ToggleButton then
+            ToggleButton.TextColor3 = Color3.fromRGB(0, 255, 100)
+            ToggleButton.Text = "START"
+        end
+        
+        if success then
+            print("[KrimoHub] ✅ Codes erfolgreich eingelöst! Hub gestoppt.")
+        else
+            print("[KrimoHub] ⚠️ Submit fehlgeschlagen! Hub trotzdem gestoppt.")
         end
     end
 end
@@ -1210,14 +1200,13 @@ local function saveToHistory(Word, fromSammy)
     end
 end
 
--- 14. WATCHER (OHNE DUPLIKATSCHUTZ)
+-- 14. WATCHER
 local function watchLabel(Label)
     pcall(function()
         if not Label:IsA("TextLabel") then return end
         local text = Label.Text
         if text == "" then return end
         
-        -- RIDDLE SOLVER
         if _G.RiddleSolverEnabled then
             local answer = answerQuestion(text)
             if answer then
@@ -1226,13 +1215,9 @@ local function watchLabel(Label)
             end
         end
         
-        -- Code sammeln (nur einzelne Wörter)
         if text:find("%s") then return end
         
-        -- In History speichern (JEDES Wort, auch doppelte)
         saveToHistory(text, true)
-        
-        -- appendToBox aufrufen (JEDES Wort, auch doppelte)
         appendToBox(text, false)
     end)
 end
