@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB V4 - MIT SLURP SUBMIT LOGIK 1:1
+-- KRIMO HUB V4 - MIT SLURP SUBMIT LOGIK (1:1 INTEGRATION)
 -- ============================================================
 
 -- 1. GLOBALS
@@ -200,7 +200,7 @@ local SAB_DB = {
     ["10th mutation"] = "Phantom",
     ["11th mutation"] = "Crystal",
     
-    -- MACHINES (ALLE 18)
+    -- MACHINES
     ["first machine"] = "RAINBOW MACHINE",
     ["1st machine"] = "RAINBOW MACHINE",
     ["what was the first machine"] = "RAINBOW MACHINE",
@@ -1159,6 +1159,7 @@ local function addCode(Code, fromSammy)
     
     -- AUTO SUBMIT: ZUERST SUBMIT, DANN LÖSCHEN
     if _G.AutoSubmitEnabled and #collectedCodes >= _G.SubmitAfterCount then
+        if _delay > 0 then task.wait(_delay) end
         local success = triggerSubmit()
         task.wait(0.3)
         table.clear(collectedCodes)
