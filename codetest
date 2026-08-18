@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB V4 - COUNTER + TEXTFELD VERBUNDEN
+-- KRIMO HUB V4 - JEDES WORT WIRD GESCHRIEBEN (AUCH DOPPELT)
 -- ============================================================
 
 -- 1. GLOBALS
@@ -95,9 +95,8 @@ local function setupPaths()
 end
 
 -- 4. COLLECTED CODES & HISTORY
-local collectedCodes = {}        -- Für GUI Counter
+local collectedCodes = {}
 local history = {}
-local lastAddedWord = ""
 local submitCooldown = false
 local isSubmitting = false
 
@@ -986,7 +985,6 @@ end
 
 -- 11. SLURP HUB SUBMIT LOGIK + COUNTER/TEXTFELD VERBUNDEN
 local _capturedParts = {}
-local _seen = {}
 
 -- Click Button Funktion (aus Slurp Hub)
 local function clickButton(btn)
@@ -1122,7 +1120,7 @@ local function typeAndSubmitCode(code)
     return false
 end
 
--- 12. APPEND TO BOX (MIT COUNTER + TEXTFELD VERBUNDEN)
+-- 12. APPEND TO BOX (OHNE DUPLIKATSCHUTZ)
 local function appendToBox(text, isRiddleAnswer)
     if not text or text == "" or not _G.ScriptEnabled then return end
     if not _G.AutoWriteEnabled then return end
@@ -1146,7 +1144,7 @@ local function appendToBox(text, isRiddleAnswer)
     local combinedCode = table.concat(_capturedParts)
     local capturedCount = #_capturedParts
 
-    -- In die Box schreiben (bei JEDEM Wort)
+    -- In die Box schreiben (bei JEDEM Wort - OHNE DUPLIKATSCHUTZ)
     if CodeTextBox then
         if CodeTextBox.Text == "" or CodeTextBox.Text == "Code Here..." then
             CodeTextBox.Text = text
@@ -1155,10 +1153,11 @@ local function appendToBox(text, isRiddleAnswer)
         end
     end
     
-    -- Counter aktualisieren (bei JEDEM Wort)
+    -- Counter aktualisieren (bei JEDEM Wort - OHNE DUPLIKATSCHUTZ)
     table.insert(collectedCodes, text)
     refreshMainGUI()
 
+    -- Wenn genug Wörter gesammelt wurden → Submit
     if capturedCount >= _G.SubmitAfterCount then
         _capturedParts = {}
         
@@ -1211,7 +1210,7 @@ local function saveToHistory(Word, fromSammy)
     end
 end
 
--- 14. WATCHER (WIE SLURP HUB)
+-- 14. WATCHER (OHNE DUPLIKATSCHUTZ)
 local function watchLabel(Label)
     pcall(function()
         if not Label:IsA("TextLabel") then return end
@@ -1227,17 +1226,13 @@ local function watchLabel(Label)
             end
         end
         
-        -- Code sammeln (nur einzelne Wörter, wie Slurp Hub)
+        -- Code sammeln (nur einzelne Wörter)
         if text:find("%s") then return end
         
-        -- Duplikatschutz
-        if _seen[text] then return end
-        _seen[text] = true
-        
-        -- In History speichern
+        -- In History speichern (JEDES Wort, auch doppelte)
         saveToHistory(text, true)
         
-        -- appendToBox aufrufen
+        -- appendToBox aufrufen (JEDES Wort, auch doppelte)
         appendToBox(text, false)
     end)
 end
@@ -1257,7 +1252,6 @@ end
 local function resetCodes()
     table.clear(collectedCodes)
     _capturedParts = {}
-    _seen = {}
     refreshMainGUI()
     if CodeTextBox then CodeTextBox.Text = "" end
 end
@@ -1427,7 +1421,6 @@ local function buildGUI()
             if not _G.ScriptEnabled then
                 table.clear(collectedCodes)
                 _capturedParts = {}
-                _seen = {}
                 refreshMainGUI()
             end
         end)
@@ -1508,7 +1501,6 @@ local function buildGUI()
             if not _G.AutoWriteEnabled then
                 table.clear(collectedCodes)
                 _capturedParts = {}
-                _seen = {}
                 refreshMainGUI()
             end
         end)
