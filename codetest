@@ -1,9 +1,9 @@
 -- ============================================================
--- KRIMO HUB V4 - START/STOP + HILFE + SUBMIT FIX
+-- KRIMO HUB V4 - MIT SLURP AUTO SUBMIT + ALLE RIDDLES
 -- ============================================================
 
 -- 1. GLOBALS
-_G.ScriptEnabled = false  -- STANDARD: AUS (START muss gedrückt werden)
+_G.ScriptEnabled = false
 _G.AutoWriteEnabled = false
 _G.AutoSubmitEnabled = false
 _G.RiddleSolverEnabled = false
@@ -47,7 +47,7 @@ local CodeTextBox = nil
 local ConfirmButton = nil
 local _delay = 0
 local PlayerGui = nil
-local ToggleButton = nil  -- Referenz für START/STOP
+local ToggleButton = nil
 
 local function setupPaths()
     pcall(function()
@@ -101,78 +101,191 @@ local history = {}
 local lastAddedWord = ""
 local submitCooldown = false
 
--- 5. RIDDLE DATABASE
+-- 5. RIDDLE DATABASE (ALLE AUS SLURP HUB)
 local SAB_DB = {
+    -- AGE
     ["how old am i"] = "24",
     ["how old is sammy"] = "24",
+    ["how old is he"] = "24",
     ["my age"] = "24",
     ["sammy age"] = "24",
+    ["his age"] = "24",
     ["age"] = "24",
-    ["where am i from"] = "BRAZIL",
-    ["where is sammy from"] = "BRAZIL",
-    ["my country"] = "BRAZIL",
-    ["sammy country"] = "BRAZIL",
-    ["favorite color"] = "BLUE",
-    ["fav color"] = "BLUE",
-    ["my color"] = "BLUE",
-    ["sammy color"] = "BLUE",
-    ["color"] = "BLUE",
-    ["favorite football player"] = "RONALDO",
-    ["fav football player"] = "RONALDO",
-    ["my favorite football player"] = "RONALDO",
-    ["ronaldo"] = "RONALDO",
-    ["game created on"] = "FRIDAY",
-    ["created on"] = "FRIDAY",
-    ["what day was the game created"] = "FRIDAY",
-    ["what day was sab created"] = "FRIDAY",
-    ["game creation day"] = "FRIDAY",
-    ["seventh mutation"] = "CURSED",
-    ["7th mutation"] = "CURSED",
-    ["eighth mutation"] = "DIVINE",
-    ["8th mutation"] = "DIVINE",
-    ["ninth mutation"] = "CYBER",
-    ["9th mutation"] = "CYBER",
-    ["tenth mutation"] = "PHANTOM",
-    ["10th mutation"] = "PHANTOM",
+    ["old"] = "24",
+    ["what is sammys age"] = "24",
+    ["whats sammys age"] = "24",
+    ["what is sammy age"] = "24",
+    ["whats sammy age"] = "24",
+    ["sammy years old"] = "24",
+    ["how many years old is sammy"] = "24",
+    ["how many years old is he"] = "24",
+    
+    -- ARTIST
+    ["what is my favorite artist"] = "drake",
+    ["what is my fav artist"] = "drake",
+    ["my favorite artist"] = "drake",
+    ["my fav artist"] = "drake",
+    ["favorite artist"] = "drake",
+    ["fav artist"] = "drake",
+    ["who is my favorite artist"] = "drake",
+    ["who is my fav artist"] = "drake",
+    ["artist"] = "drake",
+    ["my artist"] = "drake",
+    ["sammy artist"] = "drake",
+    ["favorite artist name"] = "drake",
+    ["fav artist name"] = "drake",
+    ["who is your favorite artist"] = "drake",
+    ["who is your fav artist"] = "drake",
+    ["what artist"] = "drake",
+    ["favourite artist"] = "drake",
+    ["who is sammys favorite artist"] = "drake",
+    ["what is sammys favorite artist"] = "drake",
+    ["who is sammy's favorite artist"] = "drake",
+    ["what is sammy's favorite artist"] = "drake",
+    
+    -- EVENT MUTATIONS
+    ["what was the 1st event mutation"] = "Bloodrot",
+    ["what was the first event mutation"] = "Bloodrot",
+    ["1st event mutation"] = "Bloodrot",
+    ["first event mutation"] = "Bloodrot",
+    ["what was the 2nd event mutation"] = "Candy",
+    ["what was the second event mutation"] = "Candy",
+    ["2nd event mutation"] = "Candy",
+    ["second event mutation"] = "Candy",
+    ["what was the 3rd event mutation"] = "Lava",
+    ["what was the third event mutation"] = "Lava",
+    ["3rd event mutation"] = "Lava",
+    ["third event mutation"] = "Lava",
+    ["what was the 4th event mutation"] = "Galaxy",
+    ["what was the fourth event mutation"] = "Galaxy",
+    ["4th event mutation"] = "Galaxy",
+    ["fourth event mutation"] = "Galaxy",
+    ["what was the 5th event mutation"] = "Yin Yang",
+    ["what was the fifth event mutation"] = "Yin Yang",
+    ["5th event mutation"] = "Yin Yang",
+    ["fifth event mutation"] = "Yin Yang",
+    ["what was the 6th event mutation"] = "Radioactive",
+    ["what was the sixth event mutation"] = "Radioactive",
+    ["6th event mutation"] = "Radioactive",
+    ["sixth event mutation"] = "Radioactive",
+    ["what was the 7th event mutation"] = "Cursed",
+    ["what was the seventh event mutation"] = "Cursed",
+    ["7th event mutation"] = "Cursed",
+    ["seventh event mutation"] = "Cursed",
+    ["what was the 8th event mutation"] = "Divine",
+    ["what was the eighth event mutation"] = "Divine",
+    ["8th event mutation"] = "Divine",
+    ["eighth event mutation"] = "Divine",
+    ["what was the 9th event mutation"] = "Cyber",
+    ["what was the ninth event mutation"] = "Cyber",
+    ["9th event mutation"] = "Cyber",
+    ["ninth event mutation"] = "Cyber",
+    ["what was the 10th event mutation"] = "Phantom",
+    ["what was the tenth event mutation"] = "Phantom",
+    ["10th event mutation"] = "Phantom",
+    ["tenth event mutation"] = "Phantom",
+    ["what was the 11th event mutation"] = "Crystal",
+    ["what was the eleventh event mutation"] = "Crystal",
+    ["11th event mutation"] = "Crystal",
+    ["eleventh event mutation"] = "Crystal",
+    ["1st mutation"] = "Bloodrot",
+    ["2nd mutation"] = "Candy",
+    ["3rd mutation"] = "Lava",
+    ["4th mutation"] = "Galaxy",
+    ["5th mutation"] = "Yin Yang",
+    ["6th mutation"] = "Radioactive",
+    ["7th mutation"] = "Cursed",
+    ["8th mutation"] = "Divine",
+    ["9th mutation"] = "Cyber",
+    ["10th mutation"] = "Phantom",
+    ["11th mutation"] = "Crystal",
+    
+    -- MACHINES (ALLE 18)
     ["first machine"] = "RAINBOW MACHINE",
     ["1st machine"] = "RAINBOW MACHINE",
+    ["what was the first machine"] = "RAINBOW MACHINE",
+    ["what was the 1st machine"] = "RAINBOW MACHINE",
+    ["what is the first machine"] = "RAINBOW MACHINE",
+    ["what is the 1st machine"] = "RAINBOW MACHINE",
     ["second machine"] = "BUBBLEGUM MACHINE",
     ["2nd machine"] = "BUBBLEGUM MACHINE",
+    ["what was the second machine"] = "BUBBLEGUM MACHINE",
+    ["what was the 2nd machine"] = "BUBBLEGUM MACHINE",
     ["third machine"] = "FUSE MACHINE",
     ["3rd machine"] = "FUSE MACHINE",
+    ["what was the third machine"] = "FUSE MACHINE",
+    ["what was the 3rd machine"] = "FUSE MACHINE",
     ["fourth machine"] = "CRAFT MACHINE",
     ["4th machine"] = "CRAFT MACHINE",
+    ["what was the fourth machine"] = "CRAFT MACHINE",
+    ["what was the 4th machine"] = "CRAFT MACHINE",
     ["fifth machine"] = "WITCH FUSE",
     ["5th machine"] = "WITCH FUSE",
+    ["what was the fifth machine"] = "WITCH FUSE",
+    ["what was the 5th machine"] = "WITCH FUSE",
     ["sixth machine"] = "BRAINROT DEALER",
     ["6th machine"] = "BRAINROT DEALER",
+    ["what was the sixth machine"] = "BRAINROT DEALER",
+    ["what was the 6th machine"] = "BRAINROT DEALER",
     ["seventh machine"] = "BRAINROT TRADER",
     ["7th machine"] = "BRAINROT TRADER",
+    ["what was the seventh machine"] = "BRAINROT TRADER",
+    ["what was the 7th machine"] = "BRAINROT TRADER",
     ["eighth machine"] = "SANTA'S FUSE",
     ["8th machine"] = "SANTA'S FUSE",
+    ["what was the eighth machine"] = "SANTA'S FUSE",
+    ["what was the 8th machine"] = "SANTA'S FUSE",
     ["ninth machine"] = "SANTA'S SHOP",
     ["9th machine"] = "SANTA'S SHOP",
+    ["what was the ninth machine"] = "SANTA'S SHOP",
+    ["what was the 9th machine"] = "SANTA'S SHOP",
     ["tenth machine"] = "NEW YEAR'S MACHINE",
     ["10th machine"] = "NEW YEAR'S MACHINE",
+    ["what was the tenth machine"] = "NEW YEAR'S MACHINE",
+    ["what was the 10th machine"] = "NEW YEAR'S MACHINE",
     ["eleventh machine"] = "DUELS MACHINE",
     ["11th machine"] = "DUELS MACHINE",
+    ["what was the eleventh machine"] = "DUELS MACHINE",
+    ["what was the 11th machine"] = "DUELS MACHINE",
     ["twelfth machine"] = "CUPID'S MACHINE",
     ["12th machine"] = "CUPID'S MACHINE",
+    ["what was the twelfth machine"] = "CUPID'S MACHINE",
+    ["what was the 12th machine"] = "CUPID'S MACHINE",
     ["thirteenth machine"] = "TRADE MACHINE",
     ["13th machine"] = "TRADE MACHINE",
+    ["what was the thirteenth machine"] = "TRADE MACHINE",
+    ["what was the 13th machine"] = "TRADE MACHINE",
     ["fourteenth machine"] = "DIVINE FUSE",
     ["14th machine"] = "DIVINE FUSE",
+    ["what was the fourteenth machine"] = "DIVINE FUSE",
+    ["what was the 14th machine"] = "DIVINE FUSE",
     ["fifteenth machine"] = "EGG INCUBATOR",
     ["15th machine"] = "EGG INCUBATOR",
+    ["what was the fifteenth machine"] = "EGG INCUBATOR",
+    ["what was the 15th machine"] = "EGG INCUBATOR",
     ["sixteenth machine"] = "CYBER CRAFT MACHINE",
     ["16th machine"] = "CYBER CRAFT MACHINE",
+    ["what was the sixteenth machine"] = "CYBER CRAFT MACHINE",
+    ["what was the 16th machine"] = "CYBER CRAFT MACHINE",
     ["seventeenth machine"] = "SUMMER FUSE",
     ["17th machine"] = "SUMMER FUSE",
+    ["what was the seventeenth machine"] = "SUMMER FUSE",
+    ["what was the 17th machine"] = "SUMMER FUSE",
     ["eighteenth machine"] = "LOS TRADERS",
     ["18th machine"] = "LOS TRADERS",
+    ["what was the eighteenth machine"] = "LOS TRADERS",
+    ["what was the 18th machine"] = "LOS TRADERS",
+    
+    -- OG / RARITY
     ["og brainrot cannot be obtained"] = "HEADLESS HORSEMAN",
     ["headless horseman"] = "HEADLESS HORSEMAN",
+    ["what was the first og"] = "STRAWBERRYELEPHANT",
+    ["what is the first og"] = "STRAWBERRYELEPHANT",
+    ["whats the first og"] = "STRAWBERRYELEPHANT",
+    ["whats was the first og"] = "STRAWBERRYELEPHANT",
+    ["what was first og"] = "STRAWBERRYELEPHANT",
     ["first og added"] = "STRAWBERRYELEPHANT",
+    ["first og"] = "STRAWBERRYELEPHANT",
     ["1st og"] = "STRAWBERRYELEPHANT",
     ["second og added"] = "MEOWL",
     ["2nd og"] = "MEOWL",
@@ -181,6 +294,11 @@ local SAB_DB = {
     ["fifth og added"] = "JOHNPORK",
     ["5th og"] = "JOHNPORK",
     ["highest rarity"] = "OG",
+    ["rarest rarity"] = "OG",
+    ["what is the rarest rarity"] = "OG",
+    ["what is the highest rarity"] = "OG",
+    
+    -- OTHER FACTS
     ["fire represents"] = "DRAGON",
     ["fire stands for"] = "DRAGON",
     ["won the world cup"] = "ARGENTINA",
@@ -196,9 +314,24 @@ local SAB_DB = {
     ["max server size"] = "EIGHT",
     ["brother of hydra bunny"] = "CERBERUS",
     ["hydra bunny brother"] = "CERBERUS",
+    
+    -- DATES
     ["release month"] = "MAY",
     ["release year"] = "2025",
     ["release date"] = "MAY162025",
+    ["when did sab create"] = "2025",
+    ["which month create sab"] = "MAY",
+    ["which month did sab release"] = "MAY",
+    ["which month did sab create"] = "MAY",
+    ["which month did steal a brainrot release"] = "MAY",
+    ["which month did steal a brainrot create"] = "MAY",
+    ["game created on"] = "FRIDAY",
+    ["created on"] = "FRIDAY",
+    ["what day was the game created"] = "FRIDAY",
+    ["what day was sab created"] = "FRIDAY",
+    ["game creation day"] = "FRIDAY",
+    
+    -- CODES
     ["code 1"] = "SAB2024",
     ["code 2"] = "SAMMYGIFT",
     ["code 3"] = "BRAINROT",
@@ -215,15 +348,115 @@ local SAB_DB = {
     ["rare codes"] = "12",
     ["legendary codes"] = "3",
     ["mythic codes"] = "1",
+    
+    -- LOCATION / COUNTRY
+    ["where am i from"] = "BRAZIL",
+    ["where is sammy from"] = "BRAZIL",
+    ["where is he from"] = "BRAZIL",
+    ["where is he"] = "BRAZIL",
+    ["my country"] = "BRAZIL",
+    ["sammy country"] = "BRAZIL",
+    ["his country"] = "BRAZIL",
+    ["country"] = "BRAZIL",
+    ["sammy nationality"] = "BRAZILIAN",
+    
+    -- COLOR
+    ["favorite color"] = "BLUE",
+    ["fav color"] = "BLUE",
+    ["my color"] = "BLUE",
+    ["sammy color"] = "BLUE",
+    ["his color"] = "BLUE",
+    ["color"] = "BLUE",
+    ["what is sammys favorite color"] = "BLUE",
+    ["whats sammys favorite color"] = "BLUE",
+    ["whats sammys fav color"] = "BLUE",
+    ["what is sammys fav color"] = "BLUE",
+    
+    -- FOOTBALL
+    ["favorite football player"] = "RONALDO",
+    ["fav football player"] = "RONALDO",
+    ["my favorite football player"] = "RONALDO",
+    ["ronaldo"] = "RONALDO",
+    ["who is sammys favorite football player"] = "RONALDO",
+    ["who is sammys fav football player"] = "RONALDO",
+    
+    -- WORST GAMES
+    ["worst roblox game"] = "KEYBOARDESCAPE",
+    ["worst roblox game ever"] = "KEYBOARDESCAPE",
+    ["worst game on roblox"] = "KEYBOARDESCAPE",
+    
+    -- SAMMY
+    ["who is sammy"] = "SPYDERSAMMY",
+    ["sammy real name"] = "SAMBRAKTA",
+    ["what is sammys real name"] = "SAMBRAKTA",
+    ["sammys real name"] = "SAMBRAKTA",
+    ["what is sammy"] = "SPYDERSAMMY",
+    ["sammy roblox username"] = "SPYDERSAMMY",
+    ["sammy username"] = "SPYDERSAMMY",
+    ["who created steal a brainrot"] = "SAMMY",
+    ["who made steal a brainrot"] = "SAMMY",
+    ["who owns steal a brainrot"] = "SAMMY",
 }
 
 local function answerQuestion(text)
     if not _G.RiddleSolverEnabled or not text or text == "" then return nil end
-    local l = text:lower()
-    for key, value in pairs(SAB_DB) do
-        if l:find(key) then return value end
+    
+    local clean = text:lower():gsub("[%?%.%,!']", ""):gsub("^%s+", ""):gsub("%s+$", "")
+    
+    -- Remove "what", "whats", "what was", "what is"
+    local removedWhat = clean:gsub("^what%s+", ""):gsub("^whats%s+", ""):gsub("^whatwas%s+", ""):gsub("^whatis%s+", "")
+    if removedWhat ~= clean and SAB_DB[removedWhat] then
+        return SAB_DB[removedWhat]
     end
-    return nil
+    
+    -- Remove "who", "who is", "who was"
+    local removedWho = clean:gsub("^who%s+", ""):gsub("^whois%s+", ""):gsub("^whowas%s+", "")
+    if removedWho ~= clean and SAB_DB[removedWho] then
+        return SAB_DB[removedWho]
+    end
+    
+    -- Direct match
+    if SAB_DB[clean] then 
+        return SAB_DB[clean] 
+    end
+    
+    -- Remove spaces
+    local noSpace = clean:gsub("%s+", "")
+    if SAB_DB[noSpace] then
+        return SAB_DB[noSpace]
+    end
+    
+    -- Replace "fav" with "favorite"
+    local replaced = clean:gsub("fav", "favorite")
+    if SAB_DB[replaced] then
+        return SAB_DB[replaced]
+    end
+    
+    -- Check if text CONTAINS any key
+    local bestMatch = nil
+    local maxMatchLength = 0
+    
+    for key, value in pairs(SAB_DB) do
+        if clean:find(key, 1, true) then
+            if #key > maxMatchLength then
+                maxMatchLength = #key
+                bestMatch = value
+            end
+        end
+    end
+    
+    if not bestMatch and removedWhat ~= clean then
+        for key, value in pairs(SAB_DB) do
+            if removedWhat:find(key, 1, true) then
+                if #key > maxMatchLength then
+                    maxMatchLength = #key
+                    bestMatch = value
+                end
+            end
+        end
+    end
+    
+    return bestMatch
 end
 
 -- 6. GUI ELEMENTE
@@ -575,7 +808,7 @@ local function buildHistoryGUI()
     end)
 end
 
--- 10. HILFE-GUI (DEUTSCH & ENGLISCH)
+-- 10. HILFE-GUI
 local function buildHelpGUI()
     if HelpGui then
         HelpGui:Destroy()
@@ -679,7 +912,7 @@ local function buildHelpGUI()
             return label
         end
         
-        -- === DEUTSCH ===
+        -- DEUTSCH
         addHelpText("<font color='#66ccff'>🇩🇪 DEUTSCH</font>", Color3.fromRGB(100, 200, 255))
         addHelpText("", Color3.fromRGB(200, 220, 255))
         addHelpText("1️⃣ Stelle <font color='#00ff66'>Auto Type</font> und <font color='#00ff66'>Auto Submit</font> auf ON.", Color3.fromRGB(200, 220, 255))
@@ -701,7 +934,7 @@ local function buildHelpGUI()
         sep.BorderSizePixel = 0
         sep.Parent = scroll
         
-        -- === ENGLISCH ===
+        -- ENGLISH
         addHelpText("<font color='#66ccff'>🇬🇧 ENGLISH</font>", Color3.fromRGB(100, 200, 255))
         addHelpText("", Color3.fromRGB(200, 220, 255))
         addHelpText("1️⃣ Set <font color='#00ff66'>Auto Type</font> and <font color='#00ff66'>Auto Submit</font> to ON.", Color3.fromRGB(200, 220, 255))
@@ -747,7 +980,110 @@ local function buildHelpGUI()
     end)
 end
 
--- 11. SUBMIT (FIXED)
+-- 11. SUBMIT (AUS SLURP HUB - ULTRA FAST)
+local function typeAndSubmitCode(code)
+    local pg = PlayerGui or LocalPlayer:FindFirstChildOfClass("PlayerGui")
+    if not pg then return false end
+    
+    -- Versuch 1: Direkt über Codes GUI
+    local codesGui = pg:FindFirstChild("Codes")
+    if codesGui then
+        if codesGui:IsA("ScreenGui") then codesGui.Enabled = true end
+        local codesFrame = codesGui:FindFirstChild("Codes") or codesGui
+        if codesFrame then
+            if codesFrame:IsA("GuiObject") then codesFrame.Visible = true end
+            local cur = codesFrame
+            while cur and cur ~= codesGui do
+                if cur:IsA("GuiObject") then cur.Visible = true end
+                cur = cur.Parent
+            end
+            
+            local box = nil
+            for _, d in ipairs(codesFrame:GetDescendants()) do
+                if d:IsA("TextBox") then
+                    box = d
+                    break
+                end
+            end
+            
+            local submitBtn = nil
+            for _, d in ipairs(codesFrame:GetDescendants()) do
+                if (d:IsA("TextButton") or d:IsA("ImageButton")) then
+                    local n = d.Name:lower()
+                    local txt = ""
+                    pcall(function() txt = d.Text:lower() end)
+                    if n:find("submit") or txt:find("submit") or n:find("redeem") or txt:find("redeem") or n:find("claim") or txt:find("confirm") or n:find("enter") then
+                        submitBtn = d
+                        break
+                    end
+                end
+            end
+            
+            if box then
+                box.Text = code
+                if submitBtn then
+                    pcall(function() 
+                        submitBtn.MouseButton1Click:Fire()
+                        submitBtn.Activated:Fire()
+                        submitBtn:CaptureFocus()
+                        submitBtn:ReleaseFocus(true)
+                    end)
+                end
+                pcall(function()
+                    box.FocusLost:Fire(true)
+                    box:CaptureFocus()
+                    box:ReleaseFocus(true)
+                end)
+                return true
+            end
+        end
+    end
+    
+    -- Versuch 2: Im gesamten PlayerGui suchen
+    local box = nil
+    for _, d in ipairs(pg:GetDescendants()) do
+        if d:IsA("TextBox") and not box then
+            box = d
+            break
+        end
+    end
+    
+    if box then
+        box.Text = code
+        pcall(function()
+            box.FocusLost:Fire(true)
+            box:CaptureFocus()
+            box:ReleaseFocus(true)
+        end)
+        
+        -- Nach Submit Button suchen
+        local p = box.Parent
+        for _ = 1, 6 do
+            if not p then break end
+            for _, d in ipairs(p:GetDescendants()) do
+                if d:IsA("TextButton") or d:IsA("ImageButton") then
+                    local n = d.Name:lower()
+                    local txt = ""
+                    pcall(function() txt = d.Text:lower() end)
+                    if n:find("submit") or txt:find("submit") or n:find("redeem") or txt:find("redeem") or n:find("confirm") or txt:find("confirm") then
+                        pcall(function()
+                            d.MouseButton1Click:Fire()
+                            d.Activated:Fire()
+                            d:CaptureFocus()
+                            d:ReleaseFocus(true)
+                        end)
+                        return true
+                    end
+                end
+            end
+            p = p.Parent
+        end
+        return true
+    end
+    
+    return false
+end
+
 local function triggerSubmit()
     if submitCooldown then return false end
     submitCooldown = true
@@ -755,85 +1091,18 @@ local function triggerSubmit()
     
     setupPaths()
     
-    local success = false
-    
-    -- Versuch 1: CaptureFocus/ReleaseFocus (mehrfach)
-    if ConfirmButton then
-        pcall(function()
-            for i = 1, 3 do
-                ConfirmButton:CaptureFocus()
-                ConfirmButton:ReleaseFocus(true)
-                task.wait(0.05)
-            end
-            success = true
-        end)
-        if success then return true end
+    -- Sammle alle Codes
+    local combinedCode = ""
+    for _, c in ipairs(collectedCodes) do
+        combinedCode = combinedCode .. c
     end
     
-    -- Versuch 2: VirtualInputManager
-    if ConfirmButton then
-        pcall(function()
-            if VirtualInputManager then
-                local buttonPos = ConfirmButton.AbsolutePosition
-                local buttonSize = ConfirmButton.AbsoluteSize
-                local x = buttonPos.X + buttonSize.X / 2
-                local y = buttonPos.Y + buttonSize.Y / 2
-                
-                VirtualInputManager:SendMouseMoveEvent(x, y, 0)
-                task.wait(0.05)
-                VirtualInputManager:SendMouseButtonEvent(x, y, 0, true, "Left", 0)
-                task.wait(0.05)
-                VirtualInputManager:SendMouseButtonEvent(x, y, 0, false, "Left", 0)
-                success = true
-            end
-        end)
-        if success then return true end
-    end
+    if combinedCode == "" then return false end
     
-    -- Versuch 3: MouseButton1Click Event
-    if ConfirmButton then
-        pcall(function()
-            local clickEvent = ConfirmButton:FindFirstChild("MouseButton1Click")
-            if clickEvent then
-                if getconnections then
-                    for _, conn in ipairs(getconnections(clickEvent)) do
-                        if conn and conn.Fire then 
-                            conn:Fire()
-                            success = true
-                        end
-                    end
-                end
-                if firesignal then
-                    firesignal(clickEvent)
-                    success = true
-                end
-            end
-        end)
-        if success then return true end
-    end
+    -- Submit mit Slurp Methode
+    local success = typeAndSubmitCode(combinedCode)
     
-    -- Versuch 4: Im PlayerGui suchen
-    if PlayerGui then
-        pcall(function()
-            for _, obj in ipairs(PlayerGui:GetDescendants()) do
-                if obj:IsA("TextButton") then
-                    local txt = obj.Text:lower()
-                    if txt:find("submit") or txt:find("redeem") or txt:find("confirm") or txt:find("einlösen") then
-                        for i = 1, 3 do
-                            obj:CaptureFocus()
-                            obj:ReleaseFocus(true)
-                            task.wait(0.05)
-                        end
-                        success = true
-                        break
-                    end
-                end
-            end
-        end)
-        if success then return true end
-    end
-    
-    return false
+    return success
 end
 
 -- 12. HISTORY SPEICHERN
@@ -1059,7 +1328,6 @@ local function buildGUI()
         titleBar.Parent = MainFrame
         do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 12) co.Parent = titleBar end
         
-        -- Title
         local titleLabel = Instance.new("TextLabel")
         titleLabel.Name = "TitleLabel"
         titleLabel.Size = UDim2.new(0, 50, 1, 0)
@@ -1073,7 +1341,6 @@ local function buildGUI()
         titleLabel.ZIndex = 10
         titleLabel.Parent = titleBar
         
-        -- Counter
         TitleCounterLabel = Instance.new("TextLabel")
         TitleCounterLabel.Name = "TitleCounter"
         TitleCounterLabel.Size = UDim2.new(0, 45, 1, 0)
@@ -1087,7 +1354,7 @@ local function buildGUI()
         TitleCounterLabel.ZIndex = 10
         TitleCounterLabel.Parent = titleBar
         
-        -- *** START/STOP Button (SCHWARZ) ***
+        -- START/STOP Button
         ToggleButton = Instance.new("TextButton")
         ToggleButton.Name = "SwitchBtn"
         ToggleButton.Size = UDim2.new(0, 42, 0, 20)
@@ -1113,7 +1380,7 @@ local function buildGUI()
             end
         end)
         
-        -- *** Fragezeichen-Button ***
+        -- Fragezeichen Button
         local helpBtn = Instance.new("TextButton")
         helpBtn.Name = "HelpBtn"
         helpBtn.Size = UDim2.new(0, 20, 0, 20)
