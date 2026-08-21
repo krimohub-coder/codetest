@@ -1,14 +1,8 @@
 -- ============================================================
--- KRIMO HUB V4 - ACCENT COLOR & TOGGLE FIX
+-- KRIMO HUB V5 - DIRECT FIX FOR TOGGLES & STROKE COLOR
 -- ============================================================
 
-_G.ScriptEnabled = false
-_G.AutoWriteEnabled = false
-_G.AutoSubmitEnabled = false
-_G.RiddleSolverEnabled = false
-_G.SubmitAfterCount = 3
-_G.HistoryEnabled = false
-_G.AccentColor = Color3.fromRGB(100, 200, 255) -- Standard Akzentfarbe (Blau)
+_G.AccentColor = _G.AccentColor or Color3.fromRGB(100, 200, 255)
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
@@ -18,80 +12,49 @@ local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
--- PERSISTENZ
-local hasFS = pcall(function() return type(writefile) == "function" end)
-
-local function loadConfig()
-    if not hasFS then return end
-    pcall(function()
-        if isfile and isfile("KrimoHub_config.json") then
-            local data = HttpService:JSONDecode(readfile("KrimoHub_config.json"))
-            if type(data) == "table" and data.accentColor then
-                _G.AccentColor = Color3.fromRGB(data.accentColor.r * 255, data.accentColor.g * 255, data.accentColor.b * 255)
-            end
-        end
-    end)
-end
-
-local function saveConfig()
-    if not hasFS then return end
-    pcall(function() 
-        if writefile then 
-            writefile("KrimoHub_config.json", HttpService:JSONEncode({
-                accentColor = {r = _G.AccentColor.R, g = _G.AccentColor.G, b = _G.AccentColor.B}
-            })) 
-        end
-    end)
-end
-loadConfig()
-
--- STATE & GUI REFERENZEN
+-- STATE MANAGEMENT
 local settingsState = {
     anchor = false,
     autoBuy = false,
 }
 
-local MainFrame = nil
-local ScreenGui = nil
-local SettingsGui = nil
-local SettingsFrameRef = nil
-local HistoryGui = nil
-local HistoryFrame = nil
+-- CONFIG SYSTEM
+local hasFS = pcall(function() return type(writefile) == "function" end)
+local function saveConfig()
+    if not hasFS then return end
+    pcall(function() 
+        writefile("KrimoHub_config.json", HttpService:JSONEncode({
+            accentColor = {r = _G.AccentColor.R, g = _G.AccentColor.G, b = _G.AccentColor.B}
+        })) 
+    end)
+end
 
--- UPDATE ALL RÄNDER / ACCENTS
-local function updateAllAccents(newColor)
-    _G.AccentColor = newColor
-    
-    -- Main Frame Rand
-    if MainFrame then
-        local st = MainFrame:FindFirstChildOfClass("UIStroke")
-        if st then st.Color = newColor end
+-- DYNAMISCHE FARBANGABE NUR FÜR RÄNDER (STROKES)
+local registeredStrokes = {}
+local function registerStroke(stroke)
+    if stroke and stroke:IsA("UIStroke") then
+        stroke.Color = _G.AccentColor
+        registeredStrokes[stroke] = true
     end
-    
-    -- Settings Frame Rand
-    if SettingsFrameRef then
-        local st = SettingsFrameRef:FindFirstChildOfClass("UIStroke")
-        if st then st.Color = newColor end
-        
-        local scroll = SettingsFrameRef:FindFirstChildOfClass("ScrollingFrame")
-        if scroll then
-            scroll.ScrollBarImageColor3 = newColor
+end
+
+local function setAccentColor(newColor)
+    _G.AccentColor = newColor
+    for stroke, _ in pairs(registeredStrokes) do
+        if stroke and stroke.Parent then
+            stroke.Color = newColor
+        else
+            registeredStrokes[stroke] = nil
         end
     end
-    
-    -- History Frame Rand
-    if HistoryFrame then
-        local st = HistoryFrame:FindFirstChildOfClass("UIStroke")
-        if st then st.Color = newColor end
-    end
-    
     saveConfig()
 end
 
--- ANCHOR LOGIC
+-- ANCHOR LOGIK
 local function setCharacterAnchored(state)
-    local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-    for _, part in ipairs(character:GetDescendants()) do
+    local char = LocalPlayer.Character
+    if not char then return end
+    for _, part in ipairs(char:GetDescendants()) do
         if part:IsA("BasePart") then
             part.Anchored = state
         end
@@ -110,8 +73,7 @@ local function isValidPrompt(prompt)
     if not attachment or attachment.Name ~= "PromptAttachment" then return false end
     local part = attachment.Parent
     if not part or part.Name ~= "Part" then return false end
-    local model = part.Parent
-    return model and model:IsA("Model") and true or false
+    return part.Parent and part.Parent:IsA("Model") or false
 end
 
 local function getPromptPosition(prompt)
@@ -120,231 +82,187 @@ local function getPromptPosition(prompt)
             return prompt.Parent.Parent.Position
         elseif prompt.Parent:IsA("BasePart") then
             return prompt.Parent.Position
-        elseif prompt.Parent:IsA("Model") and prompt.Parent.PrimaryPart then
-            return prompt.Parent.PrimaryPart.Position
         end
     end
     return nil
 end
 
-local function isPromptVisibleOnScreen(prompt)
-    local pos = getPromptPosition(prompt)
-    if not pos then return false end
-    local _, visible = Workspace.CurrentCamera:WorldToViewportPoint(pos)
-    return visible
-end
-
-local function beginInput(prompt)
-    local inputs = { Enum.UserInputType.Keyboard, Enum.UserInputType.MouseButton1, Enum.UserInputType.Touch }
-    for _, input in ipairs(inputs) do
-        pcall(function() prompt:InputHoldBegin(input) end)
-    end
-end
-
-local function endInput(prompt)
-    local inputs = { Enum.UserInputType.Keyboard, Enum.UserInputType.MouseButton1, Enum.UserInputType.Touch }
-    for _, input in ipairs(inputs) do
-        pcall(function() prompt:InputHoldEnd(input) end)
-    end
-end
-
 local function registerPrompt(prompt)
-    if isValidPrompt(prompt) and not promptConnections[prompt] then
-        promptConnections[prompt] = true
-    end
+    if isValidPrompt(prompt) then promptConnections[prompt] = true end
 end
 
 local function startAutoBuy()
-    if not isAutoBuying then
-        isAutoBuying = true
-        for _, obj in ipairs(Workspace:GetDescendants()) do registerPrompt(obj) end
-        if addedConnection then addedConnection:Disconnect() end
-        addedConnection = Workspace.DescendantAdded:Connect(registerPrompt)
-        
-        if renderConnection then renderConnection:Disconnect() end
-        renderConnection = RunService.RenderStepped:Connect(function()
-            local character = LocalPlayer.Character
-            local rootPart = character and character:FindFirstChild("HumanoidRootPart")
-            if rootPart then
-                for prompt, _ in pairs(promptConnections) do
-                    if prompt and prompt.Parent and isValidPrompt(prompt) then
-                        local pos = getPromptPosition(prompt)
-                        if pos then
-                            if (rootPart.Position - pos).Magnitude > 15 or not isPromptVisibleOnScreen(prompt) then
-                                endInput(prompt)
-                            else
-                                beginInput(prompt)
-                            end
-                        else
-                            promptConnections[prompt] = nil
-                        end
+    if isAutoBuying then return end
+    isAutoBuying = true
+    for _, obj in ipairs(Workspace:GetDescendants()) do registerPrompt(obj) end
+    
+    if addedConnection then addedConnection:Disconnect() end
+    addedConnection = Workspace.DescendantAdded:Connect(registerPrompt)
+    
+    if renderConnection then renderConnection:Disconnect() end
+    renderConnection = RunService.RenderStepped:Connect(function()
+        local char = LocalPlayer.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        if root then
+            for prompt, _ in pairs(promptConnections) do
+                if prompt and prompt.Parent and isValidPrompt(prompt) then
+                    local pos = getPromptPosition(prompt)
+                    if pos and (root.Position - pos).Magnitude <= 15 then
+                        pcall(function() prompt:InputHoldBegin(Enum.UserInputType.Keyboard) end)
                     else
-                        promptConnections[prompt] = nil
+                        pcall(function() prompt:InputHoldEnd(Enum.UserInputType.Keyboard) end)
                     end
+                else
+                    promptConnections[prompt] = nil
                 end
             end
-        end)
-    end
+        end
+    end)
 end
 
 local function stopAutoBuy()
-    if isAutoBuying then
-        isAutoBuying = false
-        if renderConnection then renderConnection:Disconnect() renderConnection = nil end
-        if addedConnection then addedConnection:Disconnect() addedConnection = nil end
-        for prompt, _ in pairs(promptConnections) do endInput(prompt) end
-        promptConnections = {}
+    isAutoBuying = false
+    if renderConnection then renderConnection:Disconnect() renderConnection = nil end
+    if addedConnection then addedConnection:Disconnect() addedConnection = nil end
+    for prompt, _ in pairs(promptConnections) do
+        pcall(function() prompt:InputHoldEnd(Enum.UserInputType.Keyboard) end)
     end
+    promptConnections = {}
 end
 
--- SETTINGS GUI
-local function buildSettingsGUI()
-    if SettingsGui then
-        SettingsGui:Destroy()
-        SettingsGui = nil
-        SettingsFrameRef = nil
-        return
+-- GUI CLEANUP
+if CoreGui:FindFirstChild("KrimoHubGui") then CoreGui.KrimoHubGui:Destroy() end
+if CoreGui:FindFirstChild("KrimoSettingsGui") then CoreGui.KrimoSettingsGui:Destroy() end
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "KrimoHubGui"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.IgnoreGuiInset = true
+ScreenGui.Parent = CoreGui
+
+-- MAIN FRAME
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 240, 0, 280)
+MainFrame.Position = UDim2.new(0.5, -120, 0.4, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 22) -- Fester dunkler Background
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Parent = ScreenGui
+
+local mainCorner = Instance.new("UICorner") mainCorner.CornerRadius = UDim.new(0, 10) mainCorner.Parent = MainFrame
+local mainStroke = Instance.new("UIStroke")
+mainStroke.Thickness = 2
+mainStroke.Transparency = 0.2
+mainStroke.Parent = MainFrame
+registerStroke(mainStroke)
+
+-- TITLE BAR
+local TitleBar = Instance.new("Frame")
+TitleBar.Size = UDim2.new(1, 0, 0, 30)
+TitleBar.BackgroundColor3 = Color3.fromRGB(22, 22, 32)
+TitleBar.Parent = MainFrame
+local titleCorner = Instance.new("UICorner") titleCorner.CornerRadius = UDim.new(0, 10) titleCorner.Parent = TitleBar
+
+local TitleText = Instance.new("TextLabel")
+TitleText.Size = UDim2.new(1, -40, 1, 0)
+TitleText.Position = UDim2.new(0, 10, 0, 0)
+TitleText.BackgroundTransparency = 1
+TitleText.Text = "Krimo Hub V5"
+TitleText.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleText.Font = Enum.Font.GothamBold
+TitleText.TextSize = 12
+TitleText.TextXAlignment = Enum.TextXAlignment.Left
+TitleText.Parent = TitleBar
+
+-- SETTINGS BUTTON (MAIN GUI)
+local SettingsBtn = Instance.new("TextButton")
+SettingsBtn.Size = UDim2.new(0, 24, 0, 24)
+SettingsBtn.Position = UDim2.new(1, -28, 0.5, -12)
+SettingsBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
+SettingsBtn.Text = "⚙️"
+SettingsBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+SettingsBtn.Parent = TitleBar
+local setBtnCorner = Instance.new("UICorner") setBtnCorner.CornerRadius = UDim.new(0, 6) setBtnCorner.Parent = SettingsBtn
+
+-- DRAGGING FOR MAIN FRAME
+local dragging, dragStart, startPos
+TitleBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = MainFrame.Position
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - dragStart
+        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+    end
+end)
+
+-- SETTINGS WINDOW BUILDER
+local SettingsFrame = nil
+local function openSettings()
+    if SettingsFrame then 
+        SettingsFrame.Visible = not SettingsFrame.Visible 
+        return 
     end
     
-    SettingsGui = Instance.new("ScreenGui")
-    SettingsGui.Name = "KrimoSettingsGui"
-    SettingsGui.ResetOnSpawn = false
-    SettingsGui.IgnoreGuiInset = true
-    SettingsGui.Parent = CoreGui
-    
-    local SettingsFrame = Instance.new("Frame")
+    SettingsFrame = Instance.new("Frame")
     SettingsFrame.Name = "SettingsFrame"
-    SettingsFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-    SettingsFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
-    SettingsFrame.Size = UDim2.new(0, 200, 0, 240)
-    SettingsFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 18) -- Fester dunkler Hintergrund
-    SettingsFrame.BackgroundTransparency = 0.05
+    SettingsFrame.Size = UDim2.new(0, 220, 0, 230)
+    SettingsFrame.Position = UDim2.new(0.5, 130, 0.4, 0)
+    SettingsFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 22)
     SettingsFrame.BorderSizePixel = 0
-    SettingsFrame.ClipsDescendants = true
     SettingsFrame.Active = true
-    SettingsFrame.Parent = SettingsGui
-    SettingsFrameRef = SettingsFrame
+    SettingsFrame.ZIndex = 20
+    SettingsFrame.Parent = ScreenGui
     
-    do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 12) co.Parent = SettingsFrame end
-    local mainStroke = Instance.new("UIStroke")
-    mainStroke.Color = _G.AccentColor
-    mainStroke.Thickness = 1.5
-    mainStroke.Transparency = 0.3
-    mainStroke.Parent = SettingsFrame
+    local setCorner = Instance.new("UICorner") setCorner.CornerRadius = UDim.new(0, 10) setCorner.Parent = SettingsFrame
+    local setStroke = Instance.new("UIStroke")
+    setStroke.Thickness = 2
+    setStroke.Transparency = 0.2
+    setStroke.Parent = SettingsFrame
+    registerStroke(setStroke)
     
-    -- Title Bar
-    local titleBar = Instance.new("Frame")
-    titleBar.Name = "TitleBar"
-    titleBar.Size = UDim2.new(1, 0, 0, 26)
-    titleBar.BackgroundColor3 = Color3.fromRGB(15, 20, 45)
-    titleBar.BackgroundTransparency = 0.5
-    titleBar.BorderSizePixel = 0
-    titleBar.ZIndex = 10
-    titleBar.Parent = SettingsFrame
-    do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 12) co.Parent = titleBar end
+    -- SETTINGS HEADER
+    local SetTitle = Instance.new("TextLabel")
+    SetTitle.Size = UDim2.new(1, -10, 0, 25)
+    SetTitle.Position = UDim2.new(0, 10, 0, 5)
+    SetTitle.BackgroundTransparency = 1
+    SetTitle.Text = "Einstellungen"
+    SetTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    SetTitle.Font = Enum.Font.GothamBold
+    SetTitle.TextSize = 12
+    SetTitle.TextXAlignment = Enum.TextXAlignment.Left
+    SetTitle.ZIndex = 21
+    SetTitle.Parent = SettingsFrame
     
-    local titleLabel = Instance.new("TextLabel")
-    titleLabel.Size = UDim2.new(1, -30, 1, 0)
-    titleLabel.Position = UDim2.new(0, 10, 0, 0)
-    titleLabel.BackgroundTransparency = 1
-    titleLabel.Text = "⚙️ Settings"
-    titleLabel.TextColor3 = Color3.fromRGB(180, 230, 255)
-    titleLabel.Font = Enum.Font.GothamBold
-    titleLabel.TextSize = 12
-    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-    titleLabel.ZIndex = 10
-    titleLabel.Parent = titleBar
+    -- 1. AUTO BUY TOGGLE
+    local AutoBuyBtn = Instance.new("TextButton")
+    AutoBuyBtn.Size = UDim2.new(1, -20, 0, 32)
+    AutoBuyBtn.Position = UDim2.new(0, 10, 0, 35)
+    AutoBuyBtn.BackgroundColor3 = settingsState.autoBuy and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(40, 40, 55)
+    AutoBuyBtn.Text = "🛒 Auto Buy: " .. (settingsState.autoBuy and "ON" or "OFF")
+    AutoBuyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    AutoBuyBtn.Font = Enum.Font.GothamSemibold
+    AutoBuyBtn.TextSize = 11
+    AutoBuyBtn.ZIndex = 21
+    AutoBuyBtn.Parent = SettingsFrame
+    local abCorner = Instance.new("UICorner") abCorner.CornerRadius = UDim.new(0, 6) abCorner.Parent = AutoBuyBtn
     
-    local closeBtn = Instance.new("TextButton")
-    closeBtn.Size = UDim2.new(0, 20, 0, 20)
-    closeBtn.Position = UDim2.new(1, -24, 0.5, -10)
-    closeBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-    closeBtn.Text = "✕"
-    closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    closeBtn.Font = Enum.Font.GothamBold
-    closeBtn.TextSize = 11
-    closeBtn.AutoButtonColor = true
-    closeBtn.ZIndex = 10
-    closeBtn.Parent = titleBar
-    closeBtn.MouseButton1Click:Connect(function()
-        if SettingsGui then SettingsGui:Destroy() end
-        SettingsGui = nil
-        SettingsFrameRef = nil
-    end)
-    
-    -- Drag Logik
-    local dragging, dragStart, startPos
-    titleBar.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            dragStart = input.Position
-            startPos = SettingsFrame.Position
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then dragging = false end
-            end)
-        end
-    end)
-    
-    UserInputService.InputChanged:Connect(function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            local delta = input.Position - dragStart
-            SettingsFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-        end
-    end)
-    
-    -- Scrollbereich
-    local scroll = Instance.new("ScrollingFrame")
-    scroll.Size = UDim2.new(1, -8, 1, -36)
-    scroll.Position = UDim2.new(0, 4, 0, 28)
-    scroll.BackgroundTransparency = 1
-    scroll.BorderSizePixel = 0
-    scroll.ScrollBarThickness = 2
-    scroll.ScrollBarImageColor3 = _G.AccentColor
-    scroll.ScrollBarImageTransparency = 0.4
-    scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    scroll.ClipsDescendants = true
-    scroll.ZIndex = 5
-    scroll.Parent = SettingsFrame
-    
-    local layout = Instance.new("UIListLayout")
-    layout.Padding = UDim.new(0, 4)
-    layout.SortOrder = Enum.SortOrder.LayoutOrder
-    layout.Parent = scroll
-    
-    -- AUTO BUY TOGGLE
-    local autoBuyFrame = Instance.new("Frame")
-    autoBuyFrame.Size = UDim2.new(1, 0, 0, 38)
-    autoBuyFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
-    autoBuyFrame.Parent = scroll
-    do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 6) co.Parent = autoBuyFrame end
-    
-    local autoBuyLabel = Instance.new("TextLabel")
-    autoBuyLabel.Size = UDim2.new(0.55, 0, 1, 0)
-    autoBuyLabel.Position = UDim2.new(0, 8, 0, 0)
-    autoBuyLabel.BackgroundTransparency = 1
-    autoBuyLabel.Text = "🛒 Auto Buy"
-    autoBuyLabel.TextColor3 = Color3.fromRGB(200, 230, 255)
-    autoBuyLabel.Font = Enum.Font.GothamSemibold
-    autoBuyLabel.TextSize = 11
-    autoBuyLabel.TextXAlignment = Enum.TextXAlignment.Left
-    autoBuyLabel.Parent = autoBuyFrame
-    
-    local autoBuyToggle = Instance.new("TextButton")
-    autoBuyToggle.Size = UDim2.new(0, 44, 0, 22)
-    autoBuyToggle.Position = UDim2.new(1, -50, 0.5, -11)
-    autoBuyToggle.BackgroundColor3 = settingsState.autoBuy and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(60, 60, 60)
-    autoBuyToggle.Text = settingsState.autoBuy and "ON" or "OFF"
-    autoBuyToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
-    autoBuyToggle.Font = Enum.Font.GothamBold
-    autoBuyToggle.TextSize = 9
-    autoBuyToggle.Parent = autoBuyFrame
-    do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = autoBuyToggle end
-    
-    autoBuyToggle.Activated:Connect(function()
+    AutoBuyBtn.MouseButton1Click:Connect(function()
         settingsState.autoBuy = not settingsState.autoBuy
-        autoBuyToggle.BackgroundColor3 = settingsState.autoBuy and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(60, 60, 60)
-        autoBuyToggle.Text = settingsState.autoBuy and "ON" or "OFF"
+        AutoBuyBtn.Text = "🛒 Auto Buy: " .. (settingsState.autoBuy and "ON" or "OFF")
+        AutoBuyBtn.BackgroundColor3 = settingsState.autoBuy and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(40, 40, 55)
         
         if settingsState.autoBuy then
             startAutoBuy()
@@ -353,161 +271,73 @@ local function buildSettingsGUI()
         end
     end)
     
-    -- ANCHOR TOGGLE
-    local anchorFrame = Instance.new("Frame")
-    anchorFrame.Size = UDim2.new(1, 0, 0, 38)
-    anchorFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
-    anchorFrame.Parent = scroll
-    do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 6) co.Parent = anchorFrame end
+    -- 2. ANCHOR TOGGLE
+    local AnchorBtn = Instance.new("TextButton")
+    AnchorBtn.Size = UDim2.new(1, -20, 0, 32)
+    AnchorBtn.Position = UDim2.new(0, 10, 0, 75)
+    AnchorBtn.BackgroundColor3 = settingsState.anchor and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(40, 40, 55)
+    AnchorBtn.Text = "⚓ Anchor: " .. (settingsState.anchor and "ON" or "OFF")
+    AnchorBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    AnchorBtn.Font = Enum.Font.GothamSemibold
+    AnchorBtn.TextSize = 11
+    AnchorBtn.ZIndex = 21
+    AnchorBtn.Parent = SettingsFrame
+    local ancCorner = Instance.new("UICorner") ancCorner.CornerRadius = UDim.new(0, 6) ancCorner.Parent = AnchorBtn
     
-    local anchorLabel = Instance.new("TextLabel")
-    anchorLabel.Size = UDim2.new(0.55, 0, 1, 0)
-    anchorLabel.Position = UDim2.new(0, 8, 0, 0)
-    anchorLabel.BackgroundTransparency = 1
-    anchorLabel.Text = "⚓ Anchor"
-    anchorLabel.TextColor3 = Color3.fromRGB(200, 230, 255)
-    anchorLabel.Font = Enum.Font.GothamSemibold
-    anchorLabel.TextSize = 11
-    anchorLabel.TextXAlignment = Enum.TextXAlignment.Left
-    anchorLabel.Parent = anchorFrame
-    
-    local anchorToggle = Instance.new("TextButton")
-    anchorToggle.Size = UDim2.new(0, 44, 0, 22)
-    anchorToggle.Position = UDim2.new(1, -50, 0.5, -11)
-    anchorToggle.BackgroundColor3 = settingsState.anchor and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(60, 60, 60)
-    anchorToggle.Text = settingsState.anchor and "ON" or "OFF"
-    anchorToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
-    anchorToggle.Font = Enum.Font.GothamBold
-    anchorToggle.TextSize = 9
-    anchorToggle.Parent = anchorFrame
-    do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = anchorToggle end
-    
-    anchorToggle.Activated:Connect(function()
+    AnchorBtn.MouseButton1Click:Connect(function()
         settingsState.anchor = not settingsState.anchor
-        anchorToggle.BackgroundColor3 = settingsState.anchor and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(60, 60, 60)
-        anchorToggle.Text = settingsState.anchor and "ON" or "OFF"
+        AnchorBtn.Text = "⚓ Anchor: " .. (settingsState.anchor and "ON" or "OFF")
+        AnchorBtn.BackgroundColor3 = settingsState.anchor and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(40, 40, 55)
         setCharacterAnchored(settingsState.anchor)
     end)
     
-    -- RAND-FARBEN SEKTION
-    local colorFrame = Instance.new("Frame")
-    colorFrame.Size = UDim2.new(1, 0, 0, 75)
-    colorFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
-    colorFrame.Parent = scroll
-    do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 6) co.Parent = colorFrame end
+    -- 3. RAND FARBAUSWAHL (NUR RAND ÄNDERN)
+    local ColorLabel = Instance.new("TextLabel")
+    ColorLabel.Size = UDim2.new(1, -20, 0, 20)
+    ColorLabel.Position = UDim2.new(0, 10, 0, 115)
+    ColorLabel.BackgroundTransparency = 1
+    ColorLabel.Text = "🎨 Rand-Farbe auswählen:"
+    ColorLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    ColorLabel.Font = Enum.Font.Gotham
+    ColorLabel.TextSize = 10
+    ColorLabel.TextXAlignment = Enum.TextXAlignment.Left
+    ColorLabel.ZIndex = 21
+    ColorLabel.Parent = SettingsFrame
     
-    local colorLabel = Instance.new("TextLabel")
-    colorLabel.Size = UDim2.new(1, 0, 0, 18)
-    colorLabel.Position = UDim2.new(0, 8, 0, 2)
-    colorLabel.BackgroundTransparency = 1
-    colorLabel.Text = "🎨 Rand Farbe"
-    colorLabel.TextColor3 = Color3.fromRGB(200, 230, 255)
-    colorLabel.Font = Enum.Font.GothamSemibold
-    colorLabel.TextSize = 11
-    colorLabel.TextXAlignment = Enum.TextXAlignment.Left
-    colorLabel.Parent = colorFrame
+    local ColorContainer = Instance.new("Frame")
+    ColorContainer.Size = UDim2.new(1, -20, 0, 80)
+    ColorContainer.Position = UDim2.new(0, 10, 0, 138)
+    ColorContainer.BackgroundTransparency = 1
+    ColorContainer.ZIndex = 21
+    ColorContainer.Parent = SettingsFrame
     
-    local colors = {
+    local palette = {
         Color3.fromRGB(100, 200, 255), -- Blau
         Color3.fromRGB(255, 80, 80),   -- Rot
         Color3.fromRGB(80, 255, 120),  -- Grün
-        Color3.fromRGB(255, 200, 50),  -- Gelb/Gold
-        Color3.fromRGB(200, 80, 255),  -- Pink/Lila
+        Color3.fromRGB(255, 200, 50),  -- Gelb
+        Color3.fromRGB(200, 80, 255),  -- Pink
         Color3.fromRGB(0, 255, 255),   -- Cyan
         Color3.fromRGB(255, 120, 0),   -- Orange
-        Color3.fromRGB(255, 255, 255), -- Weiß
-        Color3.fromRGB(150, 150, 150), -- Grau
-        Color3.fromRGB(120, 50, 255),  -- Violett
+        Color3.fromRGB(255, 255, 255)  -- Weiß
     }
     
-    for i, col in ipairs(colors) do
-        local btn = Instance.new("TextButton")
-        local row = math.floor((i - 1) / 5)
-        local c = (i - 1) % 5
-        btn.Size = UDim2.new(0, 30, 0, 20)
-        btn.Position = UDim2.new(0, 8 + c * 36, 0, 22 + row * 24)
-        btn.BackgroundColor3 = col
-        btn.Text = ""
-        btn.Parent = colorFrame
-        do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = btn end
+    for i, color in ipairs(palette) do
+        local colBtn = Instance.new("TextButton")
+        local row = math.floor((i - 1) / 4)
+        local col = (i - 1) % 4
+        colBtn.Size = UDim2.new(0, 42, 0, 32)
+        colBtn.Position = UDim2.new(0, col * 48, 0, row * 38)
+        colBtn.BackgroundColor3 = color
+        colBtn.Text = ""
+        colBtn.ZIndex = 22
+        colBtn.Parent = ColorContainer
+        local cCorner = Instance.new("UICorner") cCorner.CornerRadius = UDim.new(0, 4) cCorner.Parent = colBtn
         
-        btn.Activated:Connect(function()
-            updateAllAccents(col)
+        colBtn.MouseButton1Click:Connect(function()
+            setAccentColor(color)
         end)
     end
 end
 
--- MAIN GUI (ERSTELLUNG)
-local function buildGUI()
-    local old = CoreGui:FindFirstChild("KrimoHubGui")
-    if old then old:Destroy() end
-    
-    ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "KrimoHubGui"
-    ScreenGui.ResetOnSpawn = false
-    ScreenGui.IgnoreGuiInset = true
-    ScreenGui.Parent = CoreGui
-    
-    MainFrame = Instance.new("Frame")
-    MainFrame.Name = "MainFrame"
-    MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-    MainFrame.Position = UDim2.new(0.5, 0, 0.4, 0)
-    MainFrame.Size = UDim2.new(0, 250, 0, 290)
-    MainFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 18)
-    MainFrame.BackgroundTransparency = 0.05
-    MainFrame.BorderSizePixel = 0
-    MainFrame.ClipsDescendants = true
-    MainFrame.Active = true
-    MainFrame.Parent = ScreenGui
-    
-    do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 12) co.Parent = MainFrame end
-    
-    -- Der Rand, dessen Farbe geändert wird
-    local stroke = Instance.new("UIStroke")
-    stroke.Color = _G.AccentColor
-    stroke.Thickness = 2
-    stroke.Transparency = 0.3
-    stroke.Parent = MainFrame
-    
-    -- TitleBar
-    local titleBar = Instance.new("Frame")
-    titleBar.Size = UDim2.new(1, 0, 0, 26)
-    titleBar.BackgroundColor3 = Color3.fromRGB(15, 20, 40)
-    titleBar.BackgroundTransparency = 0.3
-    titleBar.Parent = MainFrame
-    do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 12) co.Parent = titleBar end
-    
-    local settingsBtn = Instance.new("TextButton")
-    settingsBtn.Size = UDim2.new(0, 20, 0, 20)
-    settingsBtn.Position = UDim2.new(1, -30, 0.5, -10)
-    settingsBtn.BackgroundColor3 = Color3.fromRGB(30, 40, 70)
-    settingsBtn.Text = "⚙️"
-    settingsBtn.Parent = titleBar
-    do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = settingsBtn end
-    
-    settingsBtn.Activated:Connect(function()
-        buildSettingsGUI()
-    end)
-    
-    -- Drag Main Frame
-    local dragging, dragStart, startPos
-    MainFrame.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            dragStart = input.Position
-            startPos = MainFrame.Position
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then dragging = false end
-            end)
-        end
-    end)
-    
-    UserInputService.InputChanged:Connect(function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            local delta = input.Position - dragStart
-            MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-        end
-    end)
-end
-
-buildGUI()
+SettingsBtn.MouseButton1Click:Connect(openSettings)
