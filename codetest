@@ -830,7 +830,8 @@ local function buildHistoryGUI()
         HistoryFrame.Parent = HistoryGui
         
         do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 10) co.Parent = HistoryFrame end
-        do local st = Instance.new("UIStroke") st.Color = Color3.fromRGB(80, 180, 255) st.Thickness = 1.5 st.Transparency = 0.3 st.Parent = HistoryFrame end
+        do local st = Instance.new("UIStroke") st.Color = _G.AccentColor st.Thickness = 1.5 st.Transparency = 0.3 st.Parent = HistoryFrame
+            registerStroke(st) end
         
         local tb = Instance.new("Frame")
         tb.Name = "TitleBar"
@@ -913,7 +914,7 @@ local function buildHistoryGUI()
         HistoryScroll.BackgroundTransparency = 1
         HistoryScroll.BorderSizePixel = 0
         HistoryScroll.ScrollBarThickness = 2
-        HistoryScroll.ScrollBarImageColor3 = Color3.fromRGB(80, 180, 255)
+        HistoryScroll.ScrollBarImageColor3 = _G.AccentColor
         HistoryScroll.ScrollBarImageTransparency = 0.4
         HistoryScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
         HistoryScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
@@ -956,7 +957,7 @@ local function buildHistoryGUI()
     end)
 end
 
--- 14. SETTINGS GUI (MIT NEUER LOGIK)
+-- 14. NEUE SETTINGS GUI (MIT NEUER LOGIK)
 local function buildSettingsGUI()
     if SettingsGui then
         SettingsGui:Destroy()
@@ -984,8 +985,13 @@ local function buildSettingsGUI()
         SettingsFrame.Parent = SettingsGui
         
         do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 12) co.Parent = SettingsFrame end
-        do local st = Instance.new("UIStroke") st.Color = _G.AccentColor st.Thickness = 2 st.Transparency = 0.3 st.Parent = SettingsFrame 
-            registerStroke(st) end
+        do local st = Instance.new("UIStroke") 
+            st.Color = _G.AccentColor 
+            st.Thickness = 2 
+            st.Transparency = 0.3 
+            st.Parent = SettingsFrame 
+            registerStroke(st) 
+        end
         
         -- Title Bar (für Drag)
         local titleBar = Instance.new("Frame")
@@ -1181,17 +1187,17 @@ local function buildSettingsGUI()
         
         -- 8 Farben
         local colors = {
-            {Color3.fromRGB(100, 200, 255), "Blau"},
-            {Color3.fromRGB(255, 80, 80), "Rot"},
-            {Color3.fromRGB(80, 255, 120), "Grün"},
-            {Color3.fromRGB(255, 200, 50), "Gelb"},
-            {Color3.fromRGB(200, 80, 255), "Pink"},
-            {Color3.fromRGB(0, 255, 255), "Cyan"},
-            {Color3.fromRGB(255, 120, 0), "Orange"},
-            {Color3.fromRGB(255, 255, 255), "Weiß"},
+            Color3.fromRGB(100, 200, 255), -- Blau
+            Color3.fromRGB(255, 80, 80),   -- Rot
+            Color3.fromRGB(80, 255, 120),  -- Grün
+            Color3.fromRGB(255, 200, 50),  -- Gelb
+            Color3.fromRGB(200, 80, 255),  -- Pink
+            Color3.fromRGB(0, 255, 255),   -- Cyan
+            Color3.fromRGB(255, 120, 0),   -- Orange
+            Color3.fromRGB(255, 255, 255), -- Weiß
         }
         
-        for i, colorData in ipairs(colors) do
+        for i, color in ipairs(colors) do
             local btn = Instance.new("TextButton")
             local row = math.floor((i - 1) / 4)
             local col = (i - 1) % 4
@@ -1199,7 +1205,7 @@ local function buildSettingsGUI()
             local yPos = 22 + row * 24
             btn.Size = UDim2.new(0, 42, 0, 20)
             btn.Position = UDim2.new(0, xPos, 0, yPos)
-            btn.BackgroundColor3 = colorData[1]
+            btn.BackgroundColor3 = color
             btn.BorderSizePixel = 0
             btn.Text = ""
             btn.AutoButtonColor = true
@@ -1207,7 +1213,7 @@ local function buildSettingsGUI()
             do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = btn end
             
             -- Rahmen für aktuelle Farbe
-            if colorData[1] == _G.AccentColor then
+            if color == _G.AccentColor then
                 local stroke = Instance.new("UIStroke")
                 stroke.Color = Color3.fromRGB(255, 255, 255)
                 stroke.Thickness = 2
@@ -1215,7 +1221,7 @@ local function buildSettingsGUI()
             end
             
             btn.MouseButton1Click:Connect(function()
-                setAccentColor(colorData[1])
+                setAccentColor(color)
                 -- Alle Striche entfernen
                 for _, child in ipairs(colorFrame:GetChildren()) do
                     if child:IsA("UIStroke") then
@@ -1266,7 +1272,8 @@ local function buildHelpGUI()
         HelpFrame.Parent = HelpGui
         
         do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 12) co.Parent = HelpFrame end
-        do local st = Instance.new("UIStroke") st.Color = Color3.fromRGB(100, 200, 255) st.Thickness = 1.5 st.Transparency = 0.3 st.Parent = HelpFrame end
+        do local st = Instance.new("UIStroke") st.Color = _G.AccentColor st.Thickness = 1.5 st.Transparency = 0.3 st.Parent = HelpFrame
+            registerStroke(st) end
         
         local titleBar = Instance.new("Frame")
         titleBar.Size = UDim2.new(1, 0, 0, 28)
@@ -1312,7 +1319,7 @@ local function buildHelpGUI()
         scroll.BackgroundTransparency = 1
         scroll.BorderSizePixel = 0
         scroll.ScrollBarThickness = 3
-        scroll.ScrollBarImageColor3 = Color3.fromRGB(80, 180, 255)
+        scroll.ScrollBarImageColor3 = _G.AccentColor
         scroll.ScrollBarImageTransparency = 0.4
         scroll.CanvasSize = UDim2.new(0, 0, 0, 400)
         scroll.ClipsDescendants = true
