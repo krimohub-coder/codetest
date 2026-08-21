@@ -574,7 +574,7 @@ local PANEL_H = 290
 local isMinimized = false
 local historyOpen = false
 local TitleCounterLabel = nil
-local SettingsMinimized = false  -- Settings Minimize State
+local SettingsMinimized = false  -- NEU: Settings Minimize State
 
 -- 10. SLURP HUB STATE
 local _capturedParts = {}
@@ -857,8 +857,7 @@ local function buildHistoryGUI()
         closeBtn.Text = "✕"
         closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
         closeBtn.Font = Enum.Font.GothamBold
-        closeBtn.TextSize = 10
-        closeBtn.AutoButtonColor = true
+        closeBtn.TextSize = 10        closeBtn.AutoButtonColor = true
         closeBtn.ZIndex = 10
         closeBtn.Parent = tb
         do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 3) co.Parent = closeBtn end
@@ -932,7 +931,7 @@ local function buildHistoryGUI()
     end)
 end
 
--- 15. SETTINGS GUI (GEFIXTE RE-ENTRANCE, ANCHOR, DRAG, MINIMIZE UND FARB-UPDATES)
+-- 15. SETTINGS GUI (NUR MIT DRAG + MINIMIZE BUTTON)
 local function buildSettingsGUI()
     if SettingsGui then
         SettingsGui:Destroy()
@@ -985,7 +984,7 @@ local function buildSettingsGUI()
         titleLabel.ZIndex = 10
         titleLabel.Parent = titleBar
         
-        -- MINIMIZE BUTTON FOR SETTINGS (-)
+        -- NEU: MINIMIZE BUTTON FÜR SETTINGS (-)
         local settingsMinBtn = Instance.new("TextButton")
         settingsMinBtn.Name = "SettingsMinBtn"
         settingsMinBtn.Size = UDim2.new(0, 20, 0, 20)
@@ -1000,6 +999,7 @@ local function buildSettingsGUI()
         settingsMinBtn.Parent = titleBar
         do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = settingsMinBtn end
         
+        -- Content Frame für Settings (wird beim Minimieren ein-/ausgeblendet)
         local SettingsContentFrame = Instance.new("Frame")
         SettingsContentFrame.Name = "SettingsContentFrame"
         SettingsContentFrame.Size = UDim2.new(1, 0, 1, -26)
@@ -1008,6 +1008,7 @@ local function buildSettingsGUI()
         SettingsContentFrame.ZIndex = 5
         SettingsContentFrame.Parent = SettingsFrame
         
+        -- Minimize Funktion
         settingsMinBtn.MouseButton1Click:Connect(function()
             SettingsMinimized = not SettingsMinimized
             if SettingsMinimized then
@@ -1040,7 +1041,7 @@ local function buildSettingsGUI()
             SettingsMinimized = false
         end)
         
-        -- DRAG FÜR SETTINGS FRAME (ganzer Frame + TitleBar)
+        -- NEU: DRAG FÜR SETTINGS FRAME (ganzer Frame)
         local dragging = false
         local dragStart = nil
         local startPos = nil
@@ -1065,7 +1066,7 @@ local function buildSettingsGUI()
             end
         end)
         
-        -- Scroll Bereich
+        -- Scroll Bereich (UNVERÄNDERT)
         local scroll = Instance.new("ScrollingFrame")
         scroll.Size = UDim2.new(1, -8, 1, -36)
         scroll.Position = UDim2.new(0, 4, 0, 28)
