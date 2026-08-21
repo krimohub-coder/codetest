@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB V4 - KLEINER + DRAG + MEHR FARBEN
+-- KRIMO HUB V4 - ALLES PASST + MEHR FARBEN
 -- ============================================================
 
 -- 1. GLOBALS
@@ -561,7 +561,7 @@ local function typeAndSubmitCode(code)
     return false
 end
 
--- 9. GUI ELEMENTE (KLEINER)
+-- 9. GUI ELEMENTE (GRÖßER)
 local MainFrame = nil
 local ScreenGui = nil
 local HelpGui = nil
@@ -569,8 +569,8 @@ local SettingsGui = nil
 local HistoryGui = nil
 local HistoryFrame = nil
 local HistoryScroll = nil
-local PANEL_W = 230  -- KLEINER
-local PANEL_H = 270  -- KLEINER
+local PANEL_W = 250  -- GRÖßER
+local PANEL_H = 290  -- GRÖßER
 local isMinimized = false
 local historyOpen = false
 local TitleCounterLabel = nil
@@ -931,7 +931,7 @@ local function buildHistoryGUI()
     end)
 end
 
--- 15. SETTINGS GUI
+-- 15. SETTINGS GUI (KLEINER + DRAG + 10 FARBEN)
 local function buildSettingsGUI()
     if SettingsGui then
         SettingsGui:Destroy()
@@ -950,7 +950,7 @@ local function buildSettingsGUI()
         SettingsFrame.Name = "SettingsFrame"
         SettingsFrame.AnchorPoint = Vector2.new(0.5, 0.5)
         SettingsFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
-        SettingsFrame.Size = UDim2.new(0, 220, 0, 280)
+        SettingsFrame.Size = UDim2.new(0, 200, 0, 240)  -- KLEINER
         SettingsFrame.BackgroundColor3 = _G.GuiColor
         SettingsFrame.BackgroundTransparency = 0.05
         SettingsFrame.BorderSizePixel = 0
@@ -963,7 +963,7 @@ local function buildSettingsGUI()
         
         -- Title Bar
         local titleBar = Instance.new("Frame")
-        titleBar.Size = UDim2.new(1, 0, 0, 28)
+        titleBar.Size = UDim2.new(1, 0, 0, 26)
         titleBar.BackgroundColor3 = Color3.fromRGB(15, 20, 45)
         titleBar.BackgroundTransparency = 0.5
         titleBar.BorderSizePixel = 0
@@ -978,19 +978,19 @@ local function buildSettingsGUI()
         titleLabel.Text = "⚙️ Settings"
         titleLabel.TextColor3 = Color3.fromRGB(180, 230, 255)
         titleLabel.Font = Enum.Font.GothamBold
-        titleLabel.TextSize = 13
+        titleLabel.TextSize = 12
         titleLabel.TextXAlignment = Enum.TextXAlignment.Left
         titleLabel.ZIndex = 10
         titleLabel.Parent = titleBar
         
         local closeBtn = Instance.new("TextButton")
-        closeBtn.Size = UDim2.new(0, 22, 0, 22)
-        closeBtn.Position = UDim2.new(1, -26, 0.5, -11)
+        closeBtn.Size = UDim2.new(0, 20, 0, 20)
+        closeBtn.Position = UDim2.new(1, -24, 0.5, -10)
         closeBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
         closeBtn.Text = "✕"
         closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
         closeBtn.Font = Enum.Font.GothamBold
-        closeBtn.TextSize = 12
+        closeBtn.TextSize = 11
         closeBtn.AutoButtonColor = true
         closeBtn.ZIndex = 10
         closeBtn.Parent = titleBar
@@ -1002,11 +1002,11 @@ local function buildSettingsGUI()
         
         -- Scroll Bereich
         local scroll = Instance.new("ScrollingFrame")
-        scroll.Size = UDim2.new(1, -10, 1, -40)
-        scroll.Position = UDim2.new(0, 5, 0, 30)
+        scroll.Size = UDim2.new(1, -8, 1, -36)
+        scroll.Position = UDim2.new(0, 4, 0, 28)
         scroll.BackgroundTransparency = 1
         scroll.BorderSizePixel = 0
-        scroll.ScrollBarThickness = 3
+        scroll.ScrollBarThickness = 2
         scroll.ScrollBarImageColor3 = Color3.fromRGB(80, 180, 255)
         scroll.ScrollBarImageTransparency = 0.4
         scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
@@ -1016,39 +1016,39 @@ local function buildSettingsGUI()
         scroll.Parent = SettingsFrame
         
         local layout = Instance.new("UIListLayout")
-        layout.Padding = UDim.new(0, 6)
+        layout.Padding = UDim.new(0, 4)
         layout.SortOrder = Enum.SortOrder.LayoutOrder
         layout.Parent = scroll
         
         -- === AUTO BUY TOGGLE ===
         local autoBuyFrame = Instance.new("Frame")
-        autoBuyFrame.Size = UDim2.new(1, 0, 0, 44)
+        autoBuyFrame.Size = UDim2.new(1, 0, 0, 38)
         autoBuyFrame.BackgroundColor3 = Color3.fromRGB(33, 33, 43)
         autoBuyFrame.BackgroundTransparency = 0.3
         autoBuyFrame.BorderSizePixel = 0
         autoBuyFrame.Parent = scroll
-        do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 8) co.Parent = autoBuyFrame end
+        do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 6) co.Parent = autoBuyFrame end
         
         local autoBuyLabel = Instance.new("TextLabel")
         autoBuyLabel.Size = UDim2.new(0.55, 0, 1, 0)
-        autoBuyLabel.Position = UDim2.new(0, 10, 0, 0)
+        autoBuyLabel.Position = UDim2.new(0, 8, 0, 0)
         autoBuyLabel.BackgroundTransparency = 1
         autoBuyLabel.Text = "🛒 Auto Buy"
         autoBuyLabel.TextColor3 = Color3.fromRGB(200, 230, 255)
         autoBuyLabel.Font = Enum.Font.GothamSemibold
-        autoBuyLabel.TextSize = 12
+        autoBuyLabel.TextSize = 11
         autoBuyLabel.TextXAlignment = Enum.TextXAlignment.Left
         autoBuyLabel.TextYAlignment = Enum.TextYAlignment.Center
         autoBuyLabel.Parent = autoBuyFrame
         
         local autoBuyToggle = Instance.new("TextButton")
-        autoBuyToggle.Size = UDim2.new(0, 44, 0, 24)
-        autoBuyToggle.Position = UDim2.new(1, -52, 0.5, -12)
+        autoBuyToggle.Size = UDim2.new(0, 40, 0, 22)
+        autoBuyToggle.Position = UDim2.new(1, -46, 0.5, -11)
         autoBuyToggle.BackgroundColor3 = settings.autoBuy and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
         autoBuyToggle.Text = settings.autoBuy and "ON" or "OFF"
         autoBuyToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
         autoBuyToggle.Font = Enum.Font.GothamBold
-        autoBuyToggle.TextSize = 9
+        autoBuyToggle.TextSize = 8
         autoBuyToggle.AutoButtonColor = false
         autoBuyToggle.Parent = autoBuyFrame
         do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = autoBuyToggle end
@@ -1067,33 +1067,33 @@ local function buildSettingsGUI()
         
         -- === ANCHOR TOGGLE ===
         local anchorFrame = Instance.new("Frame")
-        anchorFrame.Size = UDim2.new(1, 0, 0, 44)
+        anchorFrame.Size = UDim2.new(1, 0, 0, 38)
         anchorFrame.BackgroundColor3 = Color3.fromRGB(33, 33, 43)
         anchorFrame.BackgroundTransparency = 0.3
         anchorFrame.BorderSizePixel = 0
         anchorFrame.Parent = scroll
-        do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 8) co.Parent = anchorFrame end
+        do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 6) co.Parent = anchorFrame end
         
         local anchorLabel = Instance.new("TextLabel")
         anchorLabel.Size = UDim2.new(0.55, 0, 1, 0)
-        anchorLabel.Position = UDim2.new(0, 10, 0, 0)
+        anchorLabel.Position = UDim2.new(0, 8, 0, 0)
         anchorLabel.BackgroundTransparency = 1
         anchorLabel.Text = "⚓ Anchor"
         anchorLabel.TextColor3 = Color3.fromRGB(200, 230, 255)
         anchorLabel.Font = Enum.Font.GothamSemibold
-        anchorLabel.TextSize = 12
+        anchorLabel.TextSize = 11
         anchorLabel.TextXAlignment = Enum.TextXAlignment.Left
         anchorLabel.TextYAlignment = Enum.TextYAlignment.Center
         anchorLabel.Parent = anchorFrame
         
         local anchorToggle = Instance.new("TextButton")
-        anchorToggle.Size = UDim2.new(0, 44, 0, 24)
-        anchorToggle.Position = UDim2.new(1, -52, 0.5, -12)
+        anchorToggle.Size = UDim2.new(0, 40, 0, 22)
+        anchorToggle.Position = UDim2.new(1, -46, 0.5, -11)
         anchorToggle.BackgroundColor3 = settings.anchor and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
         anchorToggle.Text = settings.anchor and "ON" or "OFF"
         anchorToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
         anchorToggle.Font = Enum.Font.GothamBold
-        anchorToggle.TextSize = 9
+        anchorToggle.TextSize = 8
         anchorToggle.AutoButtonColor = false
         anchorToggle.Parent = anchorFrame
         do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = anchorToggle end
@@ -1105,28 +1105,28 @@ local function buildSettingsGUI()
             setCharacterAnchored(settings.anchor)
         end)
         
-        -- === FARBAUSWAHL (8 Farben) ===
+        -- === FARBAUSWAHL (10 Farben) ===
         local colorFrame = Instance.new("Frame")
-        colorFrame.Size = UDim2.new(1, 0, 0, 80)
+        colorFrame.Size = UDim2.new(1, 0, 0, 70)
         colorFrame.BackgroundColor3 = Color3.fromRGB(33, 33, 43)
         colorFrame.BackgroundTransparency = 0.3
         colorFrame.BorderSizePixel = 0
         colorFrame.Parent = scroll
-        do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 8) co.Parent = colorFrame end
+        do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 6) co.Parent = colorFrame end
         
         local colorLabel = Instance.new("TextLabel")
-        colorLabel.Size = UDim2.new(1, 0, 0, 20)
-        colorLabel.Position = UDim2.new(0, 10, 0, 4)
+        colorLabel.Size = UDim2.new(1, 0, 0, 18)
+        colorLabel.Position = UDim2.new(0, 8, 0, 2)
         colorLabel.BackgroundTransparency = 1
         colorLabel.Text = "🎨 GUI Farbe"
         colorLabel.TextColor3 = Color3.fromRGB(200, 230, 255)
         colorLabel.Font = Enum.Font.GothamSemibold
-        colorLabel.TextSize = 12
+        colorLabel.TextSize = 11
         colorLabel.TextXAlignment = Enum.TextXAlignment.Left
         colorLabel.TextYAlignment = Enum.TextYAlignment.Center
         colorLabel.Parent = colorFrame
         
-        -- 8 Farben (2 Reihen à 4)
+        -- 10 Farben (2 Reihen à 5)
         local colors = {
             {Color3.fromRGB(10, 10, 18), "Schwarz"},
             {Color3.fromRGB(30, 20, 50), "Lila"},
@@ -1136,22 +1136,24 @@ local function buildSettingsGUI()
             {Color3.fromRGB(50, 40, 10), "Gold"},
             {Color3.fromRGB(60, 20, 60), "Pink"},
             {Color3.fromRGB(20, 50, 50), "Türkis"},
+            {Color3.fromRGB(40, 30, 60), "Violett"},
+            {Color3.fromRGB(60, 40, 20), "Braun"},
         }
         
         for i, colorData in ipairs(colors) do
             local btn = Instance.new("TextButton")
-            local row = math.floor((i - 1) / 4)
-            local col = (i - 1) % 4
-            local xPos = 10 + col * 50
-            local yPos = 26 + row * 28
-            btn.Size = UDim2.new(0, 40, 0, 24)
+            local row = math.floor((i - 1) / 5)
+            local col = (i - 1) % 5
+            local xPos = 8 + col * 38
+            local yPos = 22 + row * 24
+            btn.Size = UDim2.new(0, 32, 0, 20)
             btn.Position = UDim2.new(0, xPos, 0, yPos)
             btn.BackgroundColor3 = colorData[1]
             btn.BorderSizePixel = 0
             btn.Text = ""
             btn.AutoButtonColor = true
             btn.Parent = colorFrame
-            do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = btn end
+            do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 3) co.Parent = btn end
             
             -- Rahmen für aktuelle Farbe
             if colorData[1] == _G.GuiColor then
@@ -1186,7 +1188,7 @@ local function buildSettingsGUI()
         task.wait(0.1)
         local contentSize = layout.AbsoluteContentSize
         if contentSize then
-            scroll.CanvasSize = UDim2.new(0, 0, 0, contentSize.Y + 10)
+            scroll.CanvasSize = UDim2.new(0, 0, 0, contentSize.Y + 6)
         end
         
         -- Drag für Settings
@@ -1590,7 +1592,7 @@ local function startPlayerGuiScanner()
     end)
 end
 
--- 22. GUI BAUEN (KLEINER + DRAG + START BUTTON WEITER LINKS)
+-- 22. GUI BAUEN (GRÖßER + DRAG)
 local function buildGUI()
     pcall(function()
         local old = CoreGui:FindFirstChild("KrimoHubGui")
@@ -1673,11 +1675,11 @@ local function buildGUI()
         TitleCounterLabel.ZIndex = 10
         TitleCounterLabel.Parent = titleBar
         
-        -- START/STOP Button (WEITER LINKS!)
+        -- START/STOP Button
         ToggleButton = Instance.new("TextButton")
         ToggleButton.Name = "SwitchBtn"
         ToggleButton.Size = UDim2.new(0, 38, 0, 18)
-        ToggleButton.Position = UDim2.new(1, -92, 0.5, -9)  -- Weiter links
+        ToggleButton.Position = UDim2.new(1, -92, 0.5, -9)
         ToggleButton.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
         ToggleButton.TextColor3 = _G.ScriptEnabled and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(0, 255, 100)
         ToggleButton.Text = _G.ScriptEnabled and "STOP" or "START"
@@ -2183,7 +2185,7 @@ local function buildGUI()
             applyMinimized(not isMinimized)
         end)
         
-        -- Drag
+        -- Drag für Main GUI
         local dragging = false
         local dragStart = nil
         local startPos = nil
