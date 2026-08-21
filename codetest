@@ -1,6 +1,8 @@
 -- ============================================================
--- KRIMO HUB V4
+-- KRIMO HUB V6 - FIXED TOGGLES, STROKE COLOR, DRAG & MIN/CLOSE
 -- ============================================================
+
+_G.AccentColor = _G.AccentColor or Color3.fromRGB(100, 200, 255)
 
 -- 1. GLOBALS
 _G.ScriptEnabled = false
@@ -32,7 +34,10 @@ local function loadConfig()
             local data = HttpService:JSONDecode(readfile("KrimoHub_config.json"))
             if type(data) == "table" then
                 if data.guiColor then
-                    _G.GuiColor = Color3.fromRGB(data.guiColor.R * 255, data.guiColor.G * 255, data.guiColor.B * 255)
+                    _G.GuiColor = data.guiColor
+                end
+                if data.accentColor then
+                    _G.AccentColor = Color3.fromRGB(data.accentColor.r, data.accentColor.g, data.accentColor.b)
                 end
             end
         end
@@ -42,14 +47,40 @@ end
 local function saveConfig()
     if not hasFS then return end
     pcall(function() 
-        if writefile then 
-            writefile("KrimoHub_config.json", HttpService:JSONEncode({
-                guiColor = { R = _G.GuiColor.R, G = _G.GuiColor.G, B = _G.GuiColor.B }
-            })) 
-        end
+        writefile("KrimoHub_config.json", HttpService:JSONEncode({
+            guiColor = _G.GuiColor,
+            accentColor = {r = _G.AccentColor.R, g = _G.AccentColor.G, b = _G.AccentColor.B}
+        })) 
     end)
 end
 loadConfig()
+
+-- STATE MANAGEMENT
+local settingsState = {
+    anchor = false,
+    autoBuy = false,
+}
+
+-- DYNAMISCHE FARBANGABE NUR FÜR RÄNDER (STROKES)
+local registeredStrokes = {}
+local function registerStroke(stroke)
+    if stroke and stroke:IsA("UIStroke") then
+        stroke.Color = _G.AccentColor
+        registeredStrokes[stroke] = true
+    end
+end
+
+local function setAccentColor(newColor)
+    _G.AccentColor = newColor
+    for stroke, _ in pairs(registeredStrokes) do
+        if stroke and stroke.Parent then
+            stroke.Color = newColor
+        else
+            registeredStrokes[stroke] = nil
+        end
+    end
+    saveConfig()
+end
 
 -- 3. PFADE
 local Announcements = nil
@@ -120,13 +151,7 @@ local function setupPaths()
     end)
 end
 
--- 4. SETTINGS STATE
-local settings = {
-    anchor = false,
-    autoBuy = false,
-}
-
--- 5. ANCHOR LOGIC
+-- 4. ANCHOR LOGIC
 local function setCharacterAnchored(state)
     local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
     for _, part in ipairs(character:GetDescendants()) do
@@ -136,7 +161,7 @@ local function setCharacterAnchored(state)
     end
 end
 
--- 6. AUTO BUY LOGIC
+-- 5. AUTO BUY LOGIC
 local promptConnections = {}
 local isAutoBuying = false
 local renderConnection = nil
@@ -261,7 +286,7 @@ local function stopAutoBuy()
     end
 end
 
--- 7. SLURP HUB RIDDLE DATABASE
+-- 6. SLURP HUB RIDDLE DATABASE
 local SLURP_DB = {
     ["how old am i"] = "24",
     ["how old is sammy"] = "24",
@@ -432,7 +457,7 @@ local function answerQuestion(text)
     return bestMatch
 end
 
--- 8. TYPE AND SUBMIT CODE
+-- 7. TYPE AND SUBMIT CODE
 local function clickButton(btn)
     if not btn then return false end
     
@@ -561,7 +586,7 @@ local function typeAndSubmitCode(code)
     return false
 end
 
--- 9. GUI ELEMENTE
+-- 8. GUI ELEMENTE
 local MainFrame = nil
 local ScreenGui = nil
 local HelpGui = nil
@@ -575,7 +600,7 @@ local isMinimized = false
 local historyOpen = false
 local TitleCounterLabel = nil
 
--- 10. SLURP HUB STATE
+-- 9. SLURP HUB STATE
 local _capturedParts = {}
 local _seen = {}
 local _submitAfter = _G.SubmitAfterCount
@@ -583,7 +608,7 @@ local isProcessingSubmit = false
 local collectedCodes = {}
 local history = {}
 
--- 11. HARD RESET
+-- 10. HARD RESET
 local function hardReset()
     table.clear(collectedCodes)
     _capturedParts = {}
@@ -595,14 +620,14 @@ local function hardReset()
     end
 end
 
--- 12. COUNTER
+-- 11. COUNTER
 local function updateTitleCounter()
     if TitleCounterLabel then
         TitleCounterLabel.Text = "📊 " .. #collectedCodes .. "/" .. _G.SubmitAfterCount
     end
 end
 
--- 13. REFRESH MAIN GUI
+-- 12. REFRESH MAIN GUI
 local function refreshMainGUI()
     if not MainFrame then return end
     pcall(function()
@@ -669,7 +694,7 @@ local function refreshMainGUI()
     end)
 end
 
--- 14. HISTORY
+-- 13. HISTORY
 local function updateHistoryContent()
     if not HistoryScroll then return end
     pcall(function()
@@ -931,7 +956,7 @@ local function buildHistoryGUI()
     end)
 end
 
--- 15. SETTINGS GUI (GEFIXTE RE-ENTRANCE, ANCHOR, DRAG UND FARB-UPDATES)
+-- 14. SETTINGS GUI (MIT NEUER LOGIK)
 local function buildSettingsGUI()
     if SettingsGui then
         SettingsGui:Destroy()
@@ -950,8 +975,8 @@ local function buildSettingsGUI()
         SettingsFrame.Name = "SettingsFrame"
         SettingsFrame.AnchorPoint = Vector2.new(0.5, 0.5)
         SettingsFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
-        SettingsFrame.Size = UDim2.new(0, 210, 0, 240)
-        SettingsFrame.BackgroundColor3 = _G.GuiColor
+        SettingsFrame.Size = UDim2.new(0, 220, 0, 240)
+        SettingsFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 22)
         SettingsFrame.BackgroundTransparency = 0.05
         SettingsFrame.BorderSizePixel = 0
         SettingsFrame.ClipsDescendants = true
@@ -959,13 +984,14 @@ local function buildSettingsGUI()
         SettingsFrame.Parent = SettingsGui
         
         do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 12) co.Parent = SettingsFrame end
-        do local st = Instance.new("UIStroke") st.Color = Color3.fromRGB(100, 200, 255) st.Thickness = 1.5 st.Transparency = 0.3 st.Parent = SettingsFrame end
+        do local st = Instance.new("UIStroke") st.Color = _G.AccentColor st.Thickness = 2 st.Transparency = 0.3 st.Parent = SettingsFrame 
+            registerStroke(st) end
         
-        -- Title Bar
+        -- Title Bar (für Drag)
         local titleBar = Instance.new("Frame")
         titleBar.Name = "TitleBar"
         titleBar.Size = UDim2.new(1, 0, 0, 26)
-        titleBar.BackgroundColor3 = Color3.fromRGB(15, 20, 45)
+        titleBar.BackgroundColor3 = Color3.fromRGB(22, 22, 32)
         titleBar.BackgroundTransparency = 0.5
         titleBar.BorderSizePixel = 0
         titleBar.ZIndex = 10
@@ -977,7 +1003,7 @@ local function buildSettingsGUI()
         titleLabel.Position = UDim2.new(0, 10, 0, 0)
         titleLabel.BackgroundTransparency = 1
         titleLabel.Text = "⚙️ Settings"
-        titleLabel.TextColor3 = Color3.fromRGB(180, 230, 255)
+        titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
         titleLabel.Font = Enum.Font.GothamBold
         titleLabel.TextSize = 12
         titleLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -1001,26 +1027,27 @@ local function buildSettingsGUI()
             SettingsGui = nil
         end)
         
-        -- DRAG FÜR SETTINGS FRAME
+        -- DRAG für Settings Frame
         local dragging = false
         local dragStart = nil
         local startPos = nil
         
-        SettingsFrame.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        titleBar.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
                 dragging = true
                 dragStart = input.Position
                 startPos = SettingsFrame.Position
-                input.Changed:Connect(function()
-                    if input.UserInputState == Enum.UserInputState.End then
-                        dragging = false
-                    end
-                end)
+            end
+        end)
+        
+        titleBar.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                dragging = false
             end
         end)
         
         UserInputService.InputChanged:Connect(function(input)
-            if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
                 local delta = input.Position - dragStart
                 SettingsFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
             end
@@ -1033,7 +1060,7 @@ local function buildSettingsGUI()
         scroll.BackgroundTransparency = 1
         scroll.BorderSizePixel = 0
         scroll.ScrollBarThickness = 2
-        scroll.ScrollBarImageColor3 = Color3.fromRGB(80, 180, 255)
+        scroll.ScrollBarImageColor3 = _G.AccentColor
         scroll.ScrollBarImageTransparency = 0.4
         scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
         scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
@@ -1070,8 +1097,8 @@ local function buildSettingsGUI()
         local autoBuyToggle = Instance.new("TextButton")
         autoBuyToggle.Size = UDim2.new(0, 40, 0, 22)
         autoBuyToggle.Position = UDim2.new(1, -46, 0.5, -11)
-        autoBuyToggle.BackgroundColor3 = settings.autoBuy and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
-        autoBuyToggle.Text = settings.autoBuy and "ON" or "OFF"
+        autoBuyToggle.BackgroundColor3 = settingsState.autoBuy and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
+        autoBuyToggle.Text = settingsState.autoBuy and "ON" or "OFF"
         autoBuyToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
         autoBuyToggle.Font = Enum.Font.GothamBold
         autoBuyToggle.TextSize = 8
@@ -1080,11 +1107,11 @@ local function buildSettingsGUI()
         do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = autoBuyToggle end
         
         autoBuyToggle.MouseButton1Click:Connect(function()
-            settings.autoBuy = not settings.autoBuy
-            autoBuyToggle.BackgroundColor3 = settings.autoBuy and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
-            autoBuyToggle.Text = settings.autoBuy and "ON" or "OFF"
+            settingsState.autoBuy = not settingsState.autoBuy
+            autoBuyToggle.BackgroundColor3 = settingsState.autoBuy and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
+            autoBuyToggle.Text = settingsState.autoBuy and "ON" or "OFF"
             
-            if settings.autoBuy then
+            if settingsState.autoBuy then
                 startAutoBuy()
             else
                 stopAutoBuy()
@@ -1115,8 +1142,8 @@ local function buildSettingsGUI()
         local anchorToggle = Instance.new("TextButton")
         anchorToggle.Size = UDim2.new(0, 40, 0, 22)
         anchorToggle.Position = UDim2.new(1, -46, 0.5, -11)
-        anchorToggle.BackgroundColor3 = settings.anchor and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
-        anchorToggle.Text = settings.anchor and "ON" or "OFF"
+        anchorToggle.BackgroundColor3 = settingsState.anchor and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
+        anchorToggle.Text = settingsState.anchor and "ON" or "OFF"
         anchorToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
         anchorToggle.Font = Enum.Font.GothamBold
         anchorToggle.TextSize = 8
@@ -1125,16 +1152,15 @@ local function buildSettingsGUI()
         do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = anchorToggle end
         
         anchorToggle.MouseButton1Click:Connect(function()
-            settings.anchor = not settings.anchor
-            anchorToggle.BackgroundColor3 = settings.anchor and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
-            anchorToggle.Text = settings.anchor and "ON" or "OFF"
-            setCharacterAnchored(settings.anchor)
+            settingsState.anchor = not settingsState.anchor
+            anchorToggle.BackgroundColor3 = settingsState.anchor and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
+            anchorToggle.Text = settingsState.anchor and "ON" or "OFF"
+            setCharacterAnchored(settingsState.anchor)
         end)
         
-        -- === FARBAUSWAHL (10 Farben) ===
+        -- === FARBAUSWAHL (NUR STROKES) ===
         local colorFrame = Instance.new("Frame")
-        colorFrame.Name = "ColorFrame"
-        colorFrame.Size = UDim2.new(1, 0, 0, 75)
+        colorFrame.Size = UDim2.new(1, 0, 0, 70)
         colorFrame.BackgroundColor3 = Color3.fromRGB(33, 33, 43)
         colorFrame.BackgroundTransparency = 0.3
         colorFrame.BorderSizePixel = 0
@@ -1145,7 +1171,7 @@ local function buildSettingsGUI()
         colorLabel.Size = UDim2.new(1, 0, 0, 18)
         colorLabel.Position = UDim2.new(0, 8, 0, 2)
         colorLabel.BackgroundTransparency = 1
-        colorLabel.Text = "🎨 GUI Farbe"
+        colorLabel.Text = "🎨 Rand-Farbe"
         colorLabel.TextColor3 = Color3.fromRGB(200, 230, 255)
         colorLabel.Font = Enum.Font.GothamSemibold
         colorLabel.TextSize = 11
@@ -1153,65 +1179,54 @@ local function buildSettingsGUI()
         colorLabel.TextYAlignment = Enum.TextYAlignment.Center
         colorLabel.Parent = colorFrame
         
+        -- 8 Farben
         local colors = {
-            {Color3.fromRGB(10, 10, 18), "Schwarz"},
-            {Color3.fromRGB(30, 20, 50), "Lila"},
-            {Color3.fromRGB(20, 30, 50), "Dunkelblau"},
-            {Color3.fromRGB(50, 20, 20), "Dunkelrot"},
-            {Color3.fromRGB(20, 50, 20), "Dunkelgrün"},
-            {Color3.fromRGB(50, 40, 10), "Gold"},
-            {Color3.fromRGB(60, 20, 60), "Pink"},
-            {Color3.fromRGB(20, 50, 50), "Türkis"},
-            {Color3.fromRGB(40, 30, 60), "Violett"},
-            {Color3.fromRGB(60, 40, 20), "Braun"},
+            {Color3.fromRGB(100, 200, 255), "Blau"},
+            {Color3.fromRGB(255, 80, 80), "Rot"},
+            {Color3.fromRGB(80, 255, 120), "Grün"},
+            {Color3.fromRGB(255, 200, 50), "Gelb"},
+            {Color3.fromRGB(200, 80, 255), "Pink"},
+            {Color3.fromRGB(0, 255, 255), "Cyan"},
+            {Color3.fromRGB(255, 120, 0), "Orange"},
+            {Color3.fromRGB(255, 255, 255), "Weiß"},
         }
         
         for i, colorData in ipairs(colors) do
             local btn = Instance.new("TextButton")
-            local row = math.floor((i - 1) / 5)
-            local col = (i - 1) % 5
-            local xPos = 8 + col * 38
+            local row = math.floor((i - 1) / 4)
+            local col = (i - 1) % 4
+            local xPos = 8 + col * 50
             local yPos = 22 + row * 24
-            btn.Size = UDim2.new(0, 32, 0, 20)
+            btn.Size = UDim2.new(0, 42, 0, 20)
             btn.Position = UDim2.new(0, xPos, 0, yPos)
             btn.BackgroundColor3 = colorData[1]
             btn.BorderSizePixel = 0
             btn.Text = ""
             btn.AutoButtonColor = true
             btn.Parent = colorFrame
-            do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 3) co.Parent = btn end
+            do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = btn end
             
-            if colorData[1] == _G.GuiColor then
+            -- Rahmen für aktuelle Farbe
+            if colorData[1] == _G.AccentColor then
                 local stroke = Instance.new("UIStroke")
-                stroke.Name = "SelectionStroke"
                 stroke.Color = Color3.fromRGB(255, 255, 255)
                 stroke.Thickness = 2
                 stroke.Parent = btn
             end
             
             btn.MouseButton1Click:Connect(function()
-                _G.GuiColor = colorData[1]
-                
+                setAccentColor(colorData[1])
+                -- Alle Striche entfernen
                 for _, child in ipairs(colorFrame:GetChildren()) do
-                    if child:IsA("TextButton") then
-                        local stroke = child:FindFirstChild("SelectionStroke")
-                        if stroke then stroke:Destroy() end
+                    if child:IsA("UIStroke") then
+                        child:Destroy()
                     end
                 end
-                
+                -- Neuen Strich hinzufügen
                 local stroke = Instance.new("UIStroke")
-                stroke.Name = "SelectionStroke"
                 stroke.Color = Color3.fromRGB(255, 255, 255)
                 stroke.Thickness = 2
                 stroke.Parent = btn
-                
-                if MainFrame then
-                    MainFrame.BackgroundColor3 = _G.GuiColor
-                end
-                if SettingsFrame then
-                    SettingsFrame.BackgroundColor3 = _G.GuiColor
-                end
-                saveConfig()
             end)
         end
         
@@ -1223,7 +1238,7 @@ local function buildSettingsGUI()
     end)
 end
 
--- 16. HILFE-GUI
+-- 15. HILFE-GUI
 local function buildHelpGUI()
     if HelpGui then
         HelpGui:Destroy()
@@ -1387,20 +1402,21 @@ local function buildHelpGUI()
         local startPos = nil
         
         HelpFrame.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
                 dragging = true
                 dragStart = input.Position
                 startPos = HelpFrame.Position
-                input.Changed:Connect(function()
-                    if input.UserInputState == Enum.UserInputState.End then
-                        dragging = false
-                    end
-                end)
+            end
+        end)
+        
+        HelpFrame.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                dragging = false
             end
         end)
         
         UserInputService.InputChanged:Connect(function(input)
-            if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
                 local delta = input.Position - dragStart
                 HelpFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
             end
@@ -1408,7 +1424,7 @@ local function buildHelpGUI()
     end)
 end
 
--- 17. APPEND TO BOX
+-- 16. APPEND TO BOX
 local function appendToBox(text, isRiddleAnswer)
     if not text or text == "" or not _G.ScriptEnabled then return end
     if not _G.AutoWriteEnabled then return end
@@ -1470,7 +1486,7 @@ local function appendToBox(text, isRiddleAnswer)
     end
 end
 
--- 18. SAVE TO HISTORY
+-- 17. SAVE TO HISTORY
 local function saveToHistory(Word, fromSammy)
     if not _G.HistoryEnabled then return end
     if not fromSammy then return end
@@ -1491,7 +1507,7 @@ local function saveToHistory(Word, fromSammy)
     end
 end
 
--- 19. WATCHER
+-- 18. WATCHER
 local function watchLabel(Label)
     pcall(function()
         if not Label:IsA("TextLabel") then return end
@@ -1528,12 +1544,12 @@ local function startAnnouncementWatcher()
     end)
 end
 
--- 20. RESET
+-- 19. RESET
 local function resetCodes()
     hardReset()
 end
 
--- 21. SPYDERSAMMY ERKENNUNG
+-- 20. SPYDERSAMMY ERKENNUNG
 local targetUserId = nil
 task.spawn(function()
     pcall(function() 
@@ -1595,7 +1611,7 @@ local function startPlayerGuiScanner()
     end)
 end
 
--- 22. GUI BAUEN
+-- 21. GUI BAUEN
 local function buildGUI()
     pcall(function()
         local old = CoreGui:FindFirstChild("KrimoHubGui")
@@ -1635,10 +1651,11 @@ local function buildGUI()
         flowerGradient.Parent = MainFrame
         
         local stroke = Instance.new("UIStroke")
-        stroke.Color = Color3.fromRGB(100, 200, 255)
+        stroke.Color = _G.AccentColor
         stroke.Thickness = 2
         stroke.Transparency = 0.3
         stroke.Parent = MainFrame
+        registerStroke(stroke)
         
         -- Title Bar
         local titleBar = Instance.new("Frame")
@@ -2070,7 +2087,8 @@ local function buildGUI()
         codeListFrame.ZIndex = 10
         codeListFrame.Parent = ContentFrame
         do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = codeListFrame end
-        do local st = Instance.new("UIStroke") st.Color = Color3.fromRGB(100, 200, 255) st.Thickness = 1 st.Transparency = 0.3 st.Parent = codeListFrame end
+        do local st = Instance.new("UIStroke") st.Color = _G.AccentColor st.Thickness = 1 st.Transparency = 0.3 st.Parent = codeListFrame
+            registerStroke(st) end
         
         local scroll = Instance.new("ScrollingFrame")
         scroll.Name = "Scrolling"
@@ -2079,7 +2097,7 @@ local function buildGUI()
         scroll.BackgroundTransparency = 1
         scroll.BorderSizePixel = 0
         scroll.ScrollBarThickness = 2
-        scroll.ScrollBarImageColor3 = Color3.fromRGB(100, 200, 255)
+        scroll.ScrollBarImageColor3 = _G.AccentColor
         scroll.ScrollBarImageTransparency = 0.4
         scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
         scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
@@ -2110,7 +2128,7 @@ local function buildGUI()
         local sep = Instance.new("Frame")
         sep.Size = UDim2.new(1, -20, 0, 1)
         sep.Position = UDim2.new(0, 10, 0, 214)
-        sep.BackgroundColor3 = Color3.fromRGB(100, 200, 255)
+        sep.BackgroundColor3 = _G.AccentColor
         sep.BackgroundTransparency = 0.5
         sep.BorderSizePixel = 0
         sep.ZIndex = 10
@@ -2220,8 +2238,8 @@ local function buildGUI()
     end)
 end
 
--- 23. START
-print("[KrimoHub V4] Starte...")
+-- 22. START
+print("[KrimoHub V6] Starte...")
 
 task.wait(3)
 
@@ -2235,11 +2253,11 @@ end
 local success, err = pcall(startAll)
 
 if success then
-    print("[KrimoHub V4] ✅ Erfolgreich gestartet!")
-    print("[KrimoHub V4] Drücke START um den Hub zu aktivieren.")
+    print("[KrimoHub V6] ✅ Erfolgreich gestartet!")
+    print("[KrimoHub V6] Drücke START um den Hub zu aktivieren.")
 else
-    print("[KrimoHub V4] ❌ Fehler: " .. tostring(err))
-    print("[KrimoHub V4] Versuche es in 3 Sekunden nochmal...")
+    print("[KrimoHub V6] ❌ Fehler: " .. tostring(err))
+    print("[KrimoHub V6] Versuche es in 3 Sekunden nochmal...")
     task.wait(3)
     pcall(startAll)
 end
