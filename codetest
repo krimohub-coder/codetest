@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB V4 - ALLES PASST + MEHR FARBEN
+-- KRIMO HUB V4 - ALLES FUNKTIONIERT (DRAG + FARBE + SETTINGS)
 -- ============================================================
 
 -- 1. GLOBALS
@@ -44,7 +44,7 @@ local function saveConfig()
     pcall(function() 
         if writefile then 
             writefile("KrimoHub_config.json", HttpService:JSONEncode({
-                guiColor = _G.GuiColor
+                guiColor = {_G.GuiColor.R, _G.GuiColor.G, _G.GuiColor.B}
             })) 
         end
     end)
@@ -120,7 +120,7 @@ local function setupPaths()
     end)
 end
 
--- 4. SETTINGS STATE
+-- 4. SETTINGS STATE (mit Speicherung)
 local settings = {
     anchor = false,
     autoBuy = false,
@@ -129,12 +129,21 @@ local settings = {
 -- 5. ANCHOR LOGIC
 local function setCharacterAnchored(state)
     local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    if not character then return end
     for _, part in ipairs(character:GetDescendants()) do
         if part:IsA("BasePart") then
             part.Anchored = state
         end
     end
 end
+
+-- CharacterAdded für Anchor
+LocalPlayer.CharacterAdded:Connect(function()
+    task.wait(0.5)
+    if settings.anchor then
+        setCharacterAnchored(true)
+    end
+end)
 
 -- 6. AUTO BUY LOGIC
 local promptConnections = {}
@@ -203,62 +212,60 @@ local function registerPrompt(prompt)
 end
 
 local function startAutoBuy()
-    if not isAutoBuying then
-        isAutoBuying = true
+    if isAutoBuying then return end
+    isAutoBuying = true
+    
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        registerPrompt(obj)
+    end
+    
+    if addedConnection then addedConnection:Disconnect() end
+    addedConnection = Workspace.DescendantAdded:Connect(registerPrompt)
+    
+    if renderConnection then renderConnection:Disconnect() end
+    renderConnection = RunService.RenderStepped:Connect(function()
+        local character = LocalPlayer.Character
+        local rootPart = character and character:FindFirstChild("HumanoidRootPart")
         
-        for _, obj in ipairs(Workspace:GetDescendants()) do
-            registerPrompt(obj)
-        end
-        
-        if addedConnection then addedConnection:Disconnect() end
-        addedConnection = Workspace.DescendantAdded:Connect(registerPrompt)
-        
-        if renderConnection then renderConnection:Disconnect() end
-        renderConnection = RunService.RenderStepped:Connect(function()
-            local character = LocalPlayer.Character
-            local rootPart = character and character:FindFirstChild("HumanoidRootPart")
-            
-            if rootPart then
-                for prompt, _ in pairs(promptConnections) do
-                    if prompt and prompt.Parent and isValidPrompt(prompt) then
-                        local pos = getPromptPosition(prompt)
-                        if pos then
-                            if (rootPart.Position - pos).Magnitude > 15 or not isPromptVisibleOnScreen(prompt) then
-                                endInput(prompt)
-                            else
-                                beginInput(prompt)
-                            end
+        if rootPart then
+            for prompt, _ in pairs(promptConnections) do
+                if prompt and prompt.Parent and isValidPrompt(prompt) then
+                    local pos = getPromptPosition(prompt)
+                    if pos then
+                        if (rootPart.Position - pos).Magnitude > 15 or not isPromptVisibleOnScreen(prompt) then
+                            endInput(prompt)
                         else
-                            promptConnections[prompt] = nil
+                            beginInput(prompt)
                         end
                     else
                         promptConnections[prompt] = nil
                     end
+                else
+                    promptConnections[prompt] = nil
                 end
             end
-        end)
-    end
+        end
+    end)
 end
 
 local function stopAutoBuy()
-    if isAutoBuying then
-        isAutoBuying = false
-        
-        if renderConnection then
-            renderConnection:Disconnect()
-            renderConnection = nil
-        end
-        if addedConnection then
-            addedConnection:Disconnect()
-            addedConnection = nil
-        end
-        
-        for prompt, _ in pairs(promptConnections) do
-            endInput(prompt)
-        end
-        
-        promptConnections = {}
+    if not isAutoBuying then return end
+    isAutoBuying = false
+    
+    if renderConnection then
+        renderConnection:Disconnect()
+        renderConnection = nil
     end
+    if addedConnection then
+        addedConnection:Disconnect()
+        addedConnection = nil
+    end
+    
+    for prompt, _ in pairs(promptConnections) do
+        endInput(prompt)
+    end
+    
+    promptConnections = {}
 end
 
 -- 7. SLURP HUB RIDDLE DATABASE
@@ -561,7 +568,7 @@ local function typeAndSubmitCode(code)
     return false
 end
 
--- 9. GUI ELEMENTE (GRÖßER)
+-- 9. GUI ELEMENTE
 local MainFrame = nil
 local ScreenGui = nil
 local HelpGui = nil
@@ -569,8 +576,8 @@ local SettingsGui = nil
 local HistoryGui = nil
 local HistoryFrame = nil
 local HistoryScroll = nil
-local PANEL_W = 250  -- GRÖßER
-local PANEL_H = 290  -- GRÖßER
+local PANEL_W = 250
+local PANEL_H = 290
 local isMinimized = false
 local historyOpen = false
 local TitleCounterLabel = nil
@@ -931,7 +938,7 @@ local function buildHistoryGUI()
     end)
 end
 
--- 15. SETTINGS GUI (KLEINER + DRAG + 10 FARBEN)
+-- 15. SETTINGS GUI (FIXED: DRAG + FUNKTIONEN)
 local function buildSettingsGUI()
     if SettingsGui then
         SettingsGui:Destroy()
@@ -950,7 +957,7 @@ local function buildSettingsGUI()
         SettingsFrame.Name = "SettingsFrame"
         SettingsFrame.AnchorPoint = Vector2.new(0.5, 0.5)
         SettingsFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
-        SettingsFrame.Size = UDim2.new(0, 200, 0, 240)  -- KLEINER
+        SettingsFrame.Size = UDim2.new(0, 200, 0, 240)
         SettingsFrame.BackgroundColor3 = _G.GuiColor
         SettingsFrame.BackgroundTransparency = 0.05
         SettingsFrame.BorderSizePixel = 0
@@ -998,6 +1005,32 @@ local function buildSettingsGUI()
         closeBtn.MouseButton1Click:Connect(function()
             if SettingsGui then SettingsGui:Destroy() end
             SettingsGui = nil
+        end)
+        
+        -- *** DRAG FÜR SETTINGS ***
+        local dragging = false
+        local dragStart = nil
+        local startPos = nil
+        
+        titleBar.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                dragging = true
+                dragStart = input.Position
+                startPos = SettingsFrame.Position
+            end
+        end)
+        
+        titleBar.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                dragging = false
+            end
+        end)
+        
+        UserInputService.InputChanged:Connect(function(input)
+            if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+                local delta = input.Position - dragStart
+                SettingsFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            end
         end)
         
         -- Scroll Bereich
@@ -1102,7 +1135,12 @@ local function buildSettingsGUI()
             settings.anchor = not settings.anchor
             anchorToggle.BackgroundColor3 = settings.anchor and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
             anchorToggle.Text = settings.anchor and "ON" or "OFF"
-            setCharacterAnchored(settings.anchor)
+            
+            if settings.anchor then
+                setCharacterAnchored(true)
+            else
+                setCharacterAnchored(false)
+            end
         end)
         
         -- === FARBAUSWAHL (10 Farben) ===
@@ -1165,6 +1203,7 @@ local function buildSettingsGUI()
             
             btn.MouseButton1Click:Connect(function()
                 _G.GuiColor = colorData[1]
+                
                 -- Alle Striche entfernen
                 for _, child in ipairs(colorFrame:GetChildren()) do
                     if child:IsA("UIStroke") then
@@ -1181,6 +1220,12 @@ local function buildSettingsGUI()
                 if MainFrame then
                     MainFrame.BackgroundColor3 = _G.GuiColor
                 end
+                
+                -- Settings Frame Farbe aktualisieren
+                if SettingsFrame then
+                    SettingsFrame.BackgroundColor3 = _G.GuiColor
+                end
+                
                 saveConfig()
             end)
         end
@@ -1190,32 +1235,6 @@ local function buildSettingsGUI()
         if contentSize then
             scroll.CanvasSize = UDim2.new(0, 0, 0, contentSize.Y + 6)
         end
-        
-        -- Drag für Settings
-        local dragging = false
-        local dragStart = nil
-        local startPos = nil
-        
-        SettingsFrame.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                dragging = true
-                dragStart = input.Position
-                startPos = SettingsFrame.Position
-            end
-        end)
-        
-        SettingsFrame.InputEnded:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                dragging = false
-            end
-        end)
-        
-        UserInputService.InputChanged:Connect(function(input)
-            if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-                local delta = input.Position - dragStart
-                SettingsFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-            end
-        end)
     end)
 end
 
@@ -1592,7 +1611,7 @@ local function startPlayerGuiScanner()
     end)
 end
 
--- 22. GUI BAUEN (GRÖßER + DRAG)
+-- 22. GUI BAUEN
 local function buildGUI()
     pcall(function()
         local old = CoreGui:FindFirstChild("KrimoHubGui")
