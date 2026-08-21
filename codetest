@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB V6 
+-- KRIMO HUB V6 - FIXED TOGGLES, STROKE COLOR, DRAG & MIN/CLOSE
 -- ============================================================
 
 _G.AccentColor = _G.AccentColor or Color3.fromRGB(100, 200, 255)
@@ -957,291 +957,136 @@ local function buildHistoryGUI()
     end)
 end
 
--- 14. NEUE SETTINGS GUI (MIT NEUER LOGIK)
-local function buildSettingsGUI()
-    if SettingsGui then
-        SettingsGui:Destroy()
-        SettingsGui = nil
-        return
+-- 14. NEUE SETTINGS WINDOW (GENAU WIE DU MIR GESCHICKT HAST)
+local SettingsFrame = nil
+local function openSettings()
+    if SettingsFrame then 
+        SettingsFrame.Visible = not SettingsFrame.Visible 
+        return 
     end
     
-    pcall(function()
-        SettingsGui = Instance.new("ScreenGui")
-        SettingsGui.Name = "KrimoSettingsGui"
-        SettingsGui.ResetOnSpawn = false
-        SettingsGui.IgnoreGuiInset = true
-        SettingsGui.Parent = CoreGui
+    SettingsFrame = Instance.new("Frame")
+    SettingsFrame.Name = "SettingsFrame"
+    SettingsFrame.Size = UDim2.new(0, 220, 0, 230)
+    SettingsFrame.Position = UDim2.new(0.5, 130, 0.4, 0)
+    SettingsFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 22)
+    SettingsFrame.BorderSizePixel = 0
+    SettingsFrame.Active = true
+    SettingsFrame.ZIndex = 20
+    SettingsFrame.Parent = ScreenGui
+    
+    local setCorner = Instance.new("UICorner") setCorner.CornerRadius = UDim.new(0, 10) setCorner.Parent = SettingsFrame
+    local setStroke = Instance.new("UIStroke")
+    setStroke.Thickness = 2
+    setStroke.Transparency = 0.2
+    setStroke.Parent = SettingsFrame
+    registerStroke(setStroke)
+    
+    -- SETTINGS HEADER
+    local SetTitle = Instance.new("TextLabel")
+    SetTitle.Size = UDim2.new(1, -10, 0, 25)
+    SetTitle.Position = UDim2.new(0, 10, 0, 5)
+    SetTitle.BackgroundTransparency = 1
+    SetTitle.Text = "Einstellungen"
+    SetTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    SetTitle.Font = Enum.Font.GothamBold
+    SetTitle.TextSize = 12
+    SetTitle.TextXAlignment = Enum.TextXAlignment.Left
+    SetTitle.ZIndex = 21
+    SetTitle.Parent = SettingsFrame
+    
+    -- 1. AUTO BUY TOGGLE
+    local AutoBuyBtn = Instance.new("TextButton")
+    AutoBuyBtn.Size = UDim2.new(1, -20, 0, 32)
+    AutoBuyBtn.Position = UDim2.new(0, 10, 0, 35)
+    AutoBuyBtn.BackgroundColor3 = settingsState.autoBuy and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(40, 40, 55)
+    AutoBuyBtn.Text = "🛒 Auto Buy: " .. (settingsState.autoBuy and "ON" or "OFF")
+    AutoBuyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    AutoBuyBtn.Font = Enum.Font.GothamSemibold
+    AutoBuyBtn.TextSize = 11
+    AutoBuyBtn.ZIndex = 21
+    AutoBuyBtn.Parent = SettingsFrame
+    local abCorner = Instance.new("UICorner") abCorner.CornerRadius = UDim.new(0, 6) abCorner.Parent = AutoBuyBtn
+    
+    AutoBuyBtn.MouseButton1Click:Connect(function()
+        settingsState.autoBuy = not settingsState.autoBuy
+        AutoBuyBtn.Text = "🛒 Auto Buy: " .. (settingsState.autoBuy and "ON" or "OFF")
+        AutoBuyBtn.BackgroundColor3 = settingsState.autoBuy and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(40, 40, 55)
         
-        local SettingsFrame = Instance.new("Frame")
-        SettingsFrame.Name = "SettingsFrame"
-        SettingsFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-        SettingsFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
-        SettingsFrame.Size = UDim2.new(0, 220, 0, 240)
-        SettingsFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 22)
-        SettingsFrame.BackgroundTransparency = 0.05
-        SettingsFrame.BorderSizePixel = 0
-        SettingsFrame.ClipsDescendants = true
-        SettingsFrame.Active = true
-        SettingsFrame.Parent = SettingsGui
-        
-        do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 12) co.Parent = SettingsFrame end
-        do local st = Instance.new("UIStroke") 
-            st.Color = _G.AccentColor 
-            st.Thickness = 2 
-            st.Transparency = 0.3 
-            st.Parent = SettingsFrame 
-            registerStroke(st) 
-        end
-        
-        -- Title Bar (für Drag)
-        local titleBar = Instance.new("Frame")
-        titleBar.Name = "TitleBar"
-        titleBar.Size = UDim2.new(1, 0, 0, 26)
-        titleBar.BackgroundColor3 = Color3.fromRGB(22, 22, 32)
-        titleBar.BackgroundTransparency = 0.5
-        titleBar.BorderSizePixel = 0
-        titleBar.ZIndex = 10
-        titleBar.Parent = SettingsFrame
-        do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 12) co.Parent = titleBar end
-        
-        local titleLabel = Instance.new("TextLabel")
-        titleLabel.Size = UDim2.new(1, -30, 1, 0)
-        titleLabel.Position = UDim2.new(0, 10, 0, 0)
-        titleLabel.BackgroundTransparency = 1
-        titleLabel.Text = "⚙️ Settings"
-        titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-        titleLabel.Font = Enum.Font.GothamBold
-        titleLabel.TextSize = 12
-        titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-        titleLabel.ZIndex = 10
-        titleLabel.Parent = titleBar
-        
-        local closeBtn = Instance.new("TextButton")
-        closeBtn.Size = UDim2.new(0, 20, 0, 20)
-        closeBtn.Position = UDim2.new(1, -24, 0.5, -10)
-        closeBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-        closeBtn.Text = "✕"
-        closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        closeBtn.Font = Enum.Font.GothamBold
-        closeBtn.TextSize = 11
-        closeBtn.AutoButtonColor = true
-        closeBtn.ZIndex = 10
-        closeBtn.Parent = titleBar
-        do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = closeBtn end
-        closeBtn.MouseButton1Click:Connect(function()
-            if SettingsGui then SettingsGui:Destroy() end
-            SettingsGui = nil
-        end)
-        
-        -- DRAG für Settings Frame
-        local dragging = false
-        local dragStart = nil
-        local startPos = nil
-        
-        titleBar.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                dragging = true
-                dragStart = input.Position
-                startPos = SettingsFrame.Position
-            end
-        end)
-        
-        titleBar.InputEnded:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                dragging = false
-            end
-        end)
-        
-        UserInputService.InputChanged:Connect(function(input)
-            if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-                local delta = input.Position - dragStart
-                SettingsFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-            end
-        end)
-        
-        -- Scroll Bereich
-        local scroll = Instance.new("ScrollingFrame")
-        scroll.Size = UDim2.new(1, -8, 1, -36)
-        scroll.Position = UDim2.new(0, 4, 0, 28)
-        scroll.BackgroundTransparency = 1
-        scroll.BorderSizePixel = 0
-        scroll.ScrollBarThickness = 2
-        scroll.ScrollBarImageColor3 = _G.AccentColor
-        scroll.ScrollBarImageTransparency = 0.4
-        scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-        scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-        scroll.ClipsDescendants = true
-        scroll.ZIndex = 5
-        scroll.Parent = SettingsFrame
-        
-        local layout = Instance.new("UIListLayout")
-        layout.Padding = UDim.new(0, 4)
-        layout.SortOrder = Enum.SortOrder.LayoutOrder
-        layout.Parent = scroll
-        
-        -- === AUTO BUY TOGGLE ===
-        local autoBuyFrame = Instance.new("Frame")
-        autoBuyFrame.Size = UDim2.new(1, 0, 0, 38)
-        autoBuyFrame.BackgroundColor3 = Color3.fromRGB(33, 33, 43)
-        autoBuyFrame.BackgroundTransparency = 0.3
-        autoBuyFrame.BorderSizePixel = 0
-        autoBuyFrame.Parent = scroll
-        do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 6) co.Parent = autoBuyFrame end
-        
-        local autoBuyLabel = Instance.new("TextLabel")
-        autoBuyLabel.Size = UDim2.new(0.55, 0, 1, 0)
-        autoBuyLabel.Position = UDim2.new(0, 8, 0, 0)
-        autoBuyLabel.BackgroundTransparency = 1
-        autoBuyLabel.Text = "🛒 Auto Buy"
-        autoBuyLabel.TextColor3 = Color3.fromRGB(200, 230, 255)
-        autoBuyLabel.Font = Enum.Font.GothamSemibold
-        autoBuyLabel.TextSize = 11
-        autoBuyLabel.TextXAlignment = Enum.TextXAlignment.Left
-        autoBuyLabel.TextYAlignment = Enum.TextYAlignment.Center
-        autoBuyLabel.Parent = autoBuyFrame
-        
-        local autoBuyToggle = Instance.new("TextButton")
-        autoBuyToggle.Size = UDim2.new(0, 40, 0, 22)
-        autoBuyToggle.Position = UDim2.new(1, -46, 0.5, -11)
-        autoBuyToggle.BackgroundColor3 = settingsState.autoBuy and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
-        autoBuyToggle.Text = settingsState.autoBuy and "ON" or "OFF"
-        autoBuyToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
-        autoBuyToggle.Font = Enum.Font.GothamBold
-        autoBuyToggle.TextSize = 8
-        autoBuyToggle.AutoButtonColor = false
-        autoBuyToggle.Parent = autoBuyFrame
-        do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = autoBuyToggle end
-        
-        autoBuyToggle.MouseButton1Click:Connect(function()
-            settingsState.autoBuy = not settingsState.autoBuy
-            autoBuyToggle.BackgroundColor3 = settingsState.autoBuy and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
-            autoBuyToggle.Text = settingsState.autoBuy and "ON" or "OFF"
-            
-            if settingsState.autoBuy then
-                startAutoBuy()
-            else
-                stopAutoBuy()
-            end
-        end)
-        
-        -- === ANCHOR TOGGLE ===
-        local anchorFrame = Instance.new("Frame")
-        anchorFrame.Size = UDim2.new(1, 0, 0, 38)
-        anchorFrame.BackgroundColor3 = Color3.fromRGB(33, 33, 43)
-        anchorFrame.BackgroundTransparency = 0.3
-        anchorFrame.BorderSizePixel = 0
-        anchorFrame.Parent = scroll
-        do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 6) co.Parent = anchorFrame end
-        
-        local anchorLabel = Instance.new("TextLabel")
-        anchorLabel.Size = UDim2.new(0.55, 0, 1, 0)
-        anchorLabel.Position = UDim2.new(0, 8, 0, 0)
-        anchorLabel.BackgroundTransparency = 1
-        anchorLabel.Text = "⚓ Anchor"
-        anchorLabel.TextColor3 = Color3.fromRGB(200, 230, 255)
-        anchorLabel.Font = Enum.Font.GothamSemibold
-        anchorLabel.TextSize = 11
-        anchorLabel.TextXAlignment = Enum.TextXAlignment.Left
-        anchorLabel.TextYAlignment = Enum.TextYAlignment.Center
-        anchorLabel.Parent = anchorFrame
-        
-        local anchorToggle = Instance.new("TextButton")
-        anchorToggle.Size = UDim2.new(0, 40, 0, 22)
-        anchorToggle.Position = UDim2.new(1, -46, 0.5, -11)
-        anchorToggle.BackgroundColor3 = settingsState.anchor and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
-        anchorToggle.Text = settingsState.anchor and "ON" or "OFF"
-        anchorToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
-        anchorToggle.Font = Enum.Font.GothamBold
-        anchorToggle.TextSize = 8
-        anchorToggle.AutoButtonColor = false
-        anchorToggle.Parent = anchorFrame
-        do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = anchorToggle end
-        
-        anchorToggle.MouseButton1Click:Connect(function()
-            settingsState.anchor = not settingsState.anchor
-            anchorToggle.BackgroundColor3 = settingsState.anchor and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
-            anchorToggle.Text = settingsState.anchor and "ON" or "OFF"
-            setCharacterAnchored(settingsState.anchor)
-        end)
-        
-        -- === FARBAUSWAHL (NUR STROKES) ===
-        local colorFrame = Instance.new("Frame")
-        colorFrame.Size = UDim2.new(1, 0, 0, 70)
-        colorFrame.BackgroundColor3 = Color3.fromRGB(33, 33, 43)
-        colorFrame.BackgroundTransparency = 0.3
-        colorFrame.BorderSizePixel = 0
-        colorFrame.Parent = scroll
-        do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 6) co.Parent = colorFrame end
-        
-        local colorLabel = Instance.new("TextLabel")
-        colorLabel.Size = UDim2.new(1, 0, 0, 18)
-        colorLabel.Position = UDim2.new(0, 8, 0, 2)
-        colorLabel.BackgroundTransparency = 1
-        colorLabel.Text = "🎨 Rand-Farbe"
-        colorLabel.TextColor3 = Color3.fromRGB(200, 230, 255)
-        colorLabel.Font = Enum.Font.GothamSemibold
-        colorLabel.TextSize = 11
-        colorLabel.TextXAlignment = Enum.TextXAlignment.Left
-        colorLabel.TextYAlignment = Enum.TextYAlignment.Center
-        colorLabel.Parent = colorFrame
-        
-        -- 8 Farben
-        local colors = {
-            Color3.fromRGB(100, 200, 255), -- Blau
-            Color3.fromRGB(255, 80, 80),   -- Rot
-            Color3.fromRGB(80, 255, 120),  -- Grün
-            Color3.fromRGB(255, 200, 50),  -- Gelb
-            Color3.fromRGB(200, 80, 255),  -- Pink
-            Color3.fromRGB(0, 255, 255),   -- Cyan
-            Color3.fromRGB(255, 120, 0),   -- Orange
-            Color3.fromRGB(255, 255, 255), -- Weiß
-        }
-        
-        for i, color in ipairs(colors) do
-            local btn = Instance.new("TextButton")
-            local row = math.floor((i - 1) / 4)
-            local col = (i - 1) % 4
-            local xPos = 8 + col * 50
-            local yPos = 22 + row * 24
-            btn.Size = UDim2.new(0, 42, 0, 20)
-            btn.Position = UDim2.new(0, xPos, 0, yPos)
-            btn.BackgroundColor3 = color
-            btn.BorderSizePixel = 0
-            btn.Text = ""
-            btn.AutoButtonColor = true
-            btn.Parent = colorFrame
-            do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = btn end
-            
-            -- Rahmen für aktuelle Farbe
-            if color == _G.AccentColor then
-                local stroke = Instance.new("UIStroke")
-                stroke.Color = Color3.fromRGB(255, 255, 255)
-                stroke.Thickness = 2
-                stroke.Parent = btn
-            end
-            
-            btn.MouseButton1Click:Connect(function()
-                setAccentColor(color)
-                -- Alle Striche entfernen
-                for _, child in ipairs(colorFrame:GetChildren()) do
-                    if child:IsA("UIStroke") then
-                        child:Destroy()
-                    end
-                end
-                -- Neuen Strich hinzufügen
-                local stroke = Instance.new("UIStroke")
-                stroke.Color = Color3.fromRGB(255, 255, 255)
-                stroke.Thickness = 2
-                stroke.Parent = btn
-            end)
-        end
-        
-        task.wait(0.1)
-        local contentSize = layout.AbsoluteContentSize
-        if contentSize then
-            scroll.CanvasSize = UDim2.new(0, 0, 0, contentSize.Y + 6)
+        if settingsState.autoBuy then
+            startAutoBuy()
+        else
+            stopAutoBuy()
         end
     end)
+    
+    -- 2. ANCHOR TOGGLE
+    local AnchorBtn = Instance.new("TextButton")
+    AnchorBtn.Size = UDim2.new(1, -20, 0, 32)
+    AnchorBtn.Position = UDim2.new(0, 10, 0, 75)
+    AnchorBtn.BackgroundColor3 = settingsState.anchor and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(40, 40, 55)
+    AnchorBtn.Text = "⚓ Anchor: " .. (settingsState.anchor and "ON" or "OFF")
+    AnchorBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    AnchorBtn.Font = Enum.Font.GothamSemibold
+    AnchorBtn.TextSize = 11
+    AnchorBtn.ZIndex = 21
+    AnchorBtn.Parent = SettingsFrame
+    local ancCorner = Instance.new("UICorner") ancCorner.CornerRadius = UDim.new(0, 6) ancCorner.Parent = AnchorBtn
+    
+    AnchorBtn.MouseButton1Click:Connect(function()
+        settingsState.anchor = not settingsState.anchor
+        AnchorBtn.Text = "⚓ Anchor: " .. (settingsState.anchor and "ON" or "OFF")
+        AnchorBtn.BackgroundColor3 = settingsState.anchor and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(40, 40, 55)
+        setCharacterAnchored(settingsState.anchor)
+    end)
+    
+    -- 3. RAND-FARBEN (NUR STROKES ÄNDERN)
+    local ColorLabel = Instance.new("TextLabel")
+    ColorLabel.Size = UDim2.new(1, -20, 0, 20)
+    ColorLabel.Position = UDim2.new(0, 10, 0, 115)
+    ColorLabel.BackgroundTransparency = 1
+    ColorLabel.Text = "🎨 Rand-Farbe auswählen:"
+    ColorLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    ColorLabel.Font = Enum.Font.Gotham
+    ColorLabel.TextSize = 10
+    ColorLabel.TextXAlignment = Enum.TextXAlignment.Left
+    ColorLabel.ZIndex = 21
+    ColorLabel.Parent = SettingsFrame
+    
+    local ColorContainer = Instance.new("Frame")
+    ColorContainer.Size = UDim2.new(1, -20, 0, 80)
+    ColorContainer.Position = UDim2.new(0, 10, 0, 138)
+    ColorContainer.BackgroundTransparency = 1
+    ColorContainer.ZIndex = 21
+    ColorContainer.Parent = SettingsFrame
+    
+    local palette = {
+        Color3.fromRGB(100, 200, 255), -- Blau
+        Color3.fromRGB(255, 80, 80),   -- Rot
+        Color3.fromRGB(80, 255, 120),  -- Grün
+        Color3.fromRGB(255, 200, 50),  -- Gelb
+        Color3.fromRGB(200, 80, 255),  -- Pink
+        Color3.fromRGB(0, 255, 255),   -- Cyan
+        Color3.fromRGB(255, 120, 0),   -- Orange
+        Color3.fromRGB(255, 255, 255)  -- Weiß
+    }
+    
+    for i, color in ipairs(palette) do
+        local colBtn = Instance.new("TextButton")
+        local row = math.floor((i - 1) / 4)
+        local col = (i - 1) % 4
+        colBtn.Size = UDim2.new(0, 42, 0, 32)
+        colBtn.Position = UDim2.new(0, col * 48, 0, row * 38)
+        colBtn.BackgroundColor3 = color
+        colBtn.Text = ""
+        colBtn.ZIndex = 22
+        colBtn.Parent = ColorContainer
+        local cCorner = Instance.new("UICorner") cCorner.CornerRadius = UDim.new(0, 4) cCorner.Parent = colBtn
+        
+        colBtn.MouseButton1Click:Connect(function()
+            setAccentColor(color)
+        end)
+    end
 end
 
 -- 15. HILFE-GUI
@@ -1569,7 +1414,7 @@ local function verifySourceIsSammy(TO)
         if TO:IsDescendantOf(MainFrame) then return false end
         if TO:IsDescendantOf(HistoryGui) then return false end
         if TO:IsDescendantOf(HelpGui) then return false end
-        if TO:IsDescendantOf(SettingsGui) then return false end
+        if TO:IsDescendantOf(SettingsFrame) then return false end
         local text = TO.Text or ""
         if text:lower():find("spydersammy") then return true end
         
@@ -1760,7 +1605,7 @@ local function buildGUI()
         do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = settingsBtn end
         
         settingsBtn.MouseButton1Click:Connect(function()
-            buildSettingsGUI()
+            openSettings()
         end)
         
         -- Minimieren Button
