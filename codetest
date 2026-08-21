@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB V6 - FIXED TOGGLES, STROKE COLOR, DRAG & MIN/CLOSE
+-- KRIMO HUB V6 
 -- ============================================================
 
 _G.AccentColor = _G.AccentColor or Color3.fromRGB(100, 200, 255)
