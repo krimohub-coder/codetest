@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB V4 - MIT SETTINGS (Auto Buy + Anchor + Farbe)
+-- KRIMO HUB V4 - GUI IMMER IN DER MITTE (FIX)
 -- ============================================================
 
 -- 1. GLOBALS
@@ -9,7 +9,7 @@ _G.AutoSubmitEnabled = false
 _G.RiddleSolverEnabled = false
 _G.SubmitAfterCount = 3
 _G.HistoryEnabled = false
-_G.GuiColor = Color3.fromRGB(10, 10, 18)  -- Standard Farbe
+_G.GuiColor = Color3.fromRGB(10, 10, 18)
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
@@ -21,9 +21,9 @@ local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
--- 2. PERSISTENZ
+-- 2. PERSISTENZ (NUR für Farbe, NICHT für Position!)
 local hasFS = pcall(function() return type(writefile) == "function" end)
-local config = { panelX = nil, panelY = nil, guiColor = nil }
+local config = { guiColor = nil }
 
 local function loadConfig()
     if not hasFS then return end
@@ -31,13 +31,12 @@ local function loadConfig()
         if isfile and isfile("KrimoHub_config.json") then
             local data = HttpService:JSONDecode(readfile("KrimoHub_config.json"))
             if type(data) == "table" then
-                for k, v in pairs(data) do config[k] = v end
+                if data.guiColor then
+                    _G.GuiColor = data.guiColor
+                end
             end
         end
     end)
-    if config.guiColor then
-        _G.GuiColor = config.guiColor
-    end
 end
 
 local function saveConfig()
@@ -45,8 +44,6 @@ local function saveConfig()
     pcall(function() 
         if writefile then 
             writefile("KrimoHub_config.json", HttpService:JSONEncode({
-                panelX = config.panelX,
-                panelY = config.panelY,
                 guiColor = _G.GuiColor
             })) 
         end
@@ -139,7 +136,7 @@ local function setCharacterAnchored(state)
     end
 end
 
--- 6. AUTO BUY LOGIC (aus Admin Abuse Panel)
+-- 6. AUTO BUY LOGIC
 local promptConnections = {}
 local isAutoBuying = false
 local renderConnection = nil
@@ -965,7 +962,6 @@ local function buildSettingsGUI()
         do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 12) co.Parent = SettingsFrame end
         do local st = Instance.new("UIStroke") st.Color = Color3.fromRGB(100, 200, 255) st.Thickness = 1.5 st.Transparency = 0.3 st.Parent = SettingsFrame end
         
-        -- Title Bar
         local titleBar = Instance.new("Frame")
         titleBar.Size = UDim2.new(1, 0, 0, 28)
         titleBar.BackgroundColor3 = Color3.fromRGB(15, 20, 45)
@@ -1004,7 +1000,6 @@ local function buildSettingsGUI()
             SettingsGui = nil
         end)
         
-        -- Scroll Bereich
         local scroll = Instance.new("ScrollingFrame")
         scroll.Size = UDim2.new(1, -10, 1, -42)
         scroll.Position = UDim2.new(0, 5, 0, 32)
@@ -1024,7 +1019,7 @@ local function buildSettingsGUI()
         layout.SortOrder = Enum.SortOrder.LayoutOrder
         layout.Parent = scroll
         
-        -- === AUTO BUY TOGGLE ===
+        -- AUTO BUY TOGGLE
         local autoBuyFrame = Instance.new("Frame")
         autoBuyFrame.Size = UDim2.new(1, 0, 0, 50)
         autoBuyFrame.BackgroundColor3 = Color3.fromRGB(33, 33, 43)
@@ -1069,7 +1064,7 @@ local function buildSettingsGUI()
             end
         end)
         
-        -- === ANCHOR TOGGLE ===
+        -- ANCHOR TOGGLE
         local anchorFrame = Instance.new("Frame")
         anchorFrame.Size = UDim2.new(1, 0, 0, 50)
         anchorFrame.BackgroundColor3 = Color3.fromRGB(33, 33, 43)
@@ -1109,7 +1104,7 @@ local function buildSettingsGUI()
             setCharacterAnchored(settings.anchor)
         end)
         
-        -- === FARBAUSWAHL ===
+        -- FARBAUSWAHL
         local colorFrame = Instance.new("Frame")
         colorFrame.Size = UDim2.new(1, 0, 0, 60)
         colorFrame.BackgroundColor3 = Color3.fromRGB(33, 33, 43)
@@ -1130,7 +1125,6 @@ local function buildSettingsGUI()
         colorLabel.TextYAlignment = Enum.TextYAlignment.Center
         colorLabel.Parent = colorFrame
         
-        -- Farbbuttons
         local colors = {
             {Color3.fromRGB(10, 10, 18), "Dunkel"},
             {Color3.fromRGB(30, 20, 50), "Lila"},
@@ -1152,7 +1146,6 @@ local function buildSettingsGUI()
             btn.Parent = colorFrame
             do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 6) co.Parent = btn end
             
-            -- Rahmen für aktuelle Farbe
             if colorData[1] == _G.GuiColor then
                 local stroke = Instance.new("UIStroke")
                 stroke.Color = Color3.fromRGB(255, 255, 255)
@@ -1162,19 +1155,16 @@ local function buildSettingsGUI()
             
             btn.MouseButton1Click:Connect(function()
                 _G.GuiColor = colorData[1]
-                -- Alle Striche entfernen
                 for _, child in ipairs(colorFrame:GetChildren()) do
                     if child:IsA("UIStroke") then
                         child:Destroy()
                     end
                 end
-                -- Neuen Strich hinzufügen
                 local stroke = Instance.new("UIStroke")
                 stroke.Color = Color3.fromRGB(255, 255, 255)
                 stroke.Thickness = 2
                 stroke.Parent = btn
                 
-                -- Haupt GUI Farbe aktualisieren
                 if MainFrame then
                     MainFrame.BackgroundColor3 = _G.GuiColor
                 end
@@ -1182,14 +1172,12 @@ local function buildSettingsGUI()
             end)
         end
         
-        -- Canvas updaten
         task.wait(0.1)
         local contentSize = layout.AbsoluteContentSize
         if contentSize then
             scroll.CanvasSize = UDim2.new(0, 0, 0, contentSize.Y + 10)
         end
         
-        -- Drag
         local dragging = false
         local dragStart = nil
         local startPos = nil
@@ -1590,7 +1578,7 @@ local function startPlayerGuiScanner()
     end)
 end
 
--- 22. GUI BAUEN
+-- 22. GUI BAUEN (FIX: IMMER IN DER MITTE)
 local function buildGUI()
     pcall(function()
         local old = CoreGui:FindFirstChild("KrimoHubGui")
@@ -1605,9 +1593,10 @@ local function buildGUI()
         MainFrame = Instance.new("Frame")
         MainFrame.Name = "MainFrame"
         MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-        MainFrame.Position = (config.panelX and config.panelY)
-            and UDim2.new(0, config.panelX, 0, config.panelY)
-            or UDim2.new(0.5, 0, 0.4, 0)
+        
+        -- *** FIX: IMMER IN DER MITTE! ***
+        MainFrame.Position = UDim2.new(0.5, 0, 0.4, 0)
+        
         MainFrame.Size = UDim2.new(0, PANEL_W, 0, PANEL_H)
         MainFrame.BackgroundColor3 = _G.GuiColor
         MainFrame.BackgroundTransparency = 0.05
@@ -1715,7 +1704,7 @@ local function buildGUI()
             buildHelpGUI()
         end)
         
-        -- Settings Button (Zahnrad)
+        -- Settings Button
         local settingsBtn = Instance.new("TextButton")
         settingsBtn.Name = "SettingsBtn"
         settingsBtn.Size = UDim2.new(0, 20, 0, 20)
@@ -1749,7 +1738,7 @@ local function buildGUI()
         toggleMinBtn.Parent = titleBar
         do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = toggleMinBtn end
         
-        -- Content (Krimo Hub GUI)
+        -- Content
         local ContentFrame = Instance.new("Frame")
         ContentFrame.Name = "ContentFrame"
         ContentFrame.Size = UDim2.new(1, 0, 1, -26)
@@ -2174,9 +2163,8 @@ local function buildGUI()
             else
                 ContentFrame.Visible = true
                 MainFrame.Size = UDim2.new(0, PANEL_W, 0, PANEL_H)
-                MainFrame.Position = (config.panelX and config.panelY)
-                    and UDim2.new(0, config.panelX, 0, config.panelY)
-                    or UDim2.new(0.5, 0, 0.4, 0)
+                -- *** FIX: Beim Wiederherstellen immer in die Mitte ***
+                MainFrame.Position = UDim2.new(0.5, 0, 0.4, 0)
                 toggleMinBtn.Text = "−"
             end
         end
@@ -2185,7 +2173,7 @@ local function buildGUI()
             applyMinimized(not isMinimized)
         end)
         
-        -- Drag
+        -- Drag (speichert Position, aber beim Start wird sie ignoriert)
         local dragging = false
         local dragInput = nil
         local dragStart = nil
@@ -2196,9 +2184,7 @@ local function buildGUI()
             local delta = input.Position - dragStart
             local newX = startPos.X.Offset + delta.X
             local newY = startPos.Y.Offset + delta.Y
-            config.panelX = newX
-            config.panelY = newY
-            saveConfig()
+            -- Position wird NUR für die Drag-Funktion gespeichert
             MainFrame.Position = UDim2.new(startPos.X.Scale, newX, startPos.Y.Scale, newY)
         end
         
