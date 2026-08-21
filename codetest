@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB V4 - ALLES FUNKTIONIERT (DRAG + FARBE + SETTINGS)
+-- KRIMO HUB V4 - ALLES FUNKTIONIERT (DRAG + FARBEN + SETTINGS)
 -- ============================================================
 
 -- 1. GLOBALS
@@ -44,7 +44,7 @@ local function saveConfig()
     pcall(function() 
         if writefile then 
             writefile("KrimoHub_config.json", HttpService:JSONEncode({
-                guiColor = {_G.GuiColor.R, _G.GuiColor.G, _G.GuiColor.B}
+                guiColor = _G.GuiColor
             })) 
         end
     end)
@@ -120,7 +120,7 @@ local function setupPaths()
     end)
 end
 
--- 4. SETTINGS STATE (mit Speicherung)
+-- 4. SETTINGS STATE
 local settings = {
     anchor = false,
     autoBuy = false,
@@ -129,21 +129,12 @@ local settings = {
 -- 5. ANCHOR LOGIC
 local function setCharacterAnchored(state)
     local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-    if not character then return end
     for _, part in ipairs(character:GetDescendants()) do
         if part:IsA("BasePart") then
             part.Anchored = state
         end
     end
 end
-
--- CharacterAdded für Anchor
-LocalPlayer.CharacterAdded:Connect(function()
-    task.wait(0.5)
-    if settings.anchor then
-        setCharacterAnchored(true)
-    end
-end)
 
 -- 6. AUTO BUY LOGIC
 local promptConnections = {}
@@ -212,60 +203,62 @@ local function registerPrompt(prompt)
 end
 
 local function startAutoBuy()
-    if isAutoBuying then return end
-    isAutoBuying = true
-    
-    for _, obj in ipairs(Workspace:GetDescendants()) do
-        registerPrompt(obj)
-    end
-    
-    if addedConnection then addedConnection:Disconnect() end
-    addedConnection = Workspace.DescendantAdded:Connect(registerPrompt)
-    
-    if renderConnection then renderConnection:Disconnect() end
-    renderConnection = RunService.RenderStepped:Connect(function()
-        local character = LocalPlayer.Character
-        local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+    if not isAutoBuying then
+        isAutoBuying = true
         
-        if rootPart then
-            for prompt, _ in pairs(promptConnections) do
-                if prompt and prompt.Parent and isValidPrompt(prompt) then
-                    local pos = getPromptPosition(prompt)
-                    if pos then
-                        if (rootPart.Position - pos).Magnitude > 15 or not isPromptVisibleOnScreen(prompt) then
-                            endInput(prompt)
+        for _, obj in ipairs(Workspace:GetDescendants()) do
+            registerPrompt(obj)
+        end
+        
+        if addedConnection then addedConnection:Disconnect() end
+        addedConnection = Workspace.DescendantAdded:Connect(registerPrompt)
+        
+        if renderConnection then renderConnection:Disconnect() end
+        renderConnection = RunService.RenderStepped:Connect(function()
+            local character = LocalPlayer.Character
+            local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+            
+            if rootPart then
+                for prompt, _ in pairs(promptConnections) do
+                    if prompt and prompt.Parent and isValidPrompt(prompt) then
+                        local pos = getPromptPosition(prompt)
+                        if pos then
+                            if (rootPart.Position - pos).Magnitude > 15 or not isPromptVisibleOnScreen(prompt) then
+                                endInput(prompt)
+                            else
+                                beginInput(prompt)
+                            end
                         else
-                            beginInput(prompt)
+                            promptConnections[prompt] = nil
                         end
                     else
                         promptConnections[prompt] = nil
                     end
-                else
-                    promptConnections[prompt] = nil
                 end
             end
-        end
-    end)
+        end)
+    end
 end
 
 local function stopAutoBuy()
-    if not isAutoBuying then return end
-    isAutoBuying = false
-    
-    if renderConnection then
-        renderConnection:Disconnect()
-        renderConnection = nil
+    if isAutoBuying then
+        isAutoBuying = false
+        
+        if renderConnection then
+            renderConnection:Disconnect()
+            renderConnection = nil
+        end
+        if addedConnection then
+            addedConnection:Disconnect()
+            addedConnection = nil
+        end
+        
+        for prompt, _ in pairs(promptConnections) do
+            endInput(prompt)
+        end
+        
+        promptConnections = {}
     end
-    if addedConnection then
-        addedConnection:Disconnect()
-        addedConnection = nil
-    end
-    
-    for prompt, _ in pairs(promptConnections) do
-        endInput(prompt)
-    end
-    
-    promptConnections = {}
 end
 
 -- 7. SLURP HUB RIDDLE DATABASE
@@ -938,7 +931,7 @@ local function buildHistoryGUI()
     end)
 end
 
--- 15. SETTINGS GUI (FIXED: DRAG + FUNKTIONEN)
+-- 15. SETTINGS GUI (MIT DRAG + FUNKTIONIERENDEN FARBEN)
 local function buildSettingsGUI()
     if SettingsGui then
         SettingsGui:Destroy()
@@ -968,8 +961,9 @@ local function buildSettingsGUI()
         do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 12) co.Parent = SettingsFrame end
         do local st = Instance.new("UIStroke") st.Color = Color3.fromRGB(100, 200, 255) st.Thickness = 1.5 st.Transparency = 0.3 st.Parent = SettingsFrame end
         
-        -- Title Bar
+        -- Title Bar (für Drag)
         local titleBar = Instance.new("Frame")
+        titleBar.Name = "TitleBar"
         titleBar.Size = UDim2.new(1, 0, 0, 26)
         titleBar.BackgroundColor3 = Color3.fromRGB(15, 20, 45)
         titleBar.BackgroundTransparency = 0.5
@@ -1007,7 +1001,7 @@ local function buildSettingsGUI()
             SettingsGui = nil
         end)
         
-        -- *** DRAG FÜR SETTINGS ***
+        -- DRAG für Settings Frame (über Title Bar)
         local dragging = false
         local dragStart = nil
         local startPos = nil
@@ -1135,12 +1129,7 @@ local function buildSettingsGUI()
             settings.anchor = not settings.anchor
             anchorToggle.BackgroundColor3 = settings.anchor and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
             anchorToggle.Text = settings.anchor and "ON" or "OFF"
-            
-            if settings.anchor then
-                setCharacterAnchored(true)
-            else
-                setCharacterAnchored(false)
-            end
+            setCharacterAnchored(settings.anchor)
         end)
         
         -- === FARBAUSWAHL (10 Farben) ===
@@ -1164,7 +1153,7 @@ local function buildSettingsGUI()
         colorLabel.TextYAlignment = Enum.TextYAlignment.Center
         colorLabel.Parent = colorFrame
         
-        -- 10 Farben (2 Reihen à 5)
+        -- 10 Farben
         local colors = {
             {Color3.fromRGB(10, 10, 18), "Schwarz"},
             {Color3.fromRGB(30, 20, 50), "Lila"},
@@ -1203,7 +1192,6 @@ local function buildSettingsGUI()
             
             btn.MouseButton1Click:Connect(function()
                 _G.GuiColor = colorData[1]
-                
                 -- Alle Striche entfernen
                 for _, child in ipairs(colorFrame:GetChildren()) do
                     if child:IsA("UIStroke") then
@@ -1216,16 +1204,14 @@ local function buildSettingsGUI()
                 stroke.Thickness = 2
                 stroke.Parent = btn
                 
-                -- Haupt GUI Farbe aktualisieren
+                -- *** HAUPT GUI FARBE ÄNDERN ***
                 if MainFrame then
                     MainFrame.BackgroundColor3 = _G.GuiColor
                 end
-                
-                -- Settings Frame Farbe aktualisieren
+                -- *** SETTINGS GUI FARBE ÄNDERN ***
                 if SettingsFrame then
                     SettingsFrame.BackgroundColor3 = _G.GuiColor
                 end
-                
                 saveConfig()
             end)
         end
