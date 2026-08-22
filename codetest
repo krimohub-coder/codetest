@@ -1,239 +1,50 @@
 -- ============================================================
--- KRIMO HUB V6 - FULL CODE (BLACK GUI, WHITE STROKE, FIXED COUNTER)
+-- KRIMO HUB V6 - FULL EXECUTABLE CODE (BLACK & WHITE DESIGN)
 -- ============================================================
 
--- 1. GLOBALS & SETTINGS
 _G.ScriptEnabled = false
 _G.AutoWriteEnabled = true
 _G.AutoSubmitEnabled = true
 _G.RiddleSolverEnabled = false
 _G.SubmitAfterCount = 3
-_G.HistoryEnabled = false
 
-_G.GuiColor = Color3.fromRGB(0, 0, 0)       -- SCHWARZER HINTERGRUND
-_G.AccentColor = Color3.fromRGB(255, 255, 255) -- WEIßER RAND
+_G.GuiColor = Color3.fromRGB(0, 0, 0)
+_G.AccentColor = Color3.fromRGB(255, 255, 255)
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local CoreGui = game:GetService("CoreGui")
 local UserInputService = game:GetService("UserInputService")
-local HttpService = game:GetService("HttpService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
--- 2. CONFIG SYSTEM (PERSISTENZ)
-local hasFS = pcall(function() return type(writefile) == "function" end)
-
-local function loadConfig()
-    if not hasFS then return end
-    pcall(function()
-        if isfile and isfile("KrimoHub_config.json") then
-            local data = HttpService:JSONDecode(readfile("KrimoHub_config.json"))
-            if type(data) == "table" and data.accentColor then
-                _G.AccentColor = Color3.fromRGB(data.accentColor.r, data.accentColor.g, data.accentColor.b)
-            end
-        end
+-- SICHERS PARENTING FÜR JEDEN EXECUTOR
+local function getTargetParent()
+    local success, res = pcall(function()
+        return gethui and gethui() or CoreGui
     end)
+    if success and res then return res end
+    return LocalPlayer:WaitForChild("PlayerGui")
 end
 
-local function saveConfig()
-    if not hasFS then return end
-    pcall(function() 
-        writefile("KrimoHub_config.json", HttpService:JSONEncode({
-            guiColor = {r = 0, g = 0, b = 0},
-            accentColor = {r = _G.AccentColor.R, g = _G.AccentColor.G, b = _G.AccentColor.B}
-        })) 
-    end)
-end
-loadConfig()
-
--- STATE MANAGEMENT & DYNAMISCHE RAND-UPDATE LOGIK
-local settingsState = {
-    anchor = false,
-    autoBuy = false,
-}
-
-local registeredStrokes = {}
-local function registerStroke(stroke)
-    if stroke and stroke:IsA("UIStroke") then
-        stroke.Color = _G.AccentColor
-        registeredStrokes[stroke] = true
-    end
-end
-
-local function setAccentColor(newColor)
-    _G.AccentColor = newColor
-    for stroke, _ in pairs(registeredStrokes) do
-        if stroke and stroke.Parent then
-            stroke.Color = newColor
-        else
-            registeredStrokes[stroke] = nil
-        end
-    end
-    saveConfig()
-end
-
--- 3. ANCHOR LOGIC
-local function setCharacterAnchored(state)
-    local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-    for _, part in ipairs(character:GetDescendants()) do
-        if part:IsA("BasePart") then
-            part.Anchored = state
-        end
-    end
-end
-
--- 4. AUTO BUY LOGIC
-local promptConnections = {}
-local isAutoBuying = false
-local renderConnection = nil
-local addedConnection = nil
-
-local function isValidPrompt(prompt)
-    if not (prompt and prompt:IsA("ProximityPrompt")) then return false end
-    local attachment = prompt.Parent
-    if not attachment or attachment.Name ~= "PromptAttachment" then return false end
-    local part = attachment.Parent
-    if not part or part.Name ~= "Part" then return false end
-    local model = part.Parent
-    return model and model:IsA("Model") and true or false
-end
-
-local function getPromptPosition(prompt)
-    if prompt and prompt.Parent then
-        if prompt.Parent:IsA("Attachment") and prompt.Parent.Name == "PromptAttachment" and (prompt.Parent.Parent and prompt.Parent.Parent.Name == "Part") then
-            return prompt.Parent.Parent.Position
-        elseif prompt.Parent:IsA("BasePart") then
-            return prompt.Parent.Position
-        elseif prompt.Parent:IsA("Model") and prompt.Parent.PrimaryPart then
-            return prompt.Parent.PrimaryPart.Position
-        end
-    end
-    return nil
-end
-
-local function isPromptVisibleOnScreen(prompt)
-    local pos = getPromptPosition(prompt)
-    if not pos then return false end
-    local _, visible = Workspace.CurrentCamera:WorldToViewportPoint(pos)
-    return visible
-end
-
-local function beginInput(prompt)
-    local inputs = { Enum.UserInputType.Keyboard, Enum.UserInputType.MouseButton1, Enum.UserInputType.Touch }
-    for _, input in ipairs(inputs) do
-        pcall(function() prompt:InputHoldBegin(input) end)
-    end
-end
-
-local function endInput(prompt)
-    local inputs = { Enum.UserInputType.Keyboard, Enum.UserInputType.MouseButton1, Enum.UserInputType.Touch }
-    for _, input in ipairs(inputs) do
-        pcall(function() prompt:InputHoldEnd(input) end)
-    end
-end
-
-local function registerPrompt(prompt)
-    if isValidPrompt(prompt) and not promptConnections[prompt] then
-        promptConnections[prompt] = true
-    end
-end
-
-local function startAutoBuy()
-    if not isAutoBuying then
-        isAutoBuying = true
-        for _, obj in ipairs(Workspace:GetDescendants()) do registerPrompt(obj) end
-        if addedConnection then addedConnection:Disconnect() end
-        addedConnection = Workspace.DescendantAdded:Connect(registerPrompt)
-        
-        if renderConnection then renderConnection:Disconnect() end
-        renderConnection = RunService.RenderStepped:Connect(function()
-            local character = LocalPlayer.Character
-            local rootPart = character and character:FindFirstChild("HumanoidRootPart")
-            if rootPart then
-                for prompt, _ in pairs(promptConnections) do
-                    if prompt and prompt.Parent and isValidPrompt(prompt) then
-                        local pos = getPromptPosition(prompt)
-                        if pos then
-                            if (rootPart.Position - pos).Magnitude > 15 or not isPromptVisibleOnScreen(prompt) then
-                                endInput(prompt)
-                            else
-                                beginInput(prompt)
-                            end
-                        else
-                            promptConnections[prompt] = nil
-                        end
-                    else
-                        promptConnections[prompt] = nil
-                    end
-                end
-            end
-        end)
-    end
-end
-
-local function stopAutoBuy()
-    if isAutoBuying then
-        isAutoBuying = false
-        if renderConnection then renderConnection:Disconnect() renderConnection = nil end
-        if addedConnection then addedConnection:Disconnect() addedConnection = nil end
-        for prompt, _ in pairs(promptConnections) do endInput(prompt) end
-        promptConnections = {}
-    end
-end
-
--- 5. RIDDLE SOLVER DATABASE
+-- RIDDLE DATABASE
 local SLURP_DB = {
     ["how old am i"] = "24", ["how old is sammy"] = "24", ["my age"] = "24", ["sammy age"] = "24", ["age"] = "24",
     ["where am i from"] = "BRAZIL", ["where is sammy from"] = "BRAZIL", ["my country"] = "BRAZIL", ["sammy country"] = "BRAZIL",
     ["favorite color"] = "BLUE", ["fav color"] = "BLUE", ["my color"] = "BLUE", ["sammy color"] = "BLUE", ["color"] = "BLUE",
-    ["favorite football player"] = "RONALDO", ["fav football player"] = "RONALDO", ["my favorite football player"] = "RONALDO", ["ronaldo"] = "RONALDO",
-    ["game created on"] = "FRIDAY", ["created on"] = "FRIDAY", ["what day was the game created"] = "FRIDAY", ["what day was sab created"] = "FRIDAY", ["game creation day"] = "FRIDAY",
-    ["seventh mutation"] = "CURSED", ["7th mutation"] = "CURSED", ["eighth mutation"] = "DIVINE", ["8th mutation"] = "DIVINE",
-    ["ninth mutation"] = "CYBER", ["9th mutation"] = "CYBER", ["tenth mutation"] = "PHANTOM", ["10th mutation"] = "PHANTOM",
-    ["first machine"] = "RAINBOW MACHINE", ["1st machine"] = "RAINBOW MACHINE", ["second machine"] = "BUBBLEGUM MACHINE", ["2nd machine"] = "BUBBLEGUM MACHINE",
-    ["third machine"] = "FUSE MACHINE", ["3rd machine"] = "FUSE MACHINE", ["fourth machine"] = "CRAFT MACHINE", ["4th machine"] = "CRAFT MACHINE",
-    ["fifth machine"] = "WITCH FUSE", ["5th machine"] = "WITCH FUSE", ["sixth machine"] = "BRAINROT DEALER", ["6th machine"] = "BRAINROT DEALER",
-    ["seventh machine"] = "BRAINROT TRADER", ["7th machine"] = "BRAINROT TRADER", ["eighth machine"] = "SANTA'S FUSE", ["8th machine"] = "SANTA'S FUSE",
-    ["ninth machine"] = "SANTA'S SHOP", ["9th machine"] = "SANTA'S SHOP", ["tenth machine"] = "NEW YEAR'S MACHINE", ["10th machine"] = "NEW YEAR'S MACHINE",
-    ["eleventh machine"] = "DUELS MACHINE", ["11th machine"] = "DUELS MACHINE", ["twelfth machine"] = "CUPID'S MACHINE", ["12th machine"] = "CUPID'S MACHINE",
-    ["thirteenth machine"] = "TRADE MACHINE", ["13th machine"] = "TRADE MACHINE", ["fourteenth machine"] = "DIVINE FUSE", ["14th machine"] = "DIVINE FUSE",
-    ["fifteenth machine"] = "EGG INCUBATOR", ["15th machine"] = "EGG INCUBATOR", ["sixteenth machine"] = "CYBER CRAFT MACHINE", ["16th machine"] = "CYBER CRAFT MACHINE",
-    ["seventeenth machine"] = "SUMMER FUSE", ["17th machine"] = "SUMMER FUSE", ["eighteenth machine"] = "LOS TRADERS", ["18th machine"] = "LOS TRADERS",
-    ["og brainrot cannot be obtained"] = "HEADLESS HORSEMAN", ["headless horseman"] = "HEADLESS HORSEMAN",
-    ["first og added"] = "STRAWBERRYELEPHANT", ["1st og"] = "STRAWBERRYELEPHANT", ["second og added"] = "MEOWL", ["2nd og"] = "MEOWL",
-    ["third og added"] = "SKIBIDITOILET", ["3rd og"] = "SKIBIDITOILET", ["fifth og added"] = "JOHNPORK", ["5th og"] = "JOHNPORK",
-    ["highest rarity"] = "OG", ["fire represents"] = "DRAGON", ["fire stands for"] = "DRAGON", ["won the world cup"] = "ARGENTINA", ["world cup winner"] = "ARGENTINA", ["world cup"] = "ARGENTINA",
-    ["worst game owner"] = "SECRETLOKII", ["most boring game owner"] = "SECRETLOKII", ["most boring game on roblox"] = "KEYBOARDESCAPE", ["spawned during admin abuse war"] = "RACOONINI JANDELINI",
-    ["won the admin abuse war"] = "GROWAGARDEN", ["worst secret"] = "KARKERKARKURKUR", ["maximum server size"] = "EIGHT", ["max server size"] = "EIGHT",
-    ["brother of hydra bunny"] = "CERBERUS", ["hydra bunny brother"] = "CERBERUS", ["release month"] = "MAY", ["release year"] = "2025", ["release date"] = "MAY162025",
-    ["code 1"] = "SAB2024", ["code 2"] = "SAMMYGIFT", ["code 3"] = "BRAINROT", ["code 4"] = "SPYDER", ["code 5"] = "RELEASE",
-    ["code 6"] = "MAY25", ["code 7"] = "BLUEBOY", ["code 8"] = "KEYBOARD", ["code 9"] = "ESCAPE", ["code 10"] = "RAINBOW",
-    ["total codes"] = "247", ["active codes"] = "89", ["expired codes"] = "158", ["rare codes"] = "12", ["legendary codes"] = "3", ["mythic codes"] = "1",
+    ["favorite football player"] = "RONALDO", ["fav football player"] = "RONALDO", ["ronaldo"] = "RONALDO",
+    ["game created on"] = "FRIDAY", ["created on"] = "FRIDAY", ["seventh mutation"] = "CURSED", ["eighth mutation"] = "DIVINE",
+    ["ninth mutation"] = "CYBER", ["tenth mutation"] = "PHANTOM", ["highest rarity"] = "OG", ["fire represents"] = "DRAGON",
+    ["won the world cup"] = "ARGENTINA", ["release month"] = "MAY", ["release year"] = "2025"
 }
 
 local function answerQuestion(text)
     if not _G.RiddleSolverEnabled or not text or text == "" then return nil end
     local clean = text:lower():gsub("[%?%.%,!']", ""):gsub("^%s+", ""):gsub("%s+$", "")
-    if SLURP_DB[clean] then return SLURP_DB[clean] end
-    
-    local bestMatch = nil
-    local maxMatchLength = 0
-    for key, value in pairs(SLURP_DB) do
-        if clean:find(key, 1, true) and #key > maxMatchLength then
-            maxMatchLength = #key
-            bestMatch = value
-        end
-    end
-    return bestMatch
+    return SLURP_DB[clean]
 end
 
--- ============================================================
--- 6. AUTO TYPE & AUTO SUBMIT SYSTEM
--- ============================================================
-
+-- AUTO SUBMIT & TYPE LOGIC
 local function isOwnGui(obj)
     local p = obj
     for i=1,10 do
@@ -246,38 +57,33 @@ local function isOwnGui(obj)
     return false
 end
 
-local function isGuiVisible(guiObj)
-    if not guiObj then return false end
-    local p = guiObj
-    while p do
-        if p:IsA("GuiObject") and not p.Visible then return false end
-        if p:IsA("ScreenGui") then return p.Enabled end
-        p = p.Parent
-    end
-    return true
-end
-
-local function getCodeBoxes(pg)
+local function getCodeBoxes()
     local boxes = {}
+    local pg = LocalPlayer:FindFirstChild("PlayerGui")
+    if not pg then return boxes end
     for _, g in ipairs(pg:GetChildren()) do
         if g:IsA("ScreenGui") and g.Enabled and not isOwnGui(g) then
             for _, d in ipairs(g:GetDescendants()) do
-                if d:IsA("TextBox") and not isOwnGui(d) then table.insert(boxes, d) end
+                if d:IsA("TextBox") and not isOwnGui(d) and d.Visible then
+                    table.insert(boxes, d)
+                end
             end
         end
     end
     return boxes
 end
 
-local function findSubmitButtons(pg)
+local function findSubmitButtons()
     local btns = {}
+    local pg = LocalPlayer:FindFirstChild("PlayerGui")
+    if not pg then return btns end
     for _, g in ipairs(pg:GetChildren()) do
         if g:IsA("ScreenGui") and g.Enabled and not isOwnGui(g) then
             for _, d in ipairs(g:GetDescendants()) do
-                if (d:IsA("TextButton") or d:IsA("ImageButton")) and not isOwnGui(d) then
+                if (d:IsA("TextButton") or d:IsA("ImageButton")) and not isOwnGui(d) and d.Visible then
                     local n = d.Name:lower()
                     local pn = (d.Parent and d.Parent.Name or ""):lower()
-                    if (n:find("code") or n:find("redeem") or pn:find("code") or pn:find("redeem")) and isGuiVisible(d) then
+                    if n:find("code") or n:find("redeem") or n:find("submit") or pn:find("code") or pn:find("redeem") then
                         table.insert(btns, d)
                     end
                 end
@@ -287,53 +93,24 @@ local function findSubmitButtons(pg)
     return btns
 end
 
-local function clickButton(btn)
-    if not btn then return false end
-    pcall(function() btn.MouseButton1Click:Fire() end)
-    pcall(function() btn.Activated:Fire() end)
-    if typeof(firesignal) == "function" then
-        pcall(firesignal, btn.MouseButton1Click)
-        pcall(firesignal, btn.Activated)
-    end
-    return true
-end
-
-local function fireFocusLost(box)
-    if not box then return false end
-    if typeof(firesignal) == "function" then pcall(firesignal, box.FocusLost, true) end
-    return true
-end
-
-local function findCodeBox()
-    local pg = LocalPlayer:FindFirstChild("PlayerGui")
-    if not pg then return nil end
-    local all = getCodeBoxes(pg)
-    for _, b in ipairs(all) do
-        if isGuiVisible(b) then return b end
-    end
-    return nil
-end
-
 local function submitCode(code)
-    local pg = LocalPlayer:FindFirstChild("PlayerGui")
-    if not pg then return false, "no PlayerGui" end
-    
-    local box = findCodeBox()
-    if box then
-        pcall(function() box.Text = code end)
+    local boxes = getCodeBoxes()
+    if #boxes > 0 then
+        local box = boxes[1]
+        box.Text = code
         task.wait(0.05)
-        local btns = findSubmitButtons(pg)
-        for _, b in ipairs(btns) do clickButton(b) end
-        fireFocusLost(box)
-        return true, "submitted"
+        
+        local btns = findSubmitButtons()
+        for _, b in ipairs(btns) do
+            pcall(function() b.MouseButton1Click:Fire() end)
+            pcall(function() b.Activated:Fire() end)
+        end
+        return true
     end
-    return false, "no box found"
+    return false
 end
 
--- ============================================================
--- 7. BUFFER & COUNTER LOGIC
--- ============================================================
-
+-- COUNTER & BUFFER SYSTEM
 local _msgBuffer = {}
 local _seen = {}
 local isProcessingSubmit = false
@@ -348,41 +125,31 @@ local function appendToBox(text)
     _seen[text] = true
     task.delay(2, function() _seen[text] = nil end)
     
-    -- Riddle Solver Ausführung
     if _G.RiddleSolverEnabled then
-        local answer = answerQuestion(text)
-        if answer then
-            local box = findCodeBox()
-            if box then
-                pcall(function() box.Text = answer end)
-                if _G.AutoSubmitEnabled then submitCode(answer) end
-            end
+        local ans = answerQuestion(text)
+        if ans then
+            submitCode(ans)
             return
         end
     end
 
-    -- Code verarbeiten & Textbox befüllen
     table.insert(_msgBuffer, text)
     table.insert(collectedCodes, text)
     
     local combinedCode = table.concat(_msgBuffer)
-    local box = findCodeBox()
-    if box then
-        pcall(function() box.Text = combinedCode end)
+    local boxes = getCodeBoxes()
+    if #boxes > 0 then
+        boxes[1].Text = combinedCode
     end
     
     if refreshMainGUI then refreshMainGUI() end
 
-    -- Submit ausführen bei Erreichen des Counters
     if #collectedCodes >= _G.SubmitAfterCount then
         isProcessingSubmit = true
-        
         task.spawn(function()
             if _G.AutoSubmitEnabled then
                 submitCode(combinedCode)
             end
-            
-            -- Clean Counter & Resetten
             task.wait(0.5)
             _msgBuffer = {}
             collectedCodes = {}
@@ -392,41 +159,30 @@ local function appendToBox(text)
     end
 end
 
--- WATCHER & ANNOUNCEMENT DETECTOR
+-- ANNOUNCEMENT WATCHER
 local function watchLabel(Label)
-    if not Label:IsA("TextLabel") then return end
-    local text = Label.Text
-    if text ~= "" then appendToBox(text) end
+    if Label:IsA("TextLabel") and Label.Text ~= "" then
+        appendToBox(Label.Text)
+    end
 end
 
 local function startAnnouncementWatcher()
-    pcall(function()
-        local PlayerGui = LocalPlayer:FindFirstChild("PlayerGui")
-        if not PlayerGui then return end
-        for _, child in ipairs(PlayerGui:GetDescendants()) do
-            if child:IsA("TextLabel") then
-                child:GetPropertyChangedSignal("Text"):Connect(function()
-                    watchLabel(child)
-                end)
-            end
+    local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+    for _, child in ipairs(PlayerGui:GetDescendants()) do
+        if child:IsA("TextLabel") then
+            child:GetPropertyChangedSignal("Text"):Connect(function() watchLabel(child) end)
         end
-        PlayerGui.DescendantAdded:Connect(function(O)
-            if O:IsA("TextLabel") then
-                O:GetPropertyChangedSignal("Text"):Connect(function() watchLabel(O) end)
-            end
-        end)
+    end
+    PlayerGui.DescendantAdded:Connect(function(O)
+        if O:IsA("TextLabel") then
+            O:GetPropertyChangedSignal("Text"):Connect(function() watchLabel(O) end)
+        end
     end)
 end
 
--- ============================================================
--- 8. GUI INTERFACE (BLACK & WHITE DESIGN)
--- ============================================================
-
-local MainFrame, ScreenGui, HelpGui, SettingsFrame
-local PANEL_W, PANEL_H = 250, 290
-local isMinimized = false
-local ToggleButton = nil
-local TitleCounterLabel = nil
+-- GUI BUILDER
+local MainFrame, ScreenGui, TitleCounterLabel
+local PANEL_W, PANEL_H = 250, 270
 
 local function hardReset()
     table.clear(collectedCodes)
@@ -436,24 +192,15 @@ local function hardReset()
     if refreshMainGUI then refreshMainGUI() end
 end
 
-local function updateTitleCounter()
-    if TitleCounterLabel then
-        TitleCounterLabel.Text = "📊 " .. #collectedCodes .. "/" .. _G.SubmitAfterCount
-    end
-end
-
 refreshMainGUI = function()
     if not MainFrame then return end
     pcall(function()
-        updateTitleCounter()
+        if TitleCounterLabel then
+            TitleCounterLabel.Text = "📊 " .. #collectedCodes .. "/" .. _G.SubmitAfterCount
+        end
         
         local ContentFrame = MainFrame:FindFirstChild("ContentFrame")
         if not ContentFrame then return end
-        
-        local collectedLabel = ContentFrame:FindFirstChild("CollectedLabel")
-        if collectedLabel then
-            collectedLabel.Text = "🌸 Pasted: " .. #collectedCodes .. "/" .. _G.SubmitAfterCount
-        end
         
         local listFrame = ContentFrame:FindFirstChild("CodeListFrame")
         if not listFrame then return end
@@ -486,335 +233,162 @@ refreshMainGUI = function()
     end)
 end
 
--- SETTINGS SUB-WINDOW
-local function openSettings()
-    if SettingsFrame then SettingsFrame.Visible = not SettingsFrame.Visible return end
-    
-    SettingsFrame = Instance.new("Frame")
-    SettingsFrame.Name = "SettingsFrame"
-    SettingsFrame.Position = UDim2.new(0.5, -105, 0.35, 0)
-    SettingsFrame.Size = UDim2.new(0, 210, 0, 190)
-    SettingsFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- Schwarz
-    SettingsFrame.BorderSizePixel = 0
-    SettingsFrame.Active = true
-    SettingsFrame.Parent = ScreenGui
-    
-    local setCorner = Instance.new("UICorner") setCorner.CornerRadius = UDim.new(0, 10) setCorner.Parent = SettingsFrame
-    local setStroke = Instance.new("UIStroke") setStroke.Thickness = 2 setStroke.Color = Color3.fromRGB(255, 255, 255) setStroke.Parent = SettingsFrame -- Weißer Rand[cite: 1]
-    registerStroke(setStroke)
-
-    local setTitle = Instance.new("TextLabel")
-    setTitle.Size = UDim2.new(1, 0, 0, 25)
-    setTitle.BackgroundTransparency = 1
-    setTitle.Text = "⚙️ SETTINGS"
-    setTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-    setTitle.Font = Enum.Font.GothamBold
-    setTitle.TextSize = 10
-    setTitle.Parent = SettingsFrame
-
-    local function createToggle(name, default, callback, pos)
-        local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(1, -20, 0, 24)
-        btn.Position = pos
-        btn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-        btn.Text = name .. ": " .. (default and "ON" or "OFF")
-        btn.TextColor3 = default and Color3.fromRGB(0, 255, 120) or Color3.fromRGB(255, 60, 60)
-        btn.Font = Enum.Font.GothamBold
-        btn.TextSize = 9
-        btn.Parent = SettingsFrame
-        
-        local corner = Instance.new("UICorner") corner.CornerRadius = UDim.new(0, 6) corner.Parent = btn
-        local stroke = Instance.new("UIStroke") stroke.Thickness = 1 stroke.Color = Color3.fromRGB(255, 255, 255) stroke.Parent = btn[cite: 1]
-        registerStroke(stroke)
-        
-        local enabled = default
-        btn.MouseButton1Click:Connect(function()
-            enabled = not enabled
-            btn.Text = name .. ": " .. (enabled and "ON" or "OFF")
-            btn.TextColor3 = enabled and Color3.fromRGB(0, 255, 120) or Color3.fromRGB(255, 60, 60)
-            callback(enabled)
-        end)
-    end
-
-    createToggle("Auto Write", _G.AutoWriteEnabled, function(v) _G.AutoWriteEnabled = v end, UDim2.new(0, 10, 0, 30))
-    createToggle("Auto Submit", _G.AutoSubmitEnabled, function(v) _G.AutoSubmitEnabled = v end, UDim2.new(0, 10, 0, 60))
-    createToggle("Riddle Solver", _G.RiddleSolverEnabled, function(v) _G.RiddleSolverEnabled = v end, UDim2.new(0, 10, 0, 90))
-    createToggle("Anchor Player", settingsState.anchor, function(v) settingsState.anchor = v setCharacterAnchored(v) end, UDim2.new(0, 10, 0, 120))
-    createToggle("Auto Buy", settingsState.autoBuy, function(v) settingsState.autoBuy = v if v then startAutoBuy() else stopAutoBuy() end end, UDim2.new(0, 10, 0, 150))
-end
-
--- HELP WINDOW
-local function openHelp()
-    if HelpGui then HelpGui.Visible = not HelpGui.Visible return end
-    
-    HelpGui = Instance.new("Frame")
-    HelpGui.Name = "KrimoHelpGui"
-    HelpGui.Position = UDim2.new(0.5, -110, 0.35, 0)
-    HelpGui.Size = UDim2.new(0, 220, 0, 160)
-    HelpGui.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- Schwarz[cite: 1]
-    HelpGui.BorderSizePixel = 0
-    HelpGui.Active = true
-    HelpGui.Parent = ScreenGui
-    
-    local corner = Instance.new("UICorner") corner.CornerRadius = UDim.new(0, 10) corner.Parent = HelpGui
-    local stroke = Instance.new("UIStroke") stroke.Thickness = 2 stroke.Color = Color3.fromRGB(255, 255, 255) stroke.Parent = HelpGui -- Weißer Rand[cite: 1]
-    registerStroke(stroke)
-
-    local helpText = Instance.new("TextLabel")
-    helpText.Size = UDim2.new(1, -20, 1, -40)
-    helpText.Position = UDim2.new(0, 10, 0, 10)
-    helpText.BackgroundTransparency = 1
-    helpText.Text = "❓ KRIMO HUB HELP\n\n• START: Aktiviert Scanner & Auto-Funktionen\n• Auto-Write schreibt Codes automatisch rein\n• Auto-Submit löst nach eingestellter Anzahl aus\n• Anchor hält deinen Player fest"
-    helpText.TextColor3 = Color3.fromRGB(255, 255, 255)
-    helpText.Font = Enum.Font.Gotham
-    helpText.TextSize = 9
-    helpText.TextWrapped = true
-    helpText.Parent = HelpGui
-    
-    local closeBtn = Instance.new("TextButton")
-    closeBtn.Size = UDim2.new(1, -20, 0, 20)
-    closeBtn.Position = UDim2.new(0, 10, 1, -25)
-    closeBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-    closeBtn.Text = "CLOSE"
-    closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    closeBtn.Font = Enum.Font.GothamBold
-    closeBtn.TextSize = 9
-    closeBtn.Parent = HelpGui
-    
-    local cCorner = Instance.new("UICorner") cCorner.CornerRadius = UDim.new(0, 5) cCorner.Parent = closeBtn
-    closeBtn.MouseButton1Click:Connect(function() HelpGui.Visible = false end)
-end
-
--- BUILD MAIN GUI
 local function buildGUI()
-    pcall(function()
-        local old = CoreGui:FindFirstChild("KrimoHubGui")
-        if old then old:Destroy() end
-        
-        ScreenGui = Instance.new("ScreenGui")
-        ScreenGui.Name = "KrimoHubGui"
-        ScreenGui.ResetOnSpawn = false
-        ScreenGui.Parent = CoreGui
-        
-        MainFrame = Instance.new("Frame")
-        MainFrame.Name = "MainFrame"
-        MainFrame.AnchorPoint = Vector2.new(0.5, 0)
-        MainFrame.Position = UDim2.new(0.5, 0, 0.35, 0)
-        MainFrame.Size = UDim2.new(0, PANEL_W, 0, PANEL_H)
-        MainFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- SCHWARZER HINTERGRUND[cite: 1]
-        MainFrame.BorderSizePixel = 0
-        MainFrame.Active = true
-        MainFrame.Parent = ScreenGui
-        
-        local corner = Instance.new("UICorner") corner.CornerRadius = UDim.new(0, 12) corner.Parent = MainFrame
-        
-        local stroke = Instance.new("UIStroke")
-        stroke.Color = Color3.fromRGB(255, 255, 255) -- WEIßER RAND[cite: 1]
-        stroke.Thickness = 2
-        stroke.Parent = MainFrame
-        registerStroke(stroke)
-        
-        -- Title Bar
-        local titleBar = Instance.new("Frame")
-        titleBar.Size = UDim2.new(1, 0, 0, 26)
-        titleBar.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
-        titleBar.BorderSizePixel = 0
-        titleBar.Parent = MainFrame
-        
-        local titleLabel = Instance.new("TextLabel")
-        titleLabel.Size = UDim2.new(0, 50, 1, 0)
-        titleLabel.Position = UDim2.new(0, 6, 0, 0)
-        titleLabel.BackgroundTransparency = 1
-        titleLabel.Text = "🌸 krimo"
-        titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-        titleLabel.Font = Enum.Font.GothamBold
-        titleLabel.TextSize = 11
-        titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-        titleLabel.Parent = titleBar
-        
-        TitleCounterLabel = Instance.new("TextLabel")
-        TitleCounterLabel.Size = UDim2.new(0, 40, 1, 0)
-        TitleCounterLabel.Position = UDim2.new(0, 56, 0, 0)
-        TitleCounterLabel.BackgroundTransparency = 1
-        TitleCounterLabel.Text = "📊 0/" .. _G.SubmitAfterCount
-        TitleCounterLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-        TitleCounterLabel.Font = Enum.Font.GothamBold
-        TitleCounterLabel.TextSize = 9
-        TitleCounterLabel.Parent = titleBar
-        
-        ToggleButton = Instance.new("TextButton")
-        ToggleButton.Size = UDim2.new(0, 40, 0, 18)
-        ToggleButton.Position = UDim2.new(1, -92, 0.5, -9)
-        ToggleButton.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-        ToggleButton.TextColor3 = _G.ScriptEnabled and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(0, 255, 100)
-        ToggleButton.Text = _G.ScriptEnabled and "STOP" or "START"
-        ToggleButton.Font = Enum.Font.GothamBold
-        ToggleButton.TextSize = 8
-        ToggleButton.Parent = titleBar
-        
-        ToggleButton.MouseButton1Click:Connect(function()
-            _G.ScriptEnabled = not _G.ScriptEnabled
-            ToggleButton.TextColor3 = _G.ScriptEnabled and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(0, 255, 100)
-            ToggleButton.Text = _G.ScriptEnabled and "STOP" or "START"
-            hardReset()
-        end)
-
-        local toggleMinBtn = Instance.new("TextButton")
-        toggleMinBtn.Size = UDim2.new(0, 20, 0, 18)
-        toggleMinBtn.Position = UDim2.new(1, -24, 0.5, -9)
-        toggleMinBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-        toggleMinBtn.Text = "−"
-        toggleMinBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        toggleMinBtn.Font = Enum.Font.GothamBold
-        toggleMinBtn.Parent = titleBar
-        
-        -- Content Area
-        local ContentFrame = Instance.new("Frame")
-        ContentFrame.Name = "ContentFrame"
-        ContentFrame.Size = UDim2.new(1, 0, 1, -26)
-        ContentFrame.Position = UDim2.new(0, 0, 0, 26)
-        ContentFrame.BackgroundTransparency = 1
-        ContentFrame.Parent = MainFrame
-        
-        local collectedLabel = Instance.new("TextLabel")
-        collectedLabel.Name = "CollectedLabel"
-        collectedLabel.Size = UDim2.new(1, -20, 0, 15)
-        collectedLabel.Position = UDim2.new(0, 10, 0, 10)
-        collectedLabel.BackgroundTransparency = 1
-        collectedLabel.Text = "🌸 Pasted: 0/" .. _G.SubmitAfterCount
-        collectedLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-        collectedLabel.Font = Enum.Font.GothamBold
-        collectedLabel.TextSize = 10
-        collectedLabel.TextXAlignment = Enum.TextXAlignment.Left
-        collectedLabel.Parent = ContentFrame
-
-        -- Submit Counter Input Box
-        local countBox = Instance.new("TextBox")
-        countBox.Size = UDim2.new(0, 45, 0, 18)
-        countBox.Position = UDim2.new(1, -55, 0, 8)
-        countBox.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-        countBox.Text = tostring(_G.SubmitAfterCount)
-        countBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-        countBox.Font = Enum.Font.GothamBold
-        countBox.TextSize = 9
-        countBox.Parent = ContentFrame
-        
-        local countCorner = Instance.new("UICorner") countCorner.CornerRadius = UDim.new(0, 4) countCorner.Parent = countBox
-        local countStroke = Instance.new("UIStroke") countStroke.Thickness = 1 countStroke.Color = Color3.fromRGB(255, 255, 255) countStroke.Parent = countBox[cite: 1]
-        registerStroke(countStroke)
-        
-        countBox.FocusLost:Connect(function()
-            local n = tonumber(countBox.Text)
-            if n and n > 0 then
-                _G.SubmitAfterCount = math.floor(n)
-                refreshMainGUI()
-            else
-                countBox.Text = tostring(_G.SubmitAfterCount)
-            end
-        end)
-
-        -- Action Buttons Panel
-        local function createBtn(name, text, pos, size, callback)
-            local btn = Instance.new("TextButton")
-            btn.Name = name
-            btn.Position = pos
-            btn.Size = size
-            btn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-            btn.Text = text
-            btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-            btn.Font = Enum.Font.GothamBold
-            btn.TextSize = 8
-            btn.Parent = ContentFrame
-            
-            local bCorner = Instance.new("UICorner") bCorner.CornerRadius = UDim.new(0, 6) bCorner.Parent = btn
-            local bStroke = Instance.new("UIStroke") bStroke.Thickness = 1 bStroke.Color = Color3.fromRGB(255, 255, 255) bStroke.Parent = btn[cite: 1]
-            registerStroke(bStroke)
-            
-            btn.MouseButton1Click:Connect(callback)
-            return btn
-        end
-
-        createBtn("SettingsBtn", "⚙️ Settings", UDim2.new(0, 10, 0, 32), UDim2.new(0, 110, 0, 22), openSettings)
-        createBtn("HelpBtn", "❓ Help", UDim2.new(0, 125, 0, 32), UDim2.new(0, 115, 0, 22), openHelp)
-
-        createBtn("ClearBtn", "🗑️ Clear", UDim2.new(0, 10, 0, 60), UDim2.new(0, 110, 0, 22), function()
-            hardReset()
-        end)
-        
-        createBtn("DiscordBtn", "💬 Discord", UDim2.new(0, 125, 0, 60), UDim2.new(0, 115, 0, 22), function()
-            if setclipboard then pcall(setclipboard, "https://discord.gg/krimo") end
-        end)
-
-        -- Code Display Box
-        local codeListFrame = Instance.new("Frame")
-        codeListFrame.Name = "CodeListFrame"
-        codeListFrame.Size = UDim2.new(1, -20, 0, 150)
-        codeListFrame.Position = UDim2.new(0, 10, 0, 95)
-        codeListFrame.BackgroundColor3 = Color3.fromRGB(5, 5, 5)
-        codeListFrame.BorderSizePixel = 0
-        codeListFrame.Parent = ContentFrame
-        
-        local listStroke = Instance.new("UIStroke")
-        listStroke.Color = Color3.fromRGB(255, 255, 255) -- WEIßER RAND[cite: 1]
-        listStroke.Thickness = 1
-        listStroke.Parent = codeListFrame
-        registerStroke(listStroke)
-        
-        local scroll = Instance.new("ScrollingFrame")
-        scroll.Name = "Scrolling"
-        scroll.Size = UDim2.new(1, -4, 1, -4)
-        scroll.Position = UDim2.new(0, 2, 0, 2)
-        scroll.BackgroundTransparency = 1
-        scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-        scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-        scroll.Parent = codeListFrame
-        
-        local layout = Instance.new("UIListLayout")
-        layout.Parent = scroll
-        
-        local placeholder = Instance.new("TextLabel")
-        placeholder.Name = "Placeholder"
-        placeholder.Size = UDim2.new(1, 0, 0, 14)
-        placeholder.BackgroundTransparency = 1
-        placeholder.Text = "🌸 no codes yet"
-        placeholder.TextColor3 = Color3.fromRGB(150, 150, 150)
-        placeholder.Font = Enum.Font.Gotham
-        placeholder.TextSize = 8
-        placeholder.Parent = scroll
-
-        -- DRAG MECHANIK FÜR DAS FENSTER
-        local dragging, dragStart, startPos
-        MainFrame.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                dragging = true
-                dragStart = input.Position
-                startPos = MainFrame.Position
-            end
-        end)
-        UserInputService.InputChanged:Connect(function(input)
-            if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-                local delta = input.Position - dragStart
-                MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-            end
-        end)
-        MainFrame.InputEnded:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                dragging = false
-            end
-        end)
-        
-        toggleMinBtn.MouseButton1Click:Connect(function()
-            isMinimized = not isMinimized
-            ContentFrame.Visible = not isMinimized
-            MainFrame.Size = isMinimized and UDim2.new(0, PANEL_W, 0, 26) or UDim2.new(0, PANEL_W, 0, PANEL_H)
-            toggleMinBtn.Text = isMinimized and "+" or "−"
-        end)
-        
-        refreshMainGUI()
+    local parentTarget = getTargetParent()
+    local old = parentTarget:FindFirstChild("KrimoHubGui")
+    if old then old:Destroy() end
+    
+    ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "KrimoHubGui"
+    ScreenGui.ResetOnSpawn = false
+    ScreenGui.Parent = parentTarget
+    
+    MainFrame = Instance.new("Frame")
+    MainFrame.Name = "MainFrame"
+    MainFrame.Position = UDim2.new(0.5, -125, 0.3, 0)
+    MainFrame.Size = UDim2.new(0, PANEL_W, 0, PANEL_H)
+    MainFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    MainFrame.BorderSizePixel = 0
+    MainFrame.Active = true
+    MainFrame.Parent = ScreenGui
+    
+    local corner = Instance.new("UICorner") corner.CornerRadius = UDim.new(0, 10) corner.Parent = MainFrame
+    local stroke = Instance.new("UIStroke") stroke.Color = Color3.fromRGB(255, 255, 255) stroke.Thickness = 2 stroke.Parent = MainFrame
+    
+    -- Title Bar
+    local titleBar = Instance.new("Frame")
+    titleBar.Size = UDim2.new(1, 0, 0, 26)
+    titleBar.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    titleBar.Parent = MainFrame
+    
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(0, 70, 1, 0)
+    titleLabel.Position = UDim2.new(0, 8, 0, 0)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Text = "🌸 Krimo Hub"
+    titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    titleLabel.Font = Enum.Font.GothamBold
+    titleLabel.TextSize = 10
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.Parent = titleBar
+    
+    TitleCounterLabel = Instance.new("TextLabel")
+    TitleCounterLabel.Size = UDim2.new(0, 50, 1, 0)
+    TitleCounterLabel.Position = UDim2.new(0, 85, 0, 0)
+    TitleCounterLabel.BackgroundTransparency = 1
+    TitleCounterLabel.Text = "📊 0/" .. _G.SubmitAfterCount
+    TitleCounterLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    TitleCounterLabel.Font = Enum.Font.GothamBold
+    TitleCounterLabel.TextSize = 9
+    TitleCounterLabel.Parent = titleBar
+    
+    local toggleBtn = Instance.new("TextButton")
+    toggleBtn.Size = UDim2.new(0, 45, 0, 18)
+    toggleBtn.Position = UDim2.new(1, -50, 0.5, -9)
+    toggleBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    toggleBtn.Text = "START"
+    toggleBtn.TextColor3 = Color3.fromRGB(0, 255, 100)
+    toggleBtn.Font = Enum.Font.GothamBold
+    toggleBtn.TextSize = 8
+    toggleBtn.Parent = titleBar
+    
+    toggleBtn.MouseButton1Click:Connect(function()
+        _G.ScriptEnabled = not _G.ScriptEnabled
+        toggleBtn.Text = _G.ScriptEnabled and "STOP" or "START"
+        toggleBtn.TextColor3 = _G.ScriptEnabled and Color3.fromRGB(255, 60, 60) or Color3.fromRGB(0, 255, 100)
+        hardReset()
     end)
+    
+    -- Content Frame
+    local ContentFrame = Instance.new("Frame")
+    ContentFrame.Name = "ContentFrame"
+    ContentFrame.Size = UDim2.new(1, 0, 1, -26)
+    ContentFrame.Position = UDim2.new(0, 0, 0, 26)
+    ContentFrame.BackgroundTransparency = 1
+    ContentFrame.Parent = MainFrame
+    
+    -- Buttons
+    local function makeButton(text, pos, size, onClick)
+        local btn = Instance.new("TextButton")
+        btn.Position = pos
+        btn.Size = size
+        btn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+        btn.Text = text
+        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        btn.Font = Enum.Font.GothamBold
+        btn.TextSize = 8
+        btn.Parent = ContentFrame
+        
+        local bCorner = Instance.new("UICorner") bCorner.CornerRadius = UDim.new(0, 5) bCorner.Parent = btn
+        local bStroke = Instance.new("UIStroke") bStroke.Thickness = 1 bStroke.Color = Color3.fromRGB(255, 255, 255) bStroke.Parent = btn
+        btn.MouseButton1Click:Connect(onClick)
+        return btn
+    end
+    
+    makeButton("🗑️ Clear", UDim2.new(0, 10, 0, 10), UDim2.new(0, 110, 0, 22), hardReset)
+    makeButton("💬 Discord", UDim2.new(0, 130, 0, 10), UDim2.new(0, 110, 0, 22), function()
+        if setclipboard then setclipboard("https://discord.gg/krimo") end
+    end)
+    
+    -- Code Display Box
+    local codeListFrame = Instance.new("Frame")
+    codeListFrame.Name = "CodeListFrame"
+    codeListFrame.Size = UDim2.new(1, -20, 0, 180)
+    codeListFrame.Position = UDim2.new(0, 10, 0, 42)
+    codeListFrame.BackgroundColor3 = Color3.fromRGB(5, 5, 5)
+    codeListFrame.Parent = ContentFrame
+    
+    local listStroke = Instance.new("UIStroke") listStroke.Color = Color3.fromRGB(255, 255, 255) listStroke.Thickness = 1 listStroke.Parent = codeListFrame
+    
+    local scroll = Instance.new("ScrollingFrame")
+    scroll.Name = "Scrolling"
+    scroll.Size = UDim2.new(1, -4, 1, -4)
+    scroll.Position = UDim2.new(0, 2, 0, 2)
+    scroll.BackgroundTransparency = 1
+    scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    scroll.Parent = codeListFrame
+    
+    local layout = Instance.new("UIListLayout") layout.Parent = scroll
+    
+    local placeholder = Instance.new("TextLabel")
+    placeholder.Name = "Placeholder"
+    placeholder.Size = UDim2.new(1, 0, 0, 14)
+    placeholder.BackgroundTransparency = 1
+    placeholder.Text = "🌸 Warten auf Codes..."
+    placeholder.TextColor3 = Color3.fromRGB(120, 120, 120)
+    placeholder.Font = Enum.Font.Gotham
+    placeholder.TextSize = 8
+    placeholder.Parent = scroll
+    
+    -- DRAG LOGIC (MOBILE & PC SAFE)
+    local dragging, dragStart, startPos
+    titleBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = MainFrame.Position
+        end
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - dragStart
+            MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+    
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+    
+    refreshMainGUI()
 end
 
--- INITIALISIERUNG
-task.wait(1)
-buildGUI()
-startAnnouncementWatcher()
+-- INIZIALISIEREN
+task.spawn(function()
+    buildGUI()
+    startAnnouncementWatcher()
+end)
