@@ -217,7 +217,7 @@ local function stopAutoBuy()
     end
 end
 
--- 5. RIDDLE DATABASE (VEREINFACHT FÜR DIESEN CODE)
+-- 5. RIDDLE DATABASE (gekürzt, aber alle wichtigen Einträge)
 local SLURP_DB = {
     ["how old am i"] = "24",
     ["how old is sammy"] = "24",
@@ -389,20 +389,22 @@ local function answerQuestion(text)
 end
 
 -- ============================================================
--- AUTO TYPE & AUTO SUBMIT LOGIK (AUS LEVITHON SCRIPT)
+-- AUTO TYPE & AUTO SUBMIT LOGIK (AUS LEVITHON SCRIPT + VERBESSERT)
 -- ============================================================
 
-local function isLevithonGui(obj)
+local function isOwnGui(obj)
     local p = obj
     for i=1,10 do
         if not p then break end
-        if p.Name == "KrimoHubGui" or p.Name == "KrimoSettingsTest" then return true end
+        if p.Name == "KrimoHubGui" or p.Name == "KrimoSettingsTest" or p.Name == "KrimoHelpGui" then
+            return true
+        end
         p = p.Parent
     end
     return false
 end
 
-local function isGuiObjectVisible(guiObj)
+local function isGuiVisible(guiObj)
     if not guiObj then return false end
     local p = guiObj
     while p do
@@ -413,283 +415,187 @@ local function isGuiObjectVisible(guiObj)
     return true
 end
 
-local function getCodeBoxes(pg)
-    local boxes = {}
-    for _, g in ipairs(pg:GetChildren()) do
-        if g:IsA("ScreenGui") and g.Enabled and not isLevithonGui(g) then
-            for _, d in ipairs(g:GetDescendants()) do
-                if d:IsA("TextBox") and not isLevithonGui(d) then
-                    table.insert(boxes, d)
-                end
-            end
-        end
-    end
-    return boxes
-end
-
-local function findSubmitButtons(pg)
-    local btns = {}
-    for _, g in ipairs(pg:GetChildren()) do
-        if g:IsA("ScreenGui") and g.Enabled and not isLevithonGui(g) then
-            for _, d in ipairs(g:GetDescendants()) do
-                if (d:IsA("TextButton") or d:IsA("ImageButton")) and not isLevithonGui(d) then
-                    local n = d.Name:lower()
-                    local pn = (d.Parent and d.Parent.Name or ""):lower()
-                    if (n:find("code") or n:find("redeem") or pn:find("code") or pn:find("redeem")) and isGuiObjectVisible(d) then
-                        table.insert(btns, d)
-                    end
-                end
-            end
-        end
-    end
-    return btns
-end
-
-local function clickButton(btn)
-    if not btn then return false end
+-- Suche nach Code-Box (zuerst spezifischer Pfad, dann dynamisch)
+local function findCodeBox()
+    local pg = LocalPlayer:FindFirstChild("PlayerGui")
+    if not pg then return nil end
     
-    local methods = {}
-    table.insert(methods, function() btn.MouseButton1Click:Fire() end)
-    table.insert(methods, function() btn.Activated:Fire() end)
-    
-    if typeof(firesignal) == "function" then
-        table.insert(methods, function() firesignal(btn.MouseButton1Click) end)
-        table.insert(methods, function() firesignal(btn.Activated) end)
-    end
-    
-    if typeof(getconnections) == "function" then
-        table.insert(methods, function()
-            local ok, cs = pcall(getconnections, btn.MouseButton1Click)
-            if ok and type(cs) == "table" then
-                for _, c in ipairs(cs) do pcall(function() c:Fire() end) end
-            end
-            local ok2, cs2 = pcall(getconnections, btn.Activated)
-            if ok2 and type(cs2) == "table" then
-                for _, c in ipairs(cs2) do pcall(function() c:Fire() end) end
-            end
-        end)
-    end
-    
-    if typeof(fireclick) == "function" then
-        table.insert(methods, function() fireclick(btn) end)
-    end
-    
-    local anySuccess = false
-    for _, f in ipairs(methods) do
-        local ok = pcall(f)
-        anySuccess = anySuccess or ok
-    end
-    return anySuccess
-end
-
-local function fireBoxFocusLost(box)
-    if not box then return false end
-    local anySuccess = false
-    
-    if typeof(firesignal) == "function" then
-        local ok = pcall(firesignal, box.FocusLost, true)
-        anySuccess = anySuccess or ok
-    end
-    
-    if typeof(getconnections) == "function" then
-        local ok, cs = pcall(getconnections, box.FocusLost)
-        if ok and type(cs) == "table" then
-            for _, c in ipairs(cs) do
-                local f
-                pcall(function() f = c.Function end)
-                if f and typeof(getupvalues) == "function" and typeof(setupvalue) == "function" then
-                    local uok, ups = pcall(getupvalues, f)
-                    if uok and type(ups) == "table" then
-                        for i, v in pairs(ups) do
-                            if type(v) == "boolean" and v == true then
-                                pcall(setupvalue, f, i, false)
-                            end
-                        end
-                    end
-                end
-                local fok = pcall(function() if c.Enabled ~= false then c:Fire(true) end end)
-                anySuccess = anySuccess or fok
-            end
-        end
-    end
-    
-    return anySuccess
-end
-
--- PFADE
-local Announcements = nil
-local CodeTextBox = nil
-local SubmitButton = nil
-local _delay = 0
-local PlayerGui = nil
-local ToggleButton = nil
-
-local function setupPaths()
-    pcall(function()
-        PlayerGui = LocalPlayer:FindFirstChild("PlayerGui")
-        if not PlayerGui then return end
-        
-        -- Für Codes GUI (optional)
-        local codes = PlayerGui:FindFirstChild("Codes")
-        if codes then
-            local codesInner = codes:FindFirstChild("Codes")
-            if codesInner then
-                local codeRedeem = codesInner:FindFirstChild("CodeRedeem")
-                if codeRedeem then
-                    CodeTextBox = codeRedeem:FindFirstChild("TextBox")
-                end
-            end
-        end
-        
-        -- Announcements für Sammy Nachrichten
-        local topNotif = PlayerGui:FindFirstChild("TopNotification")
-        if topNotif then
-            Announcements = topNotif:FindFirstChild("TopNotification")
-        end
-        if not Announcements then
-            for _, child in ipairs(PlayerGui:GetDescendants()) do
-                if child:IsA("Frame") and child.Name:lower():find("announce") then
-                    Announcements = child
-                    break
-                end
-            end
-        end
-    end)
-end
-
--- SUBMIT CODE FUNCTION (AUS LEVITHON)
-local function submitCodeViaDynamicSearch(code)
-    local pg = PlayerGui or LocalPlayer:FindFirstChildOfClass("PlayerGui")
-    if not pg then return false, "no PlayerGui" end
-    
-    -- Versuche zuerst Codes GUI
+    -- 1. Spezifischer Pfad (wie im alten Krimo Hub)
     local codesGui = pg:FindFirstChild("Codes")
-    if codesGui then
-        if codesGui:IsA("ScreenGui") then codesGui.Enabled = true end
-        local codesFrame = codesGui:FindFirstChild("Codes") or codesGui
+    if codesGui and codesGui:IsA("ScreenGui") and codesGui.Enabled then
+        local codesFrame = codesGui:FindFirstChild("Codes")
         if codesFrame then
-            if codesFrame:IsA("GuiObject") then codesFrame.Visible = true end
-            local cur = codesFrame
-            while cur and cur ~= codesGui do
-                if cur:IsA("GuiObject") then cur.Visible = true end
-                cur = cur.Parent
-            end
-            
-            local box = nil
-            for _, d in ipairs(codesFrame:GetDescendants()) do
-                if d:IsA("TextBox") and not isLevithonGui(d) then
-                    box = d
-                    break
+            local codeRedeem = codesFrame:FindFirstChild("CodeRedeem")
+            if codeRedeem then
+                local box = codeRedeem:FindFirstChild("TextBox")
+                if box and box:IsA("TextBox") and isGuiVisible(box) then
+                    return box
                 end
             end
-            
-            local btn = nil
-            for _, d in ipairs(codesFrame:GetDescendants()) do
-                if (d:IsA("TextButton") or d:IsA("ImageButton")) and not isLevithonGui(d) then
-                    local n = d.Name:lower()
-                    local t = ""
-                    pcall(function() t = d.Text:lower() end)
-                    if n:find("submit") or t:find("submit") or n:find("redeem") or t:find("redeem") or n:find("claim") or t:find("confirm") or n:find("enter") then
-                        btn = d
-                        break
+        end
+    end
+    
+    -- 2. Dynamische Suche (alle TextBoxen in aktiven ScreenGuis)
+    for _, g in ipairs(pg:GetChildren()) do
+        if g:IsA("ScreenGui") and g.Enabled and not isOwnGui(g) then
+            for _, d in ipairs(g:GetDescendants()) do
+                if d:IsA("TextBox") and not isOwnGui(d) and isGuiVisible(d) then
+                    -- Bevorzuge Boxen mit "code" im Namen oder Placeholder
+                    local name = d.Name:lower()
+                    local placeholder = ""
+                    pcall(function() placeholder = d.PlaceholderText:lower() end)
+                    if name:find("code") or placeholder:find("code") then
+                        return d
                     end
                 end
             end
-            
-            if not btn then
-                for _, d in ipairs(codesFrame:GetDescendants()) do
-                    if (d:IsA("TextButton") or d:IsA("ImageButton")) and not isLevithonGui(d) then
-                        local n = d.Name:lower()
-                        if not n:find("close") and not n:find("x") and not n:find("toggle") then
-                            btn = d
-                            break
-                        end
-                    end
+        end
+    end
+    
+    -- 3. Fallback: irgendeine sichtbare TextBox
+    for _, g in ipairs(pg:GetChildren()) do
+        if g:IsA("ScreenGui") and g.Enabled and not isOwnGui(g) then
+            for _, d in ipairs(g:GetDescendants()) do
+                if d:IsA("TextBox") and not isOwnGui(d) and isGuiVisible(d) then
+                    return d
                 end
-            end
-            
-            if box then
-                pcall(function() box.Text = code end)
-                task.wait(0.05)
-                if btn then clickButton(btn) end
-                fireBoxFocusLost(box)
-                return true, "submitted via PlayerGui.Codes"
             end
         end
     end
     
-    -- Dynamische Suche nach Buttons
-    local btns = findSubmitButtons(pg)
-    for _, b in ipairs(btns) do
-        clickButton(b)
-        task.wait(0.05)
-    end
-    task.wait(0.2)
+    return nil
+end
+
+-- Suche nach Submit-Button
+local function findSubmitButton(box)
+    if not box then return nil end
+    local pg = LocalPlayer:FindFirstChild("PlayerGui")
+    if not pg then return nil end
     
-    -- Suche nach CodeBox
-    local box = nil
-    local deadline = math.floor(os.clock() + 2)
-    while os.clock() < deadline do
-        local all = getCodeBoxes(pg)
-        for _, d in ipairs(all) do
-            if isGuiObjectVisible(d) then
-                local n = d.Name:lower()
-                local pn = (d.Parent and d.Parent.Name or ""):lower()
-                if n:find("code") or pn:find("code") or n:find("redeem") or pn:find("redeem") or n:find("input") or pn:find("textbox") or n:find("enter") then
-                    box = d
-                    break
-                end
-            end
-        end
-        if not box then
-            for _, d in ipairs(all) do
-                if isGuiObjectVisible(d) then
-                    box = d
-                    break
-                end
-            end
-        end
-        if box then break end
-        task.wait(0.1)
-    end
-    
-    if not box then return false, "no codebox visible" end
-    
-    pcall(function() box.Text = code end)
-    task.wait(0.05)
-    
-    -- Suche nach Submit Button in der Nähe der Box
-    local btn = nil
-    local names = {"submit", "redeem", "claim", "confirm", "enter", "send", "apply", "ok", "use", "go", "check"}
+    -- 1. Suche im Parent-Baum der Box
     local p = box.Parent
-    for i = 1, 8 do
+    for i=1,8 do
         if not p then break end
         for _, d in ipairs(p:GetDescendants()) do
-            if (d:IsA("TextButton") or d:IsA("ImageButton")) and not isLevithonGui(d) and d ~= box then
+            if (d:IsA("TextButton") or d:IsA("ImageButton")) and not isOwnGui(d) and d ~= box and isGuiVisible(d) then
                 local n = d.Name:lower()
                 local t = ""
                 pcall(function() t = d.Text:lower() end)
-                for _, sn in ipairs(names) do
-                    if n:find(sn) or t:find(sn) then
-                        if isGuiObjectVisible(d) then
-                            btn = d
-                            break
-                        end
+                local keywords = {"submit", "redeem", "claim", "confirm", "enter", "send", "apply", "ok", "use", "go"}
+                for _, kw in ipairs(keywords) do
+                    if n:find(kw) or t:find(kw) then
+                        return d
                     end
                 end
-                if btn then break end
             end
         end
-        if btn then break end
         p = p.Parent
     end
     
-    if btn then clickButton(btn) end
-    fireBoxFocusLost(box)
-    return true, "submitted via dynamic search"
+    -- 2. Suche im gesamten ScreenGui
+    local gui = box:FindFirstAncestorOfClass("ScreenGui")
+    if gui then
+        for _, d in ipairs(gui:GetDescendants()) do
+            if (d:IsA("TextButton") or d:IsA("ImageButton")) and not isOwnGui(d) and d ~= box and isGuiVisible(d) then
+                local n = d.Name:lower()
+                local t = ""
+                pcall(function() t = d.Text:lower() end)
+                local keywords = {"submit", "redeem", "claim", "confirm", "enter", "send", "apply", "ok", "use", "go"}
+                for _, kw in ipairs(keywords) do
+                    if n:find(kw) or t:find(kw) then
+                        return d
+                    end
+                end
+            end
+        end
+    end
+    
+    return nil
 end
 
--- STATE
+-- Klick-Button (mehrere Methoden)
+local function clickButton(btn)
+    if not btn then return false end
+    local ok = false
+    pcall(function() btn.MouseButton1Click:Fire() ok = true end)
+    pcall(function() btn.Activated:Fire() ok = true end)
+    if typeof(firesignal) == "function" then
+        pcall(function() firesignal(btn.MouseButton1Click) ok = true end)
+        pcall(function() firesignal(btn.Activated) ok = true end)
+    end
+    if typeof(getconnections) == "function" then
+        pcall(function()
+            local cs = getconnections(btn.MouseButton1Click)
+            if cs then for _, c in ipairs(cs) do pcall(function() c:Fire() end) end end
+            local cs2 = getconnections(btn.Activated)
+            if cs2 then for _, c in ipairs(cs2) do pcall(function() c:Fire() end) end end
+        end)
+    end
+    if typeof(fireclick) == "function" then
+        pcall(function() fireclick(btn) ok = true end)
+    end
+    return ok
+end
+
+-- FocusLost feuern
+local function fireFocusLost(box)
+    if not box then return false end
+    local ok = false
+    if typeof(firesignal) == "function" then
+        pcall(function() firesignal(box.FocusLost, true) ok = true end)
+    end
+    if typeof(getconnections) == "function" then
+        pcall(function()
+            local cs = getconnections(box.FocusLost)
+            if cs then
+                for _, c in ipairs(cs) do
+                    -- Debounce ausschalten
+                    local f
+                    pcall(function() f = c.Function end)
+                    if f and typeof(getupvalues) == "function" and typeof(setupvalue) == "function" then
+                        local ups = getupvalues(f)
+                        if ups then
+                            for i, v in pairs(ups) do
+                                if type(v) == "boolean" and v == true then
+                                    pcall(setupvalue, f, i, false)
+                                end
+                            end
+                        end
+                    end
+                    pcall(function() if c.Enabled ~= false then c:Fire(true) end end)
+                    ok = true
+                end
+            end
+        end)
+    end
+    return ok
+end
+
+-- Haupt-Submit-Funktion
+local function submitCode(code)
+    local box = findCodeBox()
+    if not box then
+        print("[KrimoHub] Keine Code-Box gefunden!")
+        return false, "no codebox"
+    end
+    
+    -- Text setzen
+    pcall(function() box.Text = code end)
+    task.wait(0.05)
+    
+    -- Submit-Button finden und klicken
+    local btn = findSubmitButton(box)
+    if btn then
+        clickButton(btn)
+    else
+        -- Fallback: FocusLost feuern (manchmal triggert das den Submit)
+        fireFocusLost(box)
+    end
+    
+    return true, "submitted"
+end
+
+-- STATE für gesammelte Codes
 local _msgBuffer = {}
 local _seen = {}
 local _submitAfter = _G.SubmitAfterCount
@@ -697,7 +603,7 @@ local isProcessingSubmit = false
 local collectedCodes = {}
 local history = {}
 
--- APPEND TO BOX (AUS LEVITHON)
+-- APPEND TO BOX (wird von Sammy-Nachrichten aufgerufen)
 local function appendToBox(text)
     if not text or text == "" then return end
     if not _G.ScriptEnabled then return end
@@ -708,13 +614,15 @@ local function appendToBox(text)
     if _G.RiddleSolverEnabled then
         local answer = answerQuestion(text)
         if answer then
-            local box = getCodeBoxes(PlayerGui or LocalPlayer:FindFirstChildOfClass("PlayerGui"))[1]
-            if box then box.Text = answer end
-            if _G.AutoSubmitEnabled then
-                task.spawn(function()
-                    task.wait(_delay)
-                    submitCodeViaDynamicSearch(answer)
-                end)
+            local box = findCodeBox()
+            if box then
+                pcall(function() box.Text = answer end)
+                if _G.AutoSubmitEnabled then
+                    task.spawn(function()
+                        if _delay > 0 then task.wait(_delay) end
+                        submitCode(answer)
+                    end)
+                end
             end
             return
         end
@@ -731,10 +639,10 @@ local function appendToBox(text)
     local combinedCode = table.concat(_msgBuffer)
     local capturedCount = #_msgBuffer
     
-    -- In CodeBox schreiben (falls vorhanden)
-    local box = getCodeBoxes(PlayerGui or LocalPlayer:FindFirstChildOfClass("PlayerGui"))[1]
+    -- In CodeBox schreiben
+    local box = findCodeBox()
     if box then
-        box.Text = combinedCode
+        pcall(function() box.Text = combinedCode end)
     end
     
     table.insert(collectedCodes, text)
@@ -748,7 +656,7 @@ local function appendToBox(text)
             task.wait(_delay)
         end
         
-        local success, msg = submitCodeViaDynamicSearch(combinedCode)
+        local success, msg = submitCode(combinedCode)
         
         table.clear(collectedCodes)
         refreshMainGUI()
@@ -770,6 +678,31 @@ local function appendToBox(text)
 end
 
 -- WATCHER FÜR ANNOUNCEMENTS
+local Announcements = nil
+local PlayerGui = nil
+local ToggleButton = nil
+local _delay = 0
+
+local function setupPaths()
+    pcall(function()
+        PlayerGui = LocalPlayer:FindFirstChild("PlayerGui")
+        if not PlayerGui then return end
+        
+        local topNotif = PlayerGui:FindFirstChild("TopNotification")
+        if topNotif then
+            Announcements = topNotif:FindFirstChild("TopNotification")
+        end
+        if not Announcements then
+            for _, child in ipairs(PlayerGui:GetDescendants()) do
+                if child:IsA("Frame") and child.Name:lower():find("announce") then
+                    Announcements = child
+                    break
+                end
+            end
+        end
+    end)
+end
+
 local function watchLabel(Label)
     pcall(function()
         if not Label:IsA("TextLabel") then return end
@@ -932,7 +865,8 @@ local function refreshMainGUI()
                     label.TextXAlignment = Enum.TextXAlignment.Left
                     label.TextYAlignment = Enum.TextYAlignment.Top
                     label.Parent = scroll
-                end            end
+                end
+            end
         end
         
         local layout = scroll:FindFirstChildOfClass("UIListLayout")
