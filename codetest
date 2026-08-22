@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB V6 - FIXED TOGGLES, STROKE COLOR, DRAG & MIN/CLOSE
+-- KRIMO HUB 
 -- ============================================================
 
 _G.AccentColor = _G.AccentColor or Color3.fromRGB(100, 200, 255)
@@ -11,7 +11,7 @@ _G.AutoSubmitEnabled = false
 _G.RiddleSolverEnabled = false
 _G.SubmitAfterCount = 3
 _G.HistoryEnabled = false
-_G.GuiColor = Color3.fromRGB(10, 10, 18)
+_G.GuiColor = Color3.fromRGB(255, 255, 255)  -- STANDARD WEIß
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
@@ -389,7 +389,7 @@ local function answerQuestion(text)
 end
 
 -- ============================================================
--- AUTO TYPE & AUTO SUBMIT LOGIK (EXAKT AUS LEVITHON SCRIPT)
+-- AUTO TYPE & AUTO SUBMIT LOGIK
 -- ============================================================
 
 local function isOwnGui(obj)
@@ -519,7 +519,7 @@ local function fireFocusLost(box)
     return any
 end
 
--- Haupt-Submit-Funktion (wie im Levithon Script)
+-- Haupt-Submit-Funktion (sucht dynamisch nach Box)
 local function submitCode(code)
     local pg = LocalPlayer:FindFirstChild("PlayerGui")
     if not pg then return false, "no PlayerGui" end
@@ -580,7 +580,7 @@ local function submitCode(code)
         end
     end
     
-    -- 2. Dynamische Suche
+    -- 2. Dynamische Suche (auch wenn Codes-GUI geschlossen ist)
     local btns = findSubmitButtons(pg)
     for _, b in ipairs(btns) do
         clickButton(b)
@@ -649,21 +649,51 @@ local function submitCode(code)
     return true, "submitted via dynamic search"
 end
 
--- Findet die erste sichtbare Code-Box
+-- Findet Code-Box (auch wenn GUI geschlossen)
 local function findCodeBox()
     local pg = LocalPlayer:FindFirstChild("PlayerGui")
     if not pg then return nil end
+    
+    -- 1. Spezifischer Pfad
+    local codesGui = pg:FindFirstChild("Codes")
+    if codesGui and codesGui:IsA("ScreenGui") then
+        local codesFrame = codesGui:FindFirstChild("Codes")
+        if codesFrame then
+            local codeRedeem = codesFrame:FindFirstChild("CodeRedeem")
+            if codeRedeem then
+                local box = codeRedeem:FindFirstChild("TextBox")
+                if box and box:IsA("TextBox") and isGuiVisible(box) then
+                    return box
+                end
+            end
+        end
+    end
+    
+    -- 2. Dynamische Suche
     local all = getCodeBoxes(pg)
+    for _, b in ipairs(all) do
+        if isGuiVisible(b) then
+            -- Bevorzuge Boxen mit "code" im Namen
+            local n = b.Name:lower()
+            local pn = (b.Parent and b.Parent.Name or ""):lower()
+            if n:find("code") or pn:find("code") or n:find("redeem") or pn:find("redeem") or n:find("input") then
+                return b
+            end
+        end
+    end
+    
+    -- 3. Fallback: irgendeine sichtbare TextBox
     for _, b in ipairs(all) do
         if isGuiVisible(b) then
             return b
         end
     end
+    
     return nil
 end
 
 -- ============================================================
--- WATCHER & APPEND (WIE IM LEVITHON SCRIPT)
+-- STATE & WATCHER
 -- ============================================================
 
 local _msgBuffer = {}
@@ -674,6 +704,7 @@ local collectedCodes = {}
 local history = {}
 local _lastText = ""
 
+-- APPEND TO BOX (mit Counter-Fix)
 local function appendToBox(text)
     if not text or text == "" then return end
     if not _G.ScriptEnabled then return end
@@ -709,13 +740,16 @@ local function appendToBox(text)
     local combinedCode = table.concat(_msgBuffer)
     local capturedCount = #_msgBuffer
     
-    -- In CodeBox schreiben
+    -- In CodeBox schreiben (findet auch geschlossene GUIs)
     local box = findCodeBox()
     if box then
         pcall(function() box.Text = combinedCode end)
+        print("[KrimoHub] 📝 Code geschrieben: " .. combinedCode)
+    else
+        print("[KrimoHub] ⚠️ Keine Code-Box gefunden!")
     end
     
-    -- COLLECTED CODES AKTUALISIEREN
+    -- COUNTER AKTUALISIEREN
     table.insert(collectedCodes, text)
     refreshMainGUI()
     
