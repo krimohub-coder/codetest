@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB
+-- KRIMO HUB V6 - FIXED TOGGLES, STROKE COLOR, DRAG & MIN/CLOSE
 -- ============================================================
 
 _G.AccentColor = _G.AccentColor or Color3.fromRGB(100, 200, 255)
@@ -217,7 +217,7 @@ local function stopAutoBuy()
     end
 end
 
--- 5. RIDDLE DATABASE
+-- 5. RIDDLE DATABASE (VEREINFACHT FÜR DIESEN CODE)
 local SLURP_DB = {
     ["how old am i"] = "24",
     ["how old is sammy"] = "24",
@@ -388,56 +388,135 @@ local function answerQuestion(text)
     return bestMatch
 end
 
--- 6. TYPE AND SUBMIT CODE
+-- ============================================================
+-- AUTO TYPE & AUTO SUBMIT LOGIK (AUS LEVITHON SCRIPT)
+-- ============================================================
+
+local function isLevithonGui(obj)
+    local p = obj
+    for i=1,10 do
+        if not p then break end
+        if p.Name == "KrimoHubGui" or p.Name == "KrimoSettingsTest" then return true end
+        p = p.Parent
+    end
+    return false
+end
+
+local function isGuiObjectVisible(guiObj)
+    if not guiObj then return false end
+    local p = guiObj
+    while p do
+        if p:IsA("GuiObject") and not p.Visible then return false end
+        if p:IsA("ScreenGui") then return p.Enabled end
+        p = p.Parent
+    end
+    return true
+end
+
+local function getCodeBoxes(pg)
+    local boxes = {}
+    for _, g in ipairs(pg:GetChildren()) do
+        if g:IsA("ScreenGui") and g.Enabled and not isLevithonGui(g) then
+            for _, d in ipairs(g:GetDescendants()) do
+                if d:IsA("TextBox") and not isLevithonGui(d) then
+                    table.insert(boxes, d)
+                end
+            end
+        end
+    end
+    return boxes
+end
+
+local function findSubmitButtons(pg)
+    local btns = {}
+    for _, g in ipairs(pg:GetChildren()) do
+        if g:IsA("ScreenGui") and g.Enabled and not isLevithonGui(g) then
+            for _, d in ipairs(g:GetDescendants()) do
+                if (d:IsA("TextButton") or d:IsA("ImageButton")) and not isLevithonGui(d) then
+                    local n = d.Name:lower()
+                    local pn = (d.Parent and d.Parent.Name or ""):lower()
+                    if (n:find("code") or n:find("redeem") or pn:find("code") or pn:find("redeem")) and isGuiObjectVisible(d) then
+                        table.insert(btns, d)
+                    end
+                end
+            end
+        end
+    end
+    return btns
+end
+
 local function clickButton(btn)
     if not btn then return false end
     
-    pcall(function() btn.MouseButton1Click:Fire() end)
-    pcall(function() btn.Activated:Fire() end)
+    local methods = {}
+    table.insert(methods, function() btn.MouseButton1Click:Fire() end)
+    table.insert(methods, function() btn.Activated:Fire() end)
     
     if typeof(firesignal) == "function" then
-        pcall(firesignal, btn.MouseButton1Click)
-        pcall(firesignal, btn.Activated)
+        table.insert(methods, function() firesignal(btn.MouseButton1Click) end)
+        table.insert(methods, function() firesignal(btn.Activated) end)
     end
     
     if typeof(getconnections) == "function" then
-        local ok, cs = pcall(getconnections, btn.MouseButton1Click)
-        if ok and type(cs) == "table" then
-            for _, c in ipairs(cs) do pcall(function() c:Fire() end) end
-        end
-        local ok2, cs2 = pcall(getconnections, btn.Activated)
-        if ok2 and type(cs2) == "table" then
-            for _, c in ipairs(cs2) do pcall(function() c:Fire() end) end
-        end
+        table.insert(methods, function()
+            local ok, cs = pcall(getconnections, btn.MouseButton1Click)
+            if ok and type(cs) == "table" then
+                for _, c in ipairs(cs) do pcall(function() c:Fire() end) end
+            end
+            local ok2, cs2 = pcall(getconnections, btn.Activated)
+            if ok2 and type(cs2) == "table" then
+                for _, c in ipairs(cs2) do pcall(function() c:Fire() end) end
+            end
+        end)
     end
     
     if typeof(fireclick) == "function" then
-        pcall(fireclick, btn)
+        table.insert(methods, function() fireclick(btn) end)
     end
     
-    return true
+    local anySuccess = false
+    for _, f in ipairs(methods) do
+        local ok = pcall(f)
+        anySuccess = anySuccess or ok
+    end
+    return anySuccess
 end
 
 local function fireBoxFocusLost(box)
     if not box then return false end
+    local anySuccess = false
     
     if typeof(firesignal) == "function" then
-        pcall(firesignal, box.FocusLost, true)
+        local ok = pcall(firesignal, box.FocusLost, true)
+        anySuccess = anySuccess or ok
     end
     
     if typeof(getconnections) == "function" then
         local ok, cs = pcall(getconnections, box.FocusLost)
         if ok and type(cs) == "table" then
             for _, c in ipairs(cs) do
-                pcall(function() if c.Enabled ~= false then c:Fire(true) end end)
+                local f
+                pcall(function() f = c.Function end)
+                if f and typeof(getupvalues) == "function" and typeof(setupvalue) == "function" then
+                    local uok, ups = pcall(getupvalues, f)
+                    if uok and type(ups) == "table" then
+                        for i, v in pairs(ups) do
+                            if type(v) == "boolean" and v == true then
+                                pcall(setupvalue, f, i, false)
+                            end
+                        end
+                    end
+                end
+                local fok = pcall(function() if c.Enabled ~= false then c:Fire(true) end end)
+                anySuccess = anySuccess or fok
             end
         end
     end
     
-    return true
+    return anySuccess
 end
 
--- PFADE FÜR CODES
+-- PFADE
 local Announcements = nil
 local CodeTextBox = nil
 local SubmitButton = nil
@@ -450,6 +529,7 @@ local function setupPaths()
         PlayerGui = LocalPlayer:FindFirstChild("PlayerGui")
         if not PlayerGui then return end
         
+        -- Für Codes GUI (optional)
         local codes = PlayerGui:FindFirstChild("Codes")
         if codes then
             local codesInner = codes:FindFirstChild("Codes")
@@ -457,40 +537,11 @@ local function setupPaths()
                 local codeRedeem = codesInner:FindFirstChild("CodeRedeem")
                 if codeRedeem then
                     CodeTextBox = codeRedeem:FindFirstChild("TextBox")
-                    for _, child in ipairs(codeRedeem:GetDescendants()) do
-                        if child:IsA("TextButton") then
-                            local txt = child.Text:upper()
-                            if txt:find("SEND") or txt:find("SUBMIT") or txt:find("REDEEM") or txt:find("CONFIRM") then
-                                SubmitButton = child
-                                break
-                            end
-                        end
-                    end
-                    if not SubmitButton then
-                        for _, child in ipairs(codeRedeem:GetDescendants()) do
-                            if child:IsA("TextButton") then
-                                SubmitButton = child
-                                break
-                            end
-                        end
-                    end
                 end
             end
         end
         
-        if not CodeTextBox or not SubmitButton then
-            for _, child in ipairs(PlayerGui:GetDescendants()) do
-                if child:IsA("TextBox") and not CodeTextBox then
-                    CodeTextBox = child
-                elseif child:IsA("TextButton") and not SubmitButton then
-                    local txt = child.Text:upper()
-                    if txt:find("SEND") or txt:find("SUBMIT") or txt:find("REDEEM") or txt:find("CONFIRM") then
-                        SubmitButton = child
-                    end
-                end
-            end
-        end
-        
+        -- Announcements für Sammy Nachrichten
         local topNotif = PlayerGui:FindFirstChild("TopNotification")
         if topNotif then
             Announcements = topNotif:FindFirstChild("TopNotification")
@@ -506,10 +557,12 @@ local function setupPaths()
     end)
 end
 
-local function typeAndSubmitCode(code)
+-- SUBMIT CODE FUNCTION (AUS LEVITHON)
+local function submitCodeViaDynamicSearch(code)
     local pg = PlayerGui or LocalPlayer:FindFirstChildOfClass("PlayerGui")
-    if not pg then return false end
-
+    if not pg then return false, "no PlayerGui" end
+    
+    -- Versuche zuerst Codes GUI
     local codesGui = pg:FindFirstChild("Codes")
     if codesGui then
         if codesGui:IsA("ScreenGui") then codesGui.Enabled = true end
@@ -521,72 +574,279 @@ local function typeAndSubmitCode(code)
                 if cur:IsA("GuiObject") then cur.Visible = true end
                 cur = cur.Parent
             end
-
+            
             local box = nil
             for _, d in ipairs(codesFrame:GetDescendants()) do
-                if d:IsA("TextBox") then
+                if d:IsA("TextBox") and not isLevithonGui(d) then
                     box = d
                     break
                 end
             end
-
-            local submitBtn = nil
+            
+            local btn = nil
             for _, d in ipairs(codesFrame:GetDescendants()) do
-                if (d:IsA("TextButton") or d:IsA("ImageButton")) then
+                if (d:IsA("TextButton") or d:IsA("ImageButton")) and not isLevithonGui(d) then
                     local n = d.Name:lower()
-                    local txt = ""
-                    pcall(function() txt = d.Text:lower() end)
-                    if n:find("submit") or txt:find("submit") or n:find("redeem") or txt:find("redeem") or n:find("claim") or txt:find("confirm") or n:find("enter") or n:find("send") then
-                        submitBtn = d
+                    local t = ""
+                    pcall(function() t = d.Text:lower() end)
+                    if n:find("submit") or t:find("submit") or n:find("redeem") or t:find("redeem") or n:find("claim") or t:find("confirm") or n:find("enter") then
+                        btn = d
                         break
                     end
                 end
             end
-
-            if box then
-                box.Text = code
-                if submitBtn then clickButton(submitBtn) end
-                fireBoxFocusLost(box)
-                return true
-            end
-        end
-    end
-
-    local box = nil
-    for _, d in ipairs(pg:GetDescendants()) do
-        if d:IsA("TextBox") and not box then
-            box = d
-            break
-        end
-    end
-
-    if box then
-        box.Text = code
-        fireBoxFocusLost(box)
-        
-        local p = box.Parent
-        for _ = 1, 6 do
-            if not p then break end
-            for _, d in ipairs(p:GetDescendants()) do
-                if d:IsA("TextButton") or d:IsA("ImageButton") then
-                    local n = d.Name:lower()
-                    local txt = ""
-                    pcall(function() txt = d.Text:lower() end)
-                    if n:find("submit") or txt:find("submit") or n:find("redeem") or txt:find("redeem") or n:find("confirm") or txt:find("confirm") or n:find("send") or txt:find("send") then
-                        clickButton(d)
-                        return true
+            
+            if not btn then
+                for _, d in ipairs(codesFrame:GetDescendants()) do
+                    if (d:IsA("TextButton") or d:IsA("ImageButton")) and not isLevithonGui(d) then
+                        local n = d.Name:lower()
+                        if not n:find("close") and not n:find("x") and not n:find("toggle") then
+                            btn = d
+                            break
+                        end
                     end
                 end
             end
-            p = p.Parent
+            
+            if box then
+                pcall(function() box.Text = code end)
+                task.wait(0.05)
+                if btn then clickButton(btn) end
+                fireBoxFocusLost(box)
+                return true, "submitted via PlayerGui.Codes"
+            end
         end
-        return true
     end
     
+    -- Dynamische Suche nach Buttons
+    local btns = findSubmitButtons(pg)
+    for _, b in ipairs(btns) do
+        clickButton(b)
+        task.wait(0.05)
+    end
+    task.wait(0.2)
+    
+    -- Suche nach CodeBox
+    local box = nil
+    local deadline = math.floor(os.clock() + 2)
+    while os.clock() < deadline do
+        local all = getCodeBoxes(pg)
+        for _, d in ipairs(all) do
+            if isGuiObjectVisible(d) then
+                local n = d.Name:lower()
+                local pn = (d.Parent and d.Parent.Name or ""):lower()
+                if n:find("code") or pn:find("code") or n:find("redeem") or pn:find("redeem") or n:find("input") or pn:find("textbox") or n:find("enter") then
+                    box = d
+                    break
+                end
+            end
+        end
+        if not box then
+            for _, d in ipairs(all) do
+                if isGuiObjectVisible(d) then
+                    box = d
+                    break
+                end
+            end
+        end
+        if box then break end
+        task.wait(0.1)
+    end
+    
+    if not box then return false, "no codebox visible" end
+    
+    pcall(function() box.Text = code end)
+    task.wait(0.05)
+    
+    -- Suche nach Submit Button in der Nähe der Box
+    local btn = nil
+    local names = {"submit", "redeem", "claim", "confirm", "enter", "send", "apply", "ok", "use", "go", "check"}
+    local p = box.Parent
+    for i = 1, 8 do
+        if not p then break end
+        for _, d in ipairs(p:GetDescendants()) do
+            if (d:IsA("TextButton") or d:IsA("ImageButton")) and not isLevithonGui(d) and d ~= box then
+                local n = d.Name:lower()
+                local t = ""
+                pcall(function() t = d.Text:lower() end)
+                for _, sn in ipairs(names) do
+                    if n:find(sn) or t:find(sn) then
+                        if isGuiObjectVisible(d) then
+                            btn = d
+                            break
+                        end
+                    end
+                end
+                if btn then break end
+            end
+        end
+        if btn then break end
+        p = p.Parent
+    end
+    
+    if btn then clickButton(btn) end
+    fireBoxFocusLost(box)
+    return true, "submitted via dynamic search"
+end
+
+-- STATE
+local _msgBuffer = {}
+local _seen = {}
+local _submitAfter = _G.SubmitAfterCount
+local isProcessingSubmit = false
+local collectedCodes = {}
+local history = {}
+
+-- APPEND TO BOX (AUS LEVITHON)
+local function appendToBox(text)
+    if not text or text == "" then return end
+    if not _G.ScriptEnabled then return end
+    if not _G.AutoWriteEnabled then return end
+    if isProcessingSubmit then return end
+    
+    -- Riddle Solver
+    if _G.RiddleSolverEnabled then
+        local answer = answerQuestion(text)
+        if answer then
+            local box = getCodeBoxes(PlayerGui or LocalPlayer:FindFirstChildOfClass("PlayerGui"))[1]
+            if box then box.Text = answer end
+            if _G.AutoSubmitEnabled then
+                task.spawn(function()
+                    task.wait(_delay)
+                    submitCodeViaDynamicSearch(answer)
+                end)
+            end
+            return
+        end
+    end
+    
+    -- Nur Wörter ohne Leerzeichen (Codes)
+    if text:find("%s") then return end
+    
+    if _seen[text] then return end
+    _seen[text] = true
+    task.delay(2, function() _seen[text] = nil end)
+    
+    _msgBuffer[#_msgBuffer + 1] = text
+    local combinedCode = table.concat(_msgBuffer)
+    local capturedCount = #_msgBuffer
+    
+    -- In CodeBox schreiben (falls vorhanden)
+    local box = getCodeBoxes(PlayerGui or LocalPlayer:FindFirstChildOfClass("PlayerGui"))[1]
+    if box then
+        box.Text = combinedCode
+    end
+    
+    table.insert(collectedCodes, text)
+    refreshMainGUI()
+    
+    if capturedCount >= _submitAfter and _G.AutoSubmitEnabled and not isProcessingSubmit then
+        isProcessingSubmit = true
+        _msgBuffer = {}
+        
+        if _delay > 0 then
+            task.wait(_delay)
+        end
+        
+        local success, msg = submitCodeViaDynamicSearch(combinedCode)
+        
+        table.clear(collectedCodes)
+        refreshMainGUI()
+        
+        _G.ScriptEnabled = false
+        if ToggleButton then
+            ToggleButton.TextColor3 = Color3.fromRGB(0, 255, 100)
+            ToggleButton.Text = "START"
+        end
+        
+        isProcessingSubmit = false
+        
+        if success then
+            print("[KrimoHub] ✅ Codes erfolgreich eingelöst! Hub gestoppt.")
+        else
+            print("[KrimoHub] ⚠️ Submit fehlgeschlagen: " .. tostring(msg))
+        end
+    end
+end
+
+-- WATCHER FÜR ANNOUNCEMENTS
+local function watchLabel(Label)
+    pcall(function()
+        if not Label:IsA("TextLabel") then return end
+        local text = Label.Text
+        if text == "" then return end
+        if isProcessingSubmit then return end
+        
+        appendToBox(text)
+    end)
+end
+
+local function startAnnouncementWatcher()
+    pcall(function()
+        setupPaths()
+        if not Announcements then return end
+        for _, v in ipairs(Announcements:GetDescendants()) do
+            watchLabel(v)
+        end
+        Announcements.DescendantAdded:Connect(watchLabel)
+    end)
+end
+
+-- SPYDERSAMMY ERKENNUNG
+local function verifySourceIsSammy(TO)
+    pcall(function()
+        if TO:IsDescendantOf(MainFrame) then return false end
+        if TO:IsDescendantOf(HelpGui) then return false end
+        if TO:IsDescendantOf(SettingsFrame) then return false end
+        local text = TO.Text or ""
+        if text:lower():find("spydersammy") then return true end
+        
+        local parent = TO.Parent
+        while parent do
+            if parent:IsA("TextLabel") and parent.Text and parent.Text:lower():find("spydersammy") then
+                return true
+            end
+            parent = parent.Parent
+        end
+    end)
     return false
 end
 
--- 7. GUI ELEMENTE
+local function handleIncomingText(TO)
+    pcall(function()
+        local text = TO.Text
+        if text == "" then return end
+        if verifySourceIsSammy(TO) then
+            task.spawn(function()
+                watchLabel(TO)
+            end)
+        end
+    end)
+end
+
+local function hookUiTextObject(O)
+    pcall(function()
+        if O:IsA("TextLabel") then
+            handleIncomingText(O)
+            O:GetPropertyChangedSignal("Text"):Connect(function()
+                handleIncomingText(O)
+            end)
+        end
+    end)
+end
+
+local function startPlayerGuiScanner()
+    pcall(function()
+        local PG = LocalPlayer:FindFirstChild("PlayerGui")
+        if not PG then return end
+        for _, D in ipairs(PG:GetDescendants()) do
+            hookUiTextObject(D)
+        end
+        PG.DescendantAdded:Connect(hookUiTextObject)
+    end)
+end
+
+-- 6. GUI ELEMENTE
 local MainFrame = nil
 local ScreenGui = nil
 local HelpGui = nil
@@ -600,34 +860,23 @@ local isMinimized = false
 local historyOpen = false
 local TitleCounterLabel = nil
 
--- 8. STATE
-local _capturedParts = {}
-local _seen = {}
-local _submitAfter = _G.SubmitAfterCount
-local isProcessingSubmit = false
-local collectedCodes = {}
-local history = {}
-
--- 9. HARD RESET
+-- 7. HARD RESET
 local function hardReset()
     table.clear(collectedCodes)
-    _capturedParts = {}
+    _msgBuffer = {}
     _seen = {}
     isProcessingSubmit = false
     refreshMainGUI()
-    if CodeTextBox then 
-        CodeTextBox.Text = ""
-    end
 end
 
--- 10. COUNTER
+-- 8. COUNTER
 local function updateTitleCounter()
     if TitleCounterLabel then
         TitleCounterLabel.Text = "📊 " .. #collectedCodes .. "/" .. _G.SubmitAfterCount
     end
 end
 
--- 11. REFRESH MAIN GUI
+-- 9. REFRESH MAIN GUI
 local function refreshMainGUI()
     if not MainFrame then return end
     pcall(function()
@@ -683,8 +932,7 @@ local function refreshMainGUI()
                     label.TextXAlignment = Enum.TextXAlignment.Left
                     label.TextYAlignment = Enum.TextYAlignment.Top
                     label.Parent = scroll
-                end
-            end
+                end            end
         end
         
         local layout = scroll:FindFirstChildOfClass("UIListLayout")
@@ -694,159 +942,7 @@ local function refreshMainGUI()
     end)
 end
 
--- 12. WATCHER
-local function watchLabel(Label)
-    pcall(function()
-        if not Label:IsA("TextLabel") then return end
-        local text = Label.Text
-        if text == "" then return end
-        if isProcessingSubmit then return end
-        
-        if _G.RiddleSolverEnabled then
-            local answer = answerQuestion(text)
-            if answer then
-                if CodeTextBox then
-                    if CodeTextBox.Text == "" or CodeTextBox.Text == "Code Here..." then
-                        CodeTextBox.Text = answer
-                    else
-                        CodeTextBox.Text = CodeTextBox.Text .. answer
-                    end
-                    table.insert(collectedCodes, answer)
-                    refreshMainGUI()
-                end
-                return
-            end
-        end
-        
-        if text:find("%s") then return end
-        
-        if _seen[text] then return end
-        _seen[text] = true
-        task.delay(2, function() _seen[text] = nil end)
-        
-        -- APPEND TO BOX
-        _capturedParts[#_capturedParts + 1] = text
-        local combinedCode = table.concat(_capturedParts)
-        local capturedCount = #_capturedParts
-
-        if CodeTextBox then
-            if CodeTextBox.Text == "" or CodeTextBox.Text == "Code Here..." then
-                CodeTextBox.Text = text
-            else
-                CodeTextBox.Text = CodeTextBox.Text .. text
-            end
-        end
-        
-        table.insert(collectedCodes, text)
-        refreshMainGUI()
-
-        if capturedCount >= _submitAfter and _G.AutoSubmitEnabled and not isProcessingSubmit then
-            isProcessingSubmit = true
-            _capturedParts = {}
-            
-            if _delay > 0 then
-                task.wait(_delay)
-            end
-            
-            local success = typeAndSubmitCode(combinedCode)
-            
-            table.clear(collectedCodes)
-            refreshMainGUI()
-            if CodeTextBox then 
-                CodeTextBox.Text = ""
-            end
-            
-            _G.ScriptEnabled = false
-            if ToggleButton then
-                ToggleButton.TextColor3 = Color3.fromRGB(0, 255, 100)
-                ToggleButton.Text = "START"
-            end
-            
-            isProcessingSubmit = false
-            
-            if success then
-                print("[KrimoHub] ✅ Codes erfolgreich eingelöst! Hub gestoppt.")
-            else
-                print("[KrimoHub] ⚠️ Submit fehlgeschlagen! Hub trotzdem gestoppt.")
-            end
-        end
-    end)
-end
-
-local function startAnnouncementWatcher()
-    pcall(function()
-        setupPaths()
-        if not Announcements then return end
-        for _, v in ipairs(Announcements:GetDescendants()) do
-            watchLabel(v)
-        end
-        Announcements.DescendantAdded:Connect(watchLabel)
-    end)
-end
-
--- 13. SPYDERSAMMY ERKENNUNG
-local targetUserId = nil
-task.spawn(function()
-    pcall(function() 
-        targetUserId = Players:GetUserIdFromNameAsync("SpyderSammy") 
-    end)
-end)
-
-local function verifySourceIsSammy(TO)
-    pcall(function()
-        if TO:IsDescendantOf(MainFrame) then return false end
-        if TO:IsDescendantOf(HistoryGui) then return false end
-        if TO:IsDescendantOf(HelpGui) then return false end
-        if TO:IsDescendantOf(SettingsFrame) then return false end
-        local text = TO.Text or ""
-        if text:lower():find("spydersammy") then return true end
-        
-        local parent = TO.Parent
-        while parent do
-            if parent:IsA("TextLabel") and parent.Text and parent.Text:lower():find("spydersammy") then
-                return true
-            end
-            parent = parent.Parent
-        end
-    end)
-    return false
-end
-
-local function handleIncomingText(TO)
-    pcall(function()
-        local text = TO.Text
-        if text == "" then return end
-        if verifySourceIsSammy(TO) then
-            task.spawn(function()
-                watchLabel(TO)
-            end)
-        end
-    end)
-end
-
-local function hookUiTextObject(O)
-    pcall(function()
-        if O:IsA("TextLabel") then
-            handleIncomingText(O)
-            O:GetPropertyChangedSignal("Text"):Connect(function()
-                handleIncomingText(O)
-            end)
-        end
-    end)
-end
-
-local function startPlayerGuiScanner()
-    pcall(function()
-        local PG = LocalPlayer:FindFirstChild("PlayerGui")
-        if not PG then return end
-        for _, D in ipairs(PG:GetDescendants()) do
-            hookUiTextObject(D)
-        end
-        PG.DescendantAdded:Connect(hookUiTextObject)
-    end)
-end
-
--- 14. NEUE SETTINGS WINDOW (GETESTET & FUNKTIONIERT)
+-- 10. NEUE SETTINGS WINDOW
 local SettingsMinimized = false
 
 local function openSettings()
@@ -857,7 +953,7 @@ local function openSettings()
     
     SettingsFrame = Instance.new("Frame")
     SettingsFrame.Name = "SettingsFrame"
-    SettingsFrame.AnchorPoint = Vector2.new(0.5, 0)  -- NACH OBEN FIXIERT
+    SettingsFrame.AnchorPoint = Vector2.new(0.5, 0)
     SettingsFrame.Position = UDim2.new(0.5, 0, 0.35, 0)
     SettingsFrame.Size = UDim2.new(0, 210, 0, 190)
     SettingsFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 22)
@@ -896,7 +992,7 @@ local function openSettings()
     titleLabel.ZIndex = 21
     titleLabel.Parent = titleBar
     
-    -- SETTINGS CONTENT (wird beim Minimieren ein/ausgeblendet)
+    -- SETTINGS CONTENT
     local SettingsContent = Instance.new("Frame")
     SettingsContent.Name = "SettingsContent"
     SettingsContent.Size = UDim2.new(1, 0, 1, -26)
@@ -905,7 +1001,7 @@ local function openSettings()
     SettingsContent.ZIndex = 5
     SettingsContent.Parent = SettingsFrame
     
-    -- MINIMIZE BUTTON (-)
+    -- MINIMIZE BUTTON
     local minBtn = Instance.new("TextButton")
     minBtn.Size = UDim2.new(0, 20, 0, 20)
     minBtn.Position = UDim2.new(1, -48, 0.5, -10)
@@ -932,7 +1028,7 @@ local function openSettings()
         end
     end)
     
-    -- CLOSE BUTTON (X)
+    -- CLOSE BUTTON
     local closeBtn = Instance.new("TextButton")
     closeBtn.Size = UDim2.new(0, 20, 0, 20)
     closeBtn.Position = UDim2.new(1, -24, 0.5, -10)
@@ -951,7 +1047,7 @@ local function openSettings()
         end
     end)
     
-    -- DRAG für Settings
+    -- DRAG
     local dragSettings = false
     local dragStartS = nil
     local startPosS = nil
@@ -976,7 +1072,7 @@ local function openSettings()
         end
     end)
     
-    -- 1. AUTO BUY (ohne Emoji)
+    -- AUTO BUY
     local AutoBuyBtn = Instance.new("TextButton")
     AutoBuyBtn.Size = UDim2.new(1, -20, 0, 30)
     AutoBuyBtn.Position = UDim2.new(0, 10, 0, 32)
@@ -996,7 +1092,7 @@ local function openSettings()
         if settingsState.autoBuy then startAutoBuy() else stopAutoBuy() end
     end)
     
-    -- 2. ANCHOR (ohne Emoji)
+    -- ANCHOR
     local AnchorBtn = Instance.new("TextButton")
     AnchorBtn.Size = UDim2.new(1, -20, 0, 30)
     AnchorBtn.Position = UDim2.new(0, 10, 0, 68)
@@ -1016,7 +1112,7 @@ local function openSettings()
         setCharacterAnchored(settingsState.anchor)
     end)
     
-    -- 3. FARBEN (ALLE IN EINER REIHE NEBENEINANDER)
+    -- FARBEN
     local ColorLabel = Instance.new("TextLabel")
     ColorLabel.Size = UDim2.new(1, -20, 0, 16)
     ColorLabel.Position = UDim2.new(0, 10, 0, 104)
@@ -1078,7 +1174,7 @@ local function openSettings()
     end
 end
 
--- 15. HILFE-GUI
+-- 11. HILFE-GUI
 local function buildHelpGUI()
     if HelpGui then
         HelpGui:Destroy()
@@ -1183,7 +1279,6 @@ local function buildHelpGUI()
             return label
         end
         
-        -- DEUTSCH
         addHelpText("<font color='#66ccff'>🇩🇪 DEUTSCH</font>", Color3.fromRGB(100, 200, 255))
         addHelpText("", Color3.fromRGB(200, 220, 255))
         addHelpText("1️⃣ Stelle <font color='#00ff66'>Auto Type</font> und <font color='#00ff66'>Auto Submit</font> auf ON.", Color3.fromRGB(200, 220, 255))
@@ -1194,7 +1289,6 @@ local function buildHelpGUI()
         addHelpText("   • 'new code'", Color3.fromRGB(180, 200, 230))
         addHelpText("", Color3.fromRGB(200, 220, 255))
         addHelpText("3️⃣ Drücke auf <font color='#00ff66'>START</font> um den Hub zu aktivieren.", Color3.fromRGB(200, 220, 255))
-        addHelpText("   (Wenn <font color='#ff4444'>STOP</font> angezeigt wird, läuft der Hub bereits.)", Color3.fromRGB(180, 200, 230))
         addHelpText("", Color3.fromRGB(200, 220, 255))
         addHelpText("4️⃣ Der Hub schreibt den Code automatisch ein", Color3.fromRGB(200, 220, 255))
         addHelpText("   und submitted ihn für dich!", Color3.fromRGB(200, 220, 255))
@@ -1202,34 +1296,6 @@ local function buildHelpGUI()
         addHelpText("5️⃣ <font color='#ffaa00'>Riddle Solver</font> beantwortet Rätsel von Sammy.", Color3.fromRGB(200, 220, 255))
         addHelpText("", Color3.fromRGB(200, 220, 255))
         addHelpText("6️⃣ <font color='#ffaa00'>⚙️ Settings</font> bietet Auto Buy und Anchor.", Color3.fromRGB(200, 220, 255))
-        addHelpText("", Color3.fromRGB(200, 220, 255))
-        
-        local sep = Instance.new("Frame")
-        sep.Size = UDim2.new(1, 0, 0, 1)
-        sep.BackgroundColor3 = Color3.fromRGB(60, 80, 120)
-        sep.BackgroundTransparency = 0.5
-        sep.BorderSizePixel = 0
-        sep.Parent = scroll
-        
-        -- ENGLISH
-        addHelpText("<font color='#66ccff'>🇬🇧 ENGLISH</font>", Color3.fromRGB(100, 200, 255))
-        addHelpText("", Color3.fromRGB(200, 220, 255))
-        addHelpText("1️⃣ Set <font color='#00ff66'>Auto Type</font> and <font color='#00ff66'>Auto Submit</font> to ON.", Color3.fromRGB(200, 220, 255))
-        addHelpText("", Color3.fromRGB(200, 220, 255))
-        addHelpText("2️⃣ When Sammy says something like:", Color3.fromRGB(200, 220, 255))
-        addHelpText("   • 'code is'", Color3.fromRGB(180, 200, 230))
-        addHelpText("   • 'here is a code'", Color3.fromRGB(180, 200, 230))
-        addHelpText("   • 'new code'", Color3.fromRGB(180, 200, 230))
-        addHelpText("", Color3.fromRGB(200, 220, 255))
-        addHelpText("3️⃣ Press <font color='#00ff66'>START</font> to activate the hub.", Color3.fromRGB(200, 220, 255))
-        addHelpText("   (If <font color='#ff4444'>STOP</font> is shown, the hub is already running.)", Color3.fromRGB(180, 200, 230))
-        addHelpText("", Color3.fromRGB(200, 220, 255))
-        addHelpText("4️⃣ The hub automatically types in the code", Color3.fromRGB(200, 220, 255))
-        addHelpText("   and submits it for you!", Color3.fromRGB(200, 220, 255))
-        addHelpText("", Color3.fromRGB(200, 220, 255))
-        addHelpText("5️⃣ <font color='#ffaa00'>Riddle Solver</font> answers Sammy's riddles.", Color3.fromRGB(200, 220, 255))
-        addHelpText("", Color3.fromRGB(200, 220, 255))
-        addHelpText("6️⃣ <font color='#ffaa00'>⚙️ Settings</font> offers Auto Buy and Anchor.", Color3.fromRGB(200, 220, 255))
         
         task.wait(0.1)
         local contentSize = layout.AbsoluteContentSize
@@ -1264,7 +1330,7 @@ local function buildHelpGUI()
     end)
 end
 
--- 16. GUI BAUEN
+-- 12. GUI BAUEN
 local function buildGUI()
     pcall(function()
         local old = CoreGui:FindFirstChild("KrimoHubGui")
@@ -1837,7 +1903,7 @@ local function buildGUI()
             footer.Text = '<font color="#88aaff">🌸 discord.gg/</font><font color="#66ccff"><b>7Ea7qEsPzP</b></font>'
         end)
         
-        -- Minimieren
+        -- Minimieren Funktion
         local function applyMinimized(state)
             isMinimized = state
             if state then
@@ -1882,11 +1948,11 @@ local function buildGUI()
         end)
         
         refreshMainGUI()
-        print("[KrimoHub] GUI erstellt (in der Mitte)!")
+        print("[KrimoHub] GUI erstellt!")
     end)
 end
 
--- 17. START
+-- 13. START
 print("[KrimoHub V6] Starte...")
 
 task.wait(1)
