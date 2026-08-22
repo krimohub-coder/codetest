@@ -1,17 +1,17 @@
 -- ============================================================
--- KRIMO HUB V6 - FIXED COUNTER, BLACK GUI & WHITE STROKE
+-- KRIMO HUB V6 - FULL CODE (BLACK GUI, WHITE STROKE, FIXED COUNTER)
 -- ============================================================
 
-_G.AccentColor = Color3.fromRGB(255, 255, 255) -- WEIßER RAND
-
--- 1. GLOBALS
+-- 1. GLOBALS & SETTINGS
 _G.ScriptEnabled = false
-_G.AutoWriteEnabled = false
-_G.AutoSubmitEnabled = false
+_G.AutoWriteEnabled = true
+_G.AutoSubmitEnabled = true
 _G.RiddleSolverEnabled = false
 _G.SubmitAfterCount = 3
 _G.HistoryEnabled = false
-_G.GuiColor = Color3.fromRGB(0, 0, 0) -- SCHWARZER HINTERGRUND
+
+_G.GuiColor = Color3.fromRGB(0, 0, 0)       -- SCHWARZER HINTERGRUND
+_G.AccentColor = Color3.fromRGB(255, 255, 255) -- WEIßER RAND
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
@@ -23,7 +23,7 @@ local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
--- 2. PERSISTENZ
+-- 2. CONFIG SYSTEM (PERSISTENZ)
 local hasFS = pcall(function() return type(writefile) == "function" end)
 
 local function loadConfig()
@@ -49,13 +49,12 @@ local function saveConfig()
 end
 loadConfig()
 
--- STATE MANAGEMENT
+-- STATE MANAGEMENT & DYNAMISCHE RAND-UPDATE LOGIK
 local settingsState = {
     anchor = false,
     autoBuy = false,
 }
 
--- DYNAMISCHE FARBANGABE FÜR RÄNDER (STROKES)
 local registeredStrokes = {}
 local function registerStroke(stroke)
     if stroke and stroke:IsA("UIStroke") then
@@ -185,7 +184,7 @@ local function stopAutoBuy()
     end
 end
 
--- 5. RIDDLE DATABASE
+-- 5. RIDDLE SOLVER DATABASE
 local SLURP_DB = {
     ["how old am i"] = "24", ["how old is sammy"] = "24", ["my age"] = "24", ["sammy age"] = "24", ["age"] = "24",
     ["where am i from"] = "BRAZIL", ["where is sammy from"] = "BRAZIL", ["my country"] = "BRAZIL", ["sammy country"] = "BRAZIL",
@@ -232,7 +231,7 @@ local function answerQuestion(text)
 end
 
 -- ============================================================
--- AUTO TYPE & AUTO SUBMIT LOGIK
+-- 6. AUTO TYPE & AUTO SUBMIT SYSTEM
 -- ============================================================
 
 local function isOwnGui(obj)
@@ -332,7 +331,7 @@ local function submitCode(code)
 end
 
 -- ============================================================
--- STATE & WATCHER (GEFIXTER COUNTER LOGIK)
+-- 7. BUFFER & COUNTER LOGIC
 -- ============================================================
 
 local _msgBuffer = {}
@@ -349,7 +348,7 @@ local function appendToBox(text)
     _seen[text] = true
     task.delay(2, function() _seen[text] = nil end)
     
-    -- Riddle Solver
+    -- Riddle Solver Ausführung
     if _G.RiddleSolverEnabled then
         local answer = answerQuestion(text)
         if answer then
@@ -362,7 +361,7 @@ local function appendToBox(text)
         end
     end
 
-    -- Füge Code hinzu
+    -- Code verarbeiten & Textbox befüllen
     table.insert(_msgBuffer, text)
     table.insert(collectedCodes, text)
     
@@ -372,10 +371,9 @@ local function appendToBox(text)
         pcall(function() box.Text = combinedCode end)
     end
     
-    -- Aktualisiere GUI & Anzeige
     if refreshMainGUI then refreshMainGUI() end
 
-    -- SUBMIT CONDITION (0/3 -> 3/3 Submit)
+    -- Submit ausführen bei Erreichen des Counters
     if #collectedCodes >= _G.SubmitAfterCount then
         isProcessingSubmit = true
         
@@ -384,7 +382,7 @@ local function appendToBox(text)
                 submitCode(combinedCode)
             end
             
-            -- RESET NACH SUBMIT
+            -- Clean Counter & Resetten
             task.wait(0.5)
             _msgBuffer = {}
             collectedCodes = {}
@@ -394,10 +392,7 @@ local function appendToBox(text)
     end
 end
 
--- WATCHER & SCANNER
-local ToggleButton = nil
-local Announcements = nil
-
+-- WATCHER & ANNOUNCEMENT DETECTOR
 local function watchLabel(Label)
     if not Label:IsA("TextLabel") then return end
     local text = Label.Text
@@ -423,10 +418,14 @@ local function startAnnouncementWatcher()
     end)
 end
 
--- 6. GUI ELEMENTE
+-- ============================================================
+-- 8. GUI INTERFACE (BLACK & WHITE DESIGN)
+-- ============================================================
+
 local MainFrame, ScreenGui, HelpGui, SettingsFrame
 local PANEL_W, PANEL_H = 250, 290
 local isMinimized = false
+local ToggleButton = nil
 local TitleCounterLabel = nil
 
 local function hardReset()
@@ -478,7 +477,7 @@ refreshMainGUI = function()
             label.Size = UDim2.new(1, -6, 0, 13)
             label.BackgroundTransparency = 1
             label.Text = "[code] -> " .. code
-            label.TextColor3 = Color3.fromRGB(0, 200, 80)
+            label.TextColor3 = Color3.fromRGB(0, 255, 120)
             label.Font = Enum.Font.Gotham
             label.TextSize = 9
             label.TextXAlignment = Enum.TextXAlignment.Left
@@ -487,7 +486,7 @@ refreshMainGUI = function()
     end)
 end
 
--- SETTINGS WINDOW
+-- SETTINGS SUB-WINDOW
 local function openSettings()
     if SettingsFrame then SettingsFrame.Visible = not SettingsFrame.Visible return end
     
@@ -495,7 +494,7 @@ local function openSettings()
     SettingsFrame.Name = "SettingsFrame"
     SettingsFrame.Position = UDim2.new(0.5, -105, 0.35, 0)
     SettingsFrame.Size = UDim2.new(0, 210, 0, 190)
-    SettingsFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- Schwarz[cite: 1]
+    SettingsFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- Schwarz
     SettingsFrame.BorderSizePixel = 0
     SettingsFrame.Active = true
     SettingsFrame.Parent = ScreenGui
@@ -503,9 +502,90 @@ local function openSettings()
     local setCorner = Instance.new("UICorner") setCorner.CornerRadius = UDim.new(0, 10) setCorner.Parent = SettingsFrame
     local setStroke = Instance.new("UIStroke") setStroke.Thickness = 2 setStroke.Color = Color3.fromRGB(255, 255, 255) setStroke.Parent = SettingsFrame -- Weißer Rand[cite: 1]
     registerStroke(setStroke)
+
+    local setTitle = Instance.new("TextLabel")
+    setTitle.Size = UDim2.new(1, 0, 0, 25)
+    setTitle.BackgroundTransparency = 1
+    setTitle.Text = "⚙️ SETTINGS"
+    setTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    setTitle.Font = Enum.Font.GothamBold
+    setTitle.TextSize = 10
+    setTitle.Parent = SettingsFrame
+
+    local function createToggle(name, default, callback, pos)
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(1, -20, 0, 24)
+        btn.Position = pos
+        btn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+        btn.Text = name .. ": " .. (default and "ON" or "OFF")
+        btn.TextColor3 = default and Color3.fromRGB(0, 255, 120) or Color3.fromRGB(255, 60, 60)
+        btn.Font = Enum.Font.GothamBold
+        btn.TextSize = 9
+        btn.Parent = SettingsFrame
+        
+        local corner = Instance.new("UICorner") corner.CornerRadius = UDim.new(0, 6) corner.Parent = btn
+        local stroke = Instance.new("UIStroke") stroke.Thickness = 1 stroke.Color = Color3.fromRGB(255, 255, 255) stroke.Parent = btn[cite: 1]
+        registerStroke(stroke)
+        
+        local enabled = default
+        btn.MouseButton1Click:Connect(function()
+            enabled = not enabled
+            btn.Text = name .. ": " .. (enabled and "ON" or "OFF")
+            btn.TextColor3 = enabled and Color3.fromRGB(0, 255, 120) or Color3.fromRGB(255, 60, 60)
+            callback(enabled)
+        end)
+    end
+
+    createToggle("Auto Write", _G.AutoWriteEnabled, function(v) _G.AutoWriteEnabled = v end, UDim2.new(0, 10, 0, 30))
+    createToggle("Auto Submit", _G.AutoSubmitEnabled, function(v) _G.AutoSubmitEnabled = v end, UDim2.new(0, 10, 0, 60))
+    createToggle("Riddle Solver", _G.RiddleSolverEnabled, function(v) _G.RiddleSolverEnabled = v end, UDim2.new(0, 10, 0, 90))
+    createToggle("Anchor Player", settingsState.anchor, function(v) settingsState.anchor = v setCharacterAnchored(v) end, UDim2.new(0, 10, 0, 120))
+    createToggle("Auto Buy", settingsState.autoBuy, function(v) settingsState.autoBuy = v if v then startAutoBuy() else stopAutoBuy() end end, UDim2.new(0, 10, 0, 150))
 end
 
--- GUI BAUEN
+-- HELP WINDOW
+local function openHelp()
+    if HelpGui then HelpGui.Visible = not HelpGui.Visible return end
+    
+    HelpGui = Instance.new("Frame")
+    HelpGui.Name = "KrimoHelpGui"
+    HelpGui.Position = UDim2.new(0.5, -110, 0.35, 0)
+    HelpGui.Size = UDim2.new(0, 220, 0, 160)
+    HelpGui.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- Schwarz[cite: 1]
+    HelpGui.BorderSizePixel = 0
+    HelpGui.Active = true
+    HelpGui.Parent = ScreenGui
+    
+    local corner = Instance.new("UICorner") corner.CornerRadius = UDim.new(0, 10) corner.Parent = HelpGui
+    local stroke = Instance.new("UIStroke") stroke.Thickness = 2 stroke.Color = Color3.fromRGB(255, 255, 255) stroke.Parent = HelpGui -- Weißer Rand[cite: 1]
+    registerStroke(stroke)
+
+    local helpText = Instance.new("TextLabel")
+    helpText.Size = UDim2.new(1, -20, 1, -40)
+    helpText.Position = UDim2.new(0, 10, 0, 10)
+    helpText.BackgroundTransparency = 1
+    helpText.Text = "❓ KRIMO HUB HELP\n\n• START: Aktiviert Scanner & Auto-Funktionen\n• Auto-Write schreibt Codes automatisch rein\n• Auto-Submit löst nach eingestellter Anzahl aus\n• Anchor hält deinen Player fest"
+    helpText.TextColor3 = Color3.fromRGB(255, 255, 255)
+    helpText.Font = Enum.Font.Gotham
+    helpText.TextSize = 9
+    helpText.TextWrapped = true
+    helpText.Parent = HelpGui
+    
+    local closeBtn = Instance.new("TextButton")
+    closeBtn.Size = UDim2.new(1, -20, 0, 20)
+    closeBtn.Position = UDim2.new(0, 10, 1, -25)
+    closeBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    closeBtn.Text = "CLOSE"
+    closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    closeBtn.Font = Enum.Font.GothamBold
+    closeBtn.TextSize = 9
+    closeBtn.Parent = HelpGui
+    
+    local cCorner = Instance.new("UICorner") cCorner.CornerRadius = UDim.new(0, 5) cCorner.Parent = closeBtn
+    closeBtn.MouseButton1Click:Connect(function() HelpGui.Visible = false end)
+end
+
+-- BUILD MAIN GUI
 local function buildGUI()
     pcall(function()
         local old = CoreGui:FindFirstChild("KrimoHubGui")
@@ -521,7 +601,7 @@ local function buildGUI()
         MainFrame.AnchorPoint = Vector2.new(0.5, 0)
         MainFrame.Position = UDim2.new(0.5, 0, 0.35, 0)
         MainFrame.Size = UDim2.new(0, PANEL_W, 0, PANEL_H)
-        MainFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- GUI INNEN SCHWARZ[cite: 1]
+        MainFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- SCHWARZER HINTERGRUND[cite: 1]
         MainFrame.BorderSizePixel = 0
         MainFrame.Active = true
         MainFrame.Parent = ScreenGui
@@ -529,7 +609,7 @@ local function buildGUI()
         local corner = Instance.new("UICorner") corner.CornerRadius = UDim.new(0, 12) corner.Parent = MainFrame
         
         local stroke = Instance.new("UIStroke")
-        stroke.Color = Color3.fromRGB(255, 255, 255) -- RAND WEIß[cite: 1]
+        stroke.Color = Color3.fromRGB(255, 255, 255) -- WEIßER RAND[cite: 1]
         stroke.Thickness = 2
         stroke.Parent = MainFrame
         registerStroke(stroke)
@@ -579,7 +659,6 @@ local function buildGUI()
             hardReset()
         end)
 
-        -- Minimieren Button
         local toggleMinBtn = Instance.new("TextButton")
         toggleMinBtn.Size = UDim2.new(0, 20, 0, 18)
         toggleMinBtn.Position = UDim2.new(1, -24, 0.5, -9)
@@ -589,7 +668,7 @@ local function buildGUI()
         toggleMinBtn.Font = Enum.Font.GothamBold
         toggleMinBtn.Parent = titleBar
         
-        -- Content Frame
+        -- Content Area
         local ContentFrame = Instance.new("Frame")
         ContentFrame.Name = "ContentFrame"
         ContentFrame.Size = UDim2.new(1, 0, 1, -26)
@@ -597,11 +676,80 @@ local function buildGUI()
         ContentFrame.BackgroundTransparency = 1
         ContentFrame.Parent = MainFrame
         
-        -- Code Liste Frame
+        local collectedLabel = Instance.new("TextLabel")
+        collectedLabel.Name = "CollectedLabel"
+        collectedLabel.Size = UDim2.new(1, -20, 0, 15)
+        collectedLabel.Position = UDim2.new(0, 10, 0, 10)
+        collectedLabel.BackgroundTransparency = 1
+        collectedLabel.Text = "🌸 Pasted: 0/" .. _G.SubmitAfterCount
+        collectedLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+        collectedLabel.Font = Enum.Font.GothamBold
+        collectedLabel.TextSize = 10
+        collectedLabel.TextXAlignment = Enum.TextXAlignment.Left
+        collectedLabel.Parent = ContentFrame
+
+        -- Submit Counter Input Box
+        local countBox = Instance.new("TextBox")
+        countBox.Size = UDim2.new(0, 45, 0, 18)
+        countBox.Position = UDim2.new(1, -55, 0, 8)
+        countBox.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+        countBox.Text = tostring(_G.SubmitAfterCount)
+        countBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+        countBox.Font = Enum.Font.GothamBold
+        countBox.TextSize = 9
+        countBox.Parent = ContentFrame
+        
+        local countCorner = Instance.new("UICorner") countCorner.CornerRadius = UDim.new(0, 4) countCorner.Parent = countBox
+        local countStroke = Instance.new("UIStroke") countStroke.Thickness = 1 countStroke.Color = Color3.fromRGB(255, 255, 255) countStroke.Parent = countBox[cite: 1]
+        registerStroke(countStroke)
+        
+        countBox.FocusLost:Connect(function()
+            local n = tonumber(countBox.Text)
+            if n and n > 0 then
+                _G.SubmitAfterCount = math.floor(n)
+                refreshMainGUI()
+            else
+                countBox.Text = tostring(_G.SubmitAfterCount)
+            end
+        end)
+
+        -- Action Buttons Panel
+        local function createBtn(name, text, pos, size, callback)
+            local btn = Instance.new("TextButton")
+            btn.Name = name
+            btn.Position = pos
+            btn.Size = size
+            btn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+            btn.Text = text
+            btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            btn.Font = Enum.Font.GothamBold
+            btn.TextSize = 8
+            btn.Parent = ContentFrame
+            
+            local bCorner = Instance.new("UICorner") bCorner.CornerRadius = UDim.new(0, 6) bCorner.Parent = btn
+            local bStroke = Instance.new("UIStroke") bStroke.Thickness = 1 bStroke.Color = Color3.fromRGB(255, 255, 255) bStroke.Parent = btn[cite: 1]
+            registerStroke(bStroke)
+            
+            btn.MouseButton1Click:Connect(callback)
+            return btn
+        end
+
+        createBtn("SettingsBtn", "⚙️ Settings", UDim2.new(0, 10, 0, 32), UDim2.new(0, 110, 0, 22), openSettings)
+        createBtn("HelpBtn", "❓ Help", UDim2.new(0, 125, 0, 32), UDim2.new(0, 115, 0, 22), openHelp)
+
+        createBtn("ClearBtn", "🗑️ Clear", UDim2.new(0, 10, 0, 60), UDim2.new(0, 110, 0, 22), function()
+            hardReset()
+        end)
+        
+        createBtn("DiscordBtn", "💬 Discord", UDim2.new(0, 125, 0, 60), UDim2.new(0, 115, 0, 22), function()
+            if setclipboard then pcall(setclipboard, "https://discord.gg/krimo") end
+        end)
+
+        -- Code Display Box
         local codeListFrame = Instance.new("Frame")
         codeListFrame.Name = "CodeListFrame"
-        codeListFrame.Size = UDim2.new(1, -20, 0, 100)
-        codeListFrame.Position = UDim2.new(0, 10, 0, 120)
+        codeListFrame.Size = UDim2.new(1, -20, 0, 150)
+        codeListFrame.Position = UDim2.new(0, 10, 0, 95)
         codeListFrame.BackgroundColor3 = Color3.fromRGB(5, 5, 5)
         codeListFrame.BorderSizePixel = 0
         codeListFrame.Parent = ContentFrame
@@ -617,6 +765,8 @@ local function buildGUI()
         scroll.Size = UDim2.new(1, -4, 1, -4)
         scroll.Position = UDim2.new(0, 2, 0, 2)
         scroll.BackgroundTransparency = 1
+        scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+        scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
         scroll.Parent = codeListFrame
         
         local layout = Instance.new("UIListLayout")
@@ -631,8 +781,8 @@ local function buildGUI()
         placeholder.Font = Enum.Font.Gotham
         placeholder.TextSize = 8
         placeholder.Parent = scroll
-        
-        -- DRAG MECHANIK
+
+        -- DRAG MECHANIK FÜR DAS FENSTER
         local dragging, dragStart, startPos
         MainFrame.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -664,7 +814,7 @@ local function buildGUI()
     end)
 end
 
--- START
+-- INITIALISIERUNG
 task.wait(1)
 buildGUI()
 startAnnouncementWatcher()
