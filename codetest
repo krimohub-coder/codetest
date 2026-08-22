@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB V6 - 
+-- KRIMO HUB V6 - FIXED TOGGLES, STROKE COLOR, DRAG & MIN/CLOSE
 -- ============================================================
 
 _G.AccentColor = _G.AccentColor or Color3.fromRGB(100, 200, 255)
@@ -217,7 +217,7 @@ local function stopAutoBuy()
     end
 end
 
--- 5. RIDDLE DATABASE (gekürzt, aber alle wichtigen Einträge)
+-- 5. RIDDLE DATABASE
 local SLURP_DB = {
     ["how old am i"] = "24",
     ["how old is sammy"] = "24",
@@ -389,7 +389,7 @@ local function answerQuestion(text)
 end
 
 -- ============================================================
--- AUTO TYPE & AUTO SUBMIT LOGIK (AUS LEVITHON SCRIPT)
+-- AUTO TYPE & AUTO SUBMIT LOGIK (EXAKT AUS LEVITHON SCRIPT)
 -- ============================================================
 
 local function isOwnGui(obj)
@@ -519,7 +519,7 @@ local function fireFocusLost(box)
     return any
 end
 
--- Haupt-Submit-Funktion
+-- Haupt-Submit-Funktion (wie im Levithon Script)
 local function submitCode(code)
     local pg = LocalPlayer:FindFirstChild("PlayerGui")
     if not pg then return false, "no PlayerGui" end
@@ -662,15 +662,18 @@ local function findCodeBox()
     return nil
 end
 
--- STATE für gesammelte Codes
+-- ============================================================
+-- WATCHER & APPEND (WIE IM LEVITHON SCRIPT)
+-- ============================================================
+
 local _msgBuffer = {}
 local _seen = {}
 local _submitAfter = _G.SubmitAfterCount
 local isProcessingSubmit = false
 local collectedCodes = {}
 local history = {}
+local _lastText = ""
 
--- APPEND TO BOX (GEUPDATED – COUNTER UND GUI WERDEN AKTUALISIERT)
 local function appendToBox(text)
     if not text or text == "" then return end
     if not _G.ScriptEnabled then return end
@@ -712,7 +715,7 @@ local function appendToBox(text)
         pcall(function() box.Text = combinedCode end)
     end
     
-    -- 🔥 COUNTER UND GUI AKTUALISIEREN 🔥
+    -- COLLECTED CODES AKTUALISIEREN
     table.insert(collectedCodes, text)
     refreshMainGUI()
     
@@ -1281,6 +1284,7 @@ local function buildHelpGUI()
             return label
         end
         
+        -- DEUTSCH
         addHelpText("<font color='#66ccff'>🇩🇪 DEUTSCH</font>", Color3.fromRGB(100, 200, 255))
         addHelpText("", Color3.fromRGB(200, 220, 255))
         addHelpText("1️⃣ Stelle <font color='#00ff66'>Auto Type</font> und <font color='#00ff66'>Auto Submit</font> auf ON.", Color3.fromRGB(200, 220, 255))
@@ -1291,6 +1295,7 @@ local function buildHelpGUI()
         addHelpText("   • 'new code'", Color3.fromRGB(180, 200, 230))
         addHelpText("", Color3.fromRGB(200, 220, 255))
         addHelpText("3️⃣ Drücke auf <font color='#00ff66'>START</font> um den Hub zu aktivieren.", Color3.fromRGB(200, 220, 255))
+        addHelpText("   (Wenn <font color='#ff4444'>STOP</font> angezeigt wird, läuft der Hub bereits.)", Color3.fromRGB(180, 200, 230))
         addHelpText("", Color3.fromRGB(200, 220, 255))
         addHelpText("4️⃣ Der Hub schreibt den Code automatisch ein", Color3.fromRGB(200, 220, 255))
         addHelpText("   und submitted ihn für dich!", Color3.fromRGB(200, 220, 255))
@@ -1298,6 +1303,34 @@ local function buildHelpGUI()
         addHelpText("5️⃣ <font color='#ffaa00'>Riddle Solver</font> beantwortet Rätsel von Sammy.", Color3.fromRGB(200, 220, 255))
         addHelpText("", Color3.fromRGB(200, 220, 255))
         addHelpText("6️⃣ <font color='#ffaa00'>⚙️ Settings</font> bietet Auto Buy und Anchor.", Color3.fromRGB(200, 220, 255))
+        addHelpText("", Color3.fromRGB(200, 220, 255))
+        
+        local sep = Instance.new("Frame")
+        sep.Size = UDim2.new(1, 0, 0, 1)
+        sep.BackgroundColor3 = Color3.fromRGB(60, 80, 120)
+        sep.BackgroundTransparency = 0.5
+        sep.BorderSizePixel = 0
+        sep.Parent = scroll
+        
+        -- ENGLISH
+        addHelpText("<font color='#66ccff'>🇬🇧 ENGLISH</font>", Color3.fromRGB(100, 200, 255))
+        addHelpText("", Color3.fromRGB(200, 220, 255))
+        addHelpText("1️⃣ Set <font color='#00ff66'>Auto Type</font> and <font color='#00ff66'>Auto Submit</font> to ON.", Color3.fromRGB(200, 220, 255))
+        addHelpText("", Color3.fromRGB(200, 220, 255))
+        addHelpText("2️⃣ When Sammy says something like:", Color3.fromRGB(200, 220, 255))
+        addHelpText("   • 'code is'", Color3.fromRGB(180, 200, 230))
+        addHelpText("   • 'here is a code'", Color3.fromRGB(180, 200, 230))
+        addHelpText("   • 'new code'", Color3.fromRGB(180, 200, 230))
+        addHelpText("", Color3.fromRGB(200, 220, 255))
+        addHelpText("3️⃣ Press <font color='#00ff66'>START</font> to activate the hub.", Color3.fromRGB(200, 220, 255))
+        addHelpText("   (If <font color='#ff4444'>STOP</font> is shown, the hub is already running.)", Color3.fromRGB(180, 200, 230))
+        addHelpText("", Color3.fromRGB(200, 220, 255))
+        addHelpText("4️⃣ The hub automatically types in the code", Color3.fromRGB(200, 220, 255))
+        addHelpText("   and submits it for you!", Color3.fromRGB(200, 220, 255))
+        addHelpText("", Color3.fromRGB(200, 220, 255))
+        addHelpText("5️⃣ <font color='#ffaa00'>Riddle Solver</font> answers Sammy's riddles.", Color3.fromRGB(200, 220, 255))
+        addHelpText("", Color3.fromRGB(200, 220, 255))
+        addHelpText("6️⃣ <font color='#ffaa00'>⚙️ Settings</font> offers Auto Buy and Anchor.", Color3.fromRGB(200, 220, 255))
         
         task.wait(0.1)
         local contentSize = layout.AbsoluteContentSize
@@ -1905,7 +1938,7 @@ local function buildGUI()
             footer.Text = '<font color="#88aaff">🌸 discord.gg/</font><font color="#66ccff"><b>7Ea7qEsPzP</b></font>'
         end)
         
-        -- Minimieren Funktion
+        -- Minimieren
         local function applyMinimized(state)
             isMinimized = state
             if state then
@@ -1950,7 +1983,7 @@ local function buildGUI()
         end)
         
         refreshMainGUI()
-        print("[KrimoHub] GUI erstellt!")
+        print("[KrimoHub] GUI erstellt (in der Mitte)!")
     end)
 end
 
