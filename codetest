@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB V6 - FIXED TOGGLES, STROKE COLOR, DRAG & MIN/CLOSE
+-- KRIMO HUB
 -- ============================================================
 
 _G.AccentColor = _G.AccentColor or Color3.fromRGB(100, 200, 255)
@@ -55,7 +55,7 @@ local function saveConfig()
 end
 loadConfig()
 
--- STATE MANAGEMENT
+-- STATE MANAGEMENT (für Settings)
 local settingsState = {
     anchor = false,
     autoBuy = false,
@@ -441,7 +441,7 @@ end
 local Announcements = nil
 local CodeTextBox = nil
 local SubmitButton = nil
-local _delay = 0.1 -- SCHNELL (instant)
+local _delay = 0
 local PlayerGui = nil
 local ToggleButton = nil
 
@@ -599,7 +599,6 @@ local PANEL_H = 290
 local isMinimized = false
 local historyOpen = false
 local TitleCounterLabel = nil
-local isScriptStopped = false
 
 -- 8. STATE
 local _capturedParts = {}
@@ -698,8 +697,6 @@ end
 -- 12. WATCHER
 local function watchLabel(Label)
     pcall(function()
-        if isScriptStopped then return end
-        if not _G.ScriptEnabled then return end
         if not Label:IsA("TextLabel") then return end
         local text = Label.Text
         if text == "" then return end
@@ -721,7 +718,6 @@ local function watchLabel(Label)
             end
         end
         
-        -- Nur Wörter ohne Leerzeichen (Codes) erfassen
         if text:find("%s") then return end
         
         if _seen[text] then return end
@@ -748,7 +744,6 @@ local function watchLabel(Label)
             isProcessingSubmit = true
             _capturedParts = {}
             
-            -- SCHNELL (instant)
             if _delay > 0 then
                 task.wait(_delay)
             end
@@ -851,21 +846,25 @@ local function startPlayerGuiScanner()
     end)
 end
 
--- 14. SETTINGS WINDOW
+-- 14. NEUE SETTINGS WINDOW (GETESTET & FUNKTIONIERT)
+local SettingsMinimized = false
+
 local function openSettings()
-    if SettingsFrame then 
-        SettingsFrame.Visible = not SettingsFrame.Visible 
-        return 
+    if SettingsFrame then
+        SettingsFrame.Visible = not SettingsFrame.Visible
+        return
     end
     
     SettingsFrame = Instance.new("Frame")
     SettingsFrame.Name = "SettingsFrame"
+    SettingsFrame.AnchorPoint = Vector2.new(0.5, 0)  -- NACH OBEN FIXIERT
+    SettingsFrame.Position = UDim2.new(0.5, 0, 0.35, 0)
     SettingsFrame.Size = UDim2.new(0, 210, 0, 190)
-    SettingsFrame.Position = UDim2.new(0.5, 130, 0.4, 0)
     SettingsFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 22)
+    SettingsFrame.BackgroundTransparency = 0.05
     SettingsFrame.BorderSizePixel = 0
-    SettingsFrame.Active = true
     SettingsFrame.ClipsDescendants = true
+    SettingsFrame.Active = true
     SettingsFrame.ZIndex = 20
     SettingsFrame.Parent = ScreenGui
     
@@ -876,6 +875,7 @@ local function openSettings()
     setStroke.Parent = SettingsFrame
     registerStroke(setStroke)
     
+    -- TITLE BAR
     local titleBar = Instance.new("Frame")
     titleBar.Size = UDim2.new(1, 0, 0, 26)
     titleBar.BackgroundColor3 = Color3.fromRGB(22, 22, 32)
@@ -885,10 +885,10 @@ local function openSettings()
     local tbCorner = Instance.new("UICorner") tbCorner.CornerRadius = UDim.new(0, 10) tbCorner.Parent = titleBar
     
     local titleLabel = Instance.new("TextLabel")
-    titleLabel.Size = UDim2.new(1, -30, 1, 0)
+    titleLabel.Size = UDim2.new(1, -70, 1, 0)
     titleLabel.Position = UDim2.new(0, 10, 0, 0)
     titleLabel.BackgroundTransparency = 1
-    titleLabel.Text = "⚙️ Einstellungen"
+    titleLabel.Text = "Einstellungen"
     titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
     titleLabel.Font = Enum.Font.GothamBold
     titleLabel.TextSize = 12
@@ -896,6 +896,43 @@ local function openSettings()
     titleLabel.ZIndex = 21
     titleLabel.Parent = titleBar
     
+    -- SETTINGS CONTENT (wird beim Minimieren ein/ausgeblendet)
+    local SettingsContent = Instance.new("Frame")
+    SettingsContent.Name = "SettingsContent"
+    SettingsContent.Size = UDim2.new(1, 0, 1, -26)
+    SettingsContent.Position = UDim2.new(0, 0, 0, 26)
+    SettingsContent.BackgroundTransparency = 1
+    SettingsContent.ZIndex = 5
+    SettingsContent.Parent = SettingsFrame
+    
+    -- MINIMIZE BUTTON (-)
+    local minBtn = Instance.new("TextButton")
+    minBtn.Size = UDim2.new(0, 20, 0, 20)
+    minBtn.Position = UDim2.new(1, -48, 0.5, -10)
+    minBtn.BackgroundColor3 = Color3.fromRGB(40, 60, 100)
+    minBtn.Text = "−"
+    minBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    minBtn.Font = Enum.Font.GothamBold
+    minBtn.TextSize = 14
+    minBtn.AutoButtonColor = true
+    minBtn.ZIndex = 21
+    minBtn.Parent = titleBar
+    do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = minBtn end
+    
+    minBtn.MouseButton1Click:Connect(function()
+        SettingsMinimized = not SettingsMinimized
+        if SettingsMinimized then
+            SettingsContent.Visible = false
+            SettingsFrame.Size = UDim2.new(0, 210, 0, 26)
+            minBtn.Text = "+"
+        else
+            SettingsContent.Visible = true
+            SettingsFrame.Size = UDim2.new(0, 210, 0, 190)
+            minBtn.Text = "−"
+        end
+    end)
+    
+    -- CLOSE BUTTON (X)
     local closeBtn = Instance.new("TextButton")
     closeBtn.Size = UDim2.new(0, 20, 0, 20)
     closeBtn.Position = UDim2.new(1, -24, 0.5, -10)
@@ -909,8 +946,8 @@ local function openSettings()
     closeBtn.Parent = titleBar
     do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = closeBtn end
     closeBtn.MouseButton1Click:Connect(function()
-        if SettingsFrame then 
-            SettingsFrame.Visible = false 
+        if SettingsFrame then
+            SettingsFrame.Visible = false
         end
     end)
     
@@ -924,7 +961,6 @@ local function openSettings()
             dragSettings = true
             dragStartS = input.Position
             startPosS = SettingsFrame.Position
-            
             input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
                     dragSettings = false
@@ -940,65 +976,65 @@ local function openSettings()
         end
     end)
     
-    -- AUTO BUY
+    -- 1. AUTO BUY (ohne Emoji)
     local AutoBuyBtn = Instance.new("TextButton")
     AutoBuyBtn.Size = UDim2.new(1, -20, 0, 30)
     AutoBuyBtn.Position = UDim2.new(0, 10, 0, 32)
     AutoBuyBtn.BackgroundColor3 = settingsState.autoBuy and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(40, 40, 55)
-    AutoBuyBtn.Text = "🛒 Auto Buy: " .. (settingsState.autoBuy and "ON" or "OFF")
+    AutoBuyBtn.Text = "Auto Buy: " .. (settingsState.autoBuy and "ON" or "OFF")
     AutoBuyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     AutoBuyBtn.Font = Enum.Font.GothamSemibold
     AutoBuyBtn.TextSize = 11
     AutoBuyBtn.ZIndex = 21
-    AutoBuyBtn.Parent = SettingsFrame
+    AutoBuyBtn.Parent = SettingsContent
     local abCorner = Instance.new("UICorner") abCorner.CornerRadius = UDim.new(0, 6) abCorner.Parent = AutoBuyBtn
     
     AutoBuyBtn.MouseButton1Click:Connect(function()
         settingsState.autoBuy = not settingsState.autoBuy
-        AutoBuyBtn.Text = "🛒 Auto Buy: " .. (settingsState.autoBuy and "ON" or "OFF")
+        AutoBuyBtn.Text = "Auto Buy: " .. (settingsState.autoBuy and "ON" or "OFF")
         AutoBuyBtn.BackgroundColor3 = settingsState.autoBuy and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(40, 40, 55)
         if settingsState.autoBuy then startAutoBuy() else stopAutoBuy() end
     end)
     
-    -- ANCHOR
+    -- 2. ANCHOR (ohne Emoji)
     local AnchorBtn = Instance.new("TextButton")
     AnchorBtn.Size = UDim2.new(1, -20, 0, 30)
     AnchorBtn.Position = UDim2.new(0, 10, 0, 68)
     AnchorBtn.BackgroundColor3 = settingsState.anchor and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(40, 40, 55)
-    AnchorBtn.Text = "⚓ Anchor: " .. (settingsState.anchor and "ON" or "OFF")
+    AnchorBtn.Text = "Anchor: " .. (settingsState.anchor and "ON" or "OFF")
     AnchorBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     AnchorBtn.Font = Enum.Font.GothamSemibold
     AnchorBtn.TextSize = 11
     AnchorBtn.ZIndex = 21
-    AnchorBtn.Parent = SettingsFrame
+    AnchorBtn.Parent = SettingsContent
     local ancCorner = Instance.new("UICorner") ancCorner.CornerRadius = UDim.new(0, 6) ancCorner.Parent = AnchorBtn
     
     AnchorBtn.MouseButton1Click:Connect(function()
         settingsState.anchor = not settingsState.anchor
-        AnchorBtn.Text = "⚓ Anchor: " .. (settingsState.anchor and "ON" or "OFF")
+        AnchorBtn.Text = "Anchor: " .. (settingsState.anchor and "ON" or "OFF")
         AnchorBtn.BackgroundColor3 = settingsState.anchor and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(40, 40, 55)
         setCharacterAnchored(settingsState.anchor)
     end)
     
-    -- FARBEN
+    -- 3. FARBEN (ALLE IN EINER REIHE NEBENEINANDER)
     local ColorLabel = Instance.new("TextLabel")
     ColorLabel.Size = UDim2.new(1, -20, 0, 16)
     ColorLabel.Position = UDim2.new(0, 10, 0, 104)
     ColorLabel.BackgroundTransparency = 1
-    ColorLabel.Text = "🎨 Rand-Farbe:"
+    ColorLabel.Text = "Rand-Farbe:"
     ColorLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
     ColorLabel.Font = Enum.Font.Gotham
     ColorLabel.TextSize = 10
     ColorLabel.TextXAlignment = Enum.TextXAlignment.Left
     ColorLabel.ZIndex = 21
-    ColorLabel.Parent = SettingsFrame
+    ColorLabel.Parent = SettingsContent
     
     local ColorContainer = Instance.new("Frame")
-    ColorContainer.Size = UDim2.new(1, -20, 0, 60)
+    ColorContainer.Size = UDim2.new(1, -20, 0, 30)
     ColorContainer.Position = UDim2.new(0, 10, 0, 122)
     ColorContainer.BackgroundTransparency = 1
     ColorContainer.ZIndex = 21
-    ColorContainer.Parent = SettingsFrame
+    ColorContainer.Parent = SettingsContent
     
     local palette = {
         Color3.fromRGB(100, 200, 255),
@@ -1013,10 +1049,8 @@ local function openSettings()
     
     for i, color in ipairs(palette) do
         local btn = Instance.new("TextButton")
-        local row = math.floor((i - 1) / 4)
-        local col = (i - 1) % 4
-        btn.Size = UDim2.new(0, 36, 0, 24)
-        btn.Position = UDim2.new(0, col * 42, 0, row * 28)
+        btn.Size = UDim2.new(0, 22, 0, 24)
+        btn.Position = UDim2.new(0, (i-1) * 24, 0, 0)
         btn.BackgroundColor3 = color
         btn.BorderSizePixel = 0
         btn.Text = ""
@@ -1244,8 +1278,8 @@ local function buildGUI()
         
         MainFrame = Instance.new("Frame")
         MainFrame.Name = "MainFrame"
-        MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-        MainFrame.Position = UDim2.new(0.5, 0, 0.4, 0)
+        MainFrame.AnchorPoint = Vector2.new(0.5, 0)
+        MainFrame.Position = UDim2.new(0.5, 0, 0.35, 0)
         MainFrame.Size = UDim2.new(0, PANEL_W, 0, PANEL_H)
         MainFrame.BackgroundColor3 = _G.GuiColor
         MainFrame.BackgroundTransparency = 0.05
@@ -1334,11 +1368,7 @@ local function buildGUI()
             _G.ScriptEnabled = not _G.ScriptEnabled
             ToggleButton.TextColor3 = _G.ScriptEnabled and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(0, 255, 100)
             ToggleButton.Text = _G.ScriptEnabled and "STOP" or "START"
-            if not _G.ScriptEnabled then
-                isScriptStopped = true
-                hardReset()
-                isScriptStopped = false
-            end
+            hardReset()
         end)
         
         -- Fragezeichen Button
@@ -1379,11 +1409,11 @@ local function buildGUI()
             openSettings()
         end)
         
-        -- Minimieren Button (FIXIERT, BLEIBT AN DER STELLE)
+        -- Minimieren Button
         local toggleMinBtn = Instance.new("TextButton")
         toggleMinBtn.Name = "ToggleMinBtn"
         toggleMinBtn.Size = UDim2.new(0, 20, 0, 18)
-        toggleMinBtn.Position = UDim2.new(1, -8, 0.5, -9) -- FIXIERT
+        toggleMinBtn.Position = UDim2.new(1, -8, 0.5, -9)
         toggleMinBtn.BackgroundColor3 = Color3.fromRGB(30, 60, 100)
         toggleMinBtn.Text = "−"
         toggleMinBtn.TextColor3 = Color3.fromRGB(200, 230, 255)
