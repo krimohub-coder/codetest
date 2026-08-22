@@ -1,5 +1,5 @@
 -- ============================================================
--- KRIMO HUB
+-- KRIMO HUB V6 - AUTO TYPE (ALT) + AUTO SUBMIT (LEVITHON)
 -- ============================================================
 
 _G.AccentColor = _G.AccentColor or Color3.fromRGB(100, 200, 255)
@@ -23,7 +23,7 @@ local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
--- 2. PERSISTENZ (unverändert)
+-- 2. PERSISTENZ
 local hasFS = pcall(function() return type(writefile) == "function" end)
 local config = { guiColor = nil }
 
@@ -82,7 +82,7 @@ local function setAccentColor(newColor)
     saveConfig()
 end
 
--- 3. ANCHOR LOGIC (unverändert)
+-- 3. ANCHOR LOGIC
 local function setCharacterAnchored(state)
     local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
     for _, part in ipairs(character:GetDescendants()) do
@@ -92,7 +92,7 @@ local function setCharacterAnchored(state)
     end
 end
 
--- 4. AUTO BUY LOGIC (unverändert)
+-- 4. AUTO BUY LOGIC
 local promptConnections = {}
 local isAutoBuying = false
 local renderConnection = nil
@@ -217,7 +217,7 @@ local function stopAutoBuy()
     end
 end
 
--- 5. RIDDLE DATABASE (gekürzt, aber alle wichtigen Einträge)
+-- 5. RIDDLE DATABASE
 local SLURP_DB = {
     ["how old am i"] = "24",
     ["how old is sammy"] = "24",
@@ -389,10 +389,9 @@ local function answerQuestion(text)
 end
 
 -- ============================================================
--- AUTO TYPE & AUTO SUBMIT LOGIK (EXAKT AUS LEVITHON SCRIPT)
+-- AUTO SUBMIT LOGIK (AUS LEVITHON SCRIPT)
 -- ============================================================
 
--- Prüft ob ein Objekt zu unserer eigenen GUI gehört
 local function isOwnGui(obj)
     local p = obj
     for i=1,10 do
@@ -405,7 +404,6 @@ local function isOwnGui(obj)
     return false
 end
 
--- Prüft ob ein GUI-Objekt sichtbar ist
 local function isGuiVisible(guiObj)
     if not guiObj then return false end
     local p = guiObj
@@ -417,7 +415,6 @@ local function isGuiVisible(guiObj)
     return true
 end
 
--- Findet alle TextBoxen in allen aktiven ScreenGuis (außer eigener GUI)
 local function getCodeBoxes(pg)
     local boxes = {}
     for _, g in ipairs(pg:GetChildren()) do
@@ -432,7 +429,6 @@ local function getCodeBoxes(pg)
     return boxes
 end
 
--- Findet Submit-Buttons in allen aktiven ScreenGuis (außer eigener GUI)
 local function findSubmitButtons(pg)
     local btns = {}
     for _, g in ipairs(pg:GetChildren()) do
@@ -451,7 +447,6 @@ local function findSubmitButtons(pg)
     return btns
 end
 
--- Klick-Button mit allen möglichen Methoden
 local function clickButton(btn)
     if not btn then return false end
     
@@ -489,7 +484,6 @@ local function clickButton(btn)
     return any
 end
 
--- Feuert FocusLost mit Debounce-Deaktivierung
 local function fireFocusLost(box)
     if not box then return false end
     
@@ -525,7 +519,7 @@ local function fireFocusLost(box)
     return any
 end
 
--- Haupt-Submit-Funktion (wie im Levithon Script)
+-- SUBMIT CODE (aus Levithon Script)
 local function submitCode(code)
     local pg = LocalPlayer:FindFirstChild("PlayerGui")
     if not pg then return false, "no PlayerGui" end
@@ -586,7 +580,7 @@ local function submitCode(code)
         end
     end
     
-    -- 2. Dynamische Suche (wie im Levithon Script)
+    -- 2. Dynamische Suche
     local btns = findSubmitButtons(pg)
     for _, b in ipairs(btns) do
         clickButton(b)
@@ -594,7 +588,7 @@ local function submitCode(code)
     end
     task.wait(0.2)
     
-    -- Suche nach der ersten sichtbaren Code-Box
+    -- Suche nach Code-Box
     local box = nil
     local deadline = math.floor(os.clock() + 2)
     while os.clock() < deadline do
@@ -626,7 +620,7 @@ local function submitCode(code)
     pcall(function() box.Text = code end)
     task.wait(0.05)
     
-    -- Suche nach Submit-Button in der Nähe der Box
+    -- Suche nach Submit-Button
     local btn = nil
     local names = {"submit", "redeem", "claim", "confirm", "enter", "send", "apply", "ok", "use", "go", "check"}
     local p = box.Parent
@@ -657,50 +651,101 @@ local function submitCode(code)
     return true, "submitted via dynamic search"
 end
 
--- Findet die erste sichtbare Code-Box (wie _X im Levithon Script)
-local function findCodeBox()
-    local pg = LocalPlayer:FindFirstChild("PlayerGui")
-    if not pg then return nil end
-    local all = getCodeBoxes(pg)
-    for _, b in ipairs(all) do
-        if isGuiVisible(b) then
-            return b
+-- ============================================================
+-- ALTE AUTO TYPE LOGIK (DEIN ORIGINALER CODE)
+-- ============================================================
+
+local Announcements = nil
+local CodeTextBox = nil
+local SubmitButton = nil
+local _delay = 0
+local PlayerGui = nil
+local ToggleButton = nil
+
+local function setupPaths()
+    pcall(function()
+        PlayerGui = LocalPlayer:FindFirstChild("PlayerGui")
+        if not PlayerGui then return end
+        
+        local codes = PlayerGui:FindFirstChild("Codes")
+        if codes then
+            local codesInner = codes:FindFirstChild("Codes")
+            if codesInner then
+                local codeRedeem = codesInner:FindFirstChild("CodeRedeem")
+                if codeRedeem then
+                    CodeTextBox = codeRedeem:FindFirstChild("TextBox")
+                    for _, child in ipairs(codeRedeem:GetDescendants()) do
+                        if child:IsA("TextButton") then
+                            local txt = child.Text:upper()
+                            if txt:find("SEND") or txt:find("SUBMIT") or txt:find("REDEEM") or txt:find("CONFIRM") then
+                                SubmitButton = child
+                                break
+                            end
+                        end
+                    end
+                    if not SubmitButton then
+                        for _, child in ipairs(codeRedeem:GetDescendants()) do
+                            if child:IsA("TextButton") then
+                                SubmitButton = child
+                                break
+                            end
+                        end
+                    end
+                end
+            end
         end
-    end
-    return nil
+        
+        if not CodeTextBox or not SubmitButton then
+            for _, child in ipairs(PlayerGui:GetDescendants()) do
+                if child:IsA("TextBox") and not CodeTextBox then
+                    CodeTextBox = child
+                elseif child:IsA("TextButton") and not SubmitButton then
+                    local txt = child.Text:upper()
+                    if txt:find("SEND") or txt:find("SUBMIT") or txt:find("REDEEM") or txt:find("CONFIRM") then
+                        SubmitButton = child
+                    end
+                end
+            end
+        end
+        
+        local topNotif = PlayerGui:FindFirstChild("TopNotification")
+        if topNotif then
+            Announcements = topNotif:FindFirstChild("TopNotification")
+        end
+        if not Announcements then
+            for _, child in ipairs(PlayerGui:GetDescendants()) do
+                if child:IsA("Frame") and child.Name:lower():find("announce") then
+                    Announcements = child
+                    break
+                end
+            end
+        end
+    end)
 end
 
--- STATE für gesammelte Codes
-local _msgBuffer = {}
+-- APPEND TO BOX (ALTE LOGIK - NUR SAMMELN, NICHT SUBMIT)
+local _capturedParts = {}
 local _seen = {}
 local _submitAfter = _G.SubmitAfterCount
 local isProcessingSubmit = false
 local collectedCodes = {}
-local history = {}
 
--- APPEND TO BOX (verwendet findCodeBox() wie im Levithon Script)
-local function appendToBox(text)
-    if not text or text == "" then return end
-    if not _G.ScriptEnabled then return end
+local function appendToBox(text, isRiddleAnswer)
+    if not text or text == "" or not _G.ScriptEnabled then return end
     if not _G.AutoWriteEnabled then return end
     if isProcessingSubmit then return end
     
-    -- Riddle Solver
-    if _G.RiddleSolverEnabled then
-        local answer = answerQuestion(text)
-        if answer then
-            local box = findCodeBox()
-            if box then
-                pcall(function() box.Text = answer end)
-                if _G.AutoSubmitEnabled then
-                    task.spawn(function()
-                        if _delay > 0 then task.wait(_delay) end
-                        submitCode(answer)
-                    end)
-                end
+    if isRiddleAnswer then
+        if CodeTextBox then
+            if CodeTextBox.Text == "" or CodeTextBox.Text == "Code Here..." then
+                CodeTextBox.Text = text
+            else
+                CodeTextBox.Text = CodeTextBox.Text .. text
             end
-            return
+            table.insert(collectedCodes, text)
+            refreshMainGUI()
         end
+        return
     end
     
     -- Nur Wörter ohne Leerzeichen (Codes)
@@ -710,23 +755,26 @@ local function appendToBox(text)
     _seen[text] = true
     task.delay(2, function() _seen[text] = nil end)
     
-    _msgBuffer[#_msgBuffer + 1] = text
-    local combinedCode = table.concat(_msgBuffer)
-    local capturedCount = #_msgBuffer
-    
-    -- In CodeBox schreiben (mit findCodeBox)
-    local box = findCodeBox()
-    if box then
-        pcall(function() box.Text = combinedCode end)
+    _capturedParts[#_capturedParts + 1] = text
+    local combinedCode = table.concat(_capturedParts)
+    local capturedCount = #_capturedParts
+
+    if CodeTextBox then
+        if CodeTextBox.Text == "" or CodeTextBox.Text == "Code Here..." then
+            CodeTextBox.Text = text
+        else
+            CodeTextBox.Text = CodeTextBox.Text .. text
+        end
     end
     
     table.insert(collectedCodes, text)
     refreshMainGUI()
-    
+
     if capturedCount >= _submitAfter and _G.AutoSubmitEnabled and not isProcessingSubmit then
         isProcessingSubmit = true
-        _msgBuffer = {}
+        _capturedParts = {}
         
+        -- NEU: Verwende Levithon submitCode
         if _delay > 0 then
             task.wait(_delay)
         end
@@ -735,6 +783,9 @@ local function appendToBox(text)
         
         table.clear(collectedCodes)
         refreshMainGUI()
+        if CodeTextBox then 
+            CodeTextBox.Text = ""
+        end
         
         _G.ScriptEnabled = false
         if ToggleButton then
@@ -752,32 +803,7 @@ local function appendToBox(text)
     end
 end
 
--- WATCHER FÜR ANNOUNCEMENTS (wie im Levithon Script)
-local Announcements = nil
-local PlayerGui = nil
-local ToggleButton = nil
-local _delay = 0
-
-local function setupPaths()
-    pcall(function()
-        PlayerGui = LocalPlayer:FindFirstChild("PlayerGui")
-        if not PlayerGui then return end
-        
-        local topNotif = PlayerGui:FindFirstChild("TopNotification")
-        if topNotif then
-            Announcements = topNotif:FindFirstChild("TopNotification")
-        end
-        if not Announcements then
-            for _, child in ipairs(PlayerGui:GetDescendants()) do
-                if child:IsA("Frame") and child.Name:lower():find("announce") then
-                    Announcements = child
-                    break
-                end
-            end
-        end
-    end)
-end
-
+-- WATCHER
 local function watchLabel(Label)
     pcall(function()
         if not Label:IsA("TextLabel") then return end
@@ -785,7 +811,15 @@ local function watchLabel(Label)
         if text == "" then return end
         if isProcessingSubmit then return end
         
-        appendToBox(text)
+        if _G.RiddleSolverEnabled then
+            local answer = answerQuestion(text)
+            if answer then
+                appendToBox(answer, true)
+                return
+            end
+        end
+        
+        appendToBox(text, false)
     end)
 end
 
@@ -800,7 +834,7 @@ local function startAnnouncementWatcher()
     end)
 end
 
--- SPYDERSAMMY ERKENNUNG (wie im Levithon Script)
+-- SPYDERSAMMY ERKENNUNG
 local function verifySourceIsSammy(TO)
     pcall(function()
         if TO:IsDescendantOf(MainFrame) then return false end
@@ -854,7 +888,7 @@ local function startPlayerGuiScanner()
     end)
 end
 
--- 6. GUI ELEMENTE (unverändert)
+-- 6. GUI ELEMENTE
 local MainFrame = nil
 local ScreenGui = nil
 local HelpGui = nil
@@ -871,10 +905,13 @@ local TitleCounterLabel = nil
 -- 7. HARD RESET
 local function hardReset()
     table.clear(collectedCodes)
-    _msgBuffer = {}
+    _capturedParts = {}
     _seen = {}
     isProcessingSubmit = false
     refreshMainGUI()
+    if CodeTextBox then 
+        CodeTextBox.Text = ""
+    end
 end
 
 -- 8. COUNTER
@@ -951,7 +988,7 @@ local function refreshMainGUI()
     end)
 end
 
--- 10. NEUE SETTINGS WINDOW (unverändert)
+-- 10. NEUE SETTINGS WINDOW
 local SettingsMinimized = false
 
 local function openSettings()
@@ -1183,7 +1220,7 @@ local function openSettings()
     end
 end
 
--- 11. HILFE-GUI (unverändert)
+-- 11. HILFE-GUI
 local function buildHelpGUI()
     if HelpGui then
         HelpGui:Destroy()
@@ -1339,7 +1376,7 @@ local function buildHelpGUI()
     end)
 end
 
--- 12. GUI BAUEN (unverändert, aber mit korrektem Minimize)
+-- 12. GUI BAUEN
 local function buildGUI()
     pcall(function()
         local old = CoreGui:FindFirstChild("KrimoHubGui")
@@ -1760,15 +1797,6 @@ local function buildGUI()
             _G.HistoryEnabled = not _G.HistoryEnabled
             historyBtn.BackgroundColor3 = _G.HistoryEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
             historyBtn.Text = _G.HistoryEnabled and "ON" or "OFF"
-            if _G.HistoryEnabled then
-                -- History GUI bauen (optional)
-            else
-                if HistoryGui then HistoryGui:Destroy() end
-                HistoryGui = nil
-                HistoryFrame = nil
-                HistoryScroll = nil
-                historyOpen = false
-            end
         end)
         
         -- Collected Label
