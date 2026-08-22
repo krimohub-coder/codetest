@@ -39,9 +39,6 @@ local function loadConfig()
                 if data.accentColor then
                     _G.AccentColor = Color3.fromRGB(data.accentColor.r, data.accentColor.g, data.accentColor.b)
                 end
-                if data.delay then
-                    _delay = data.delay
-                end
             end
         end
     end)
@@ -52,8 +49,7 @@ local function saveConfig()
     pcall(function() 
         writefile("KrimoHub_config.json", HttpService:JSONEncode({
             guiColor = _G.GuiColor,
-            accentColor = {r = _G.AccentColor.R, g = _G.AccentColor.G, b = _G.AccentColor.B},
-            delay = _delay
+            accentColor = {r = _G.AccentColor.R, g = _G.AccentColor.G, b = _G.AccentColor.B}
         })) 
     end)
 end
@@ -445,7 +441,7 @@ end
 local Announcements = nil
 local CodeTextBox = nil
 local SubmitButton = nil
-local _delay = 1.5 -- LÄNGERE VERZÖGERUNG FÜR AUTO SUBMIT
+local _delay = 0.1 -- SCHNELL (instant)
 local PlayerGui = nil
 local ToggleButton = nil
 
@@ -603,6 +599,7 @@ local PANEL_H = 290
 local isMinimized = false
 local historyOpen = false
 local TitleCounterLabel = nil
+local isScriptStopped = false
 
 -- 8. STATE
 local _capturedParts = {}
@@ -701,6 +698,8 @@ end
 -- 12. WATCHER
 local function watchLabel(Label)
     pcall(function()
+        if isScriptStopped then return end
+        if not _G.ScriptEnabled then return end
         if not Label:IsA("TextLabel") then return end
         local text = Label.Text
         if text == "" then return end
@@ -749,7 +748,7 @@ local function watchLabel(Label)
             isProcessingSubmit = true
             _capturedParts = {}
             
-            -- LÄNGERE VERZÖGERUNG BEVOR SUBMIT (1.5 Sekunden)
+            -- SCHNELL (instant)
             if _delay > 0 then
                 task.wait(_delay)
             end
@@ -1335,7 +1334,11 @@ local function buildGUI()
             _G.ScriptEnabled = not _G.ScriptEnabled
             ToggleButton.TextColor3 = _G.ScriptEnabled and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(0, 255, 100)
             ToggleButton.Text = _G.ScriptEnabled and "STOP" or "START"
-            hardReset()
+            if not _G.ScriptEnabled then
+                isScriptStopped = true
+                hardReset()
+                isScriptStopped = false
+            end
         end)
         
         -- Fragezeichen Button
@@ -1376,16 +1379,16 @@ local function buildGUI()
             openSettings()
         end)
         
-        -- Minimieren Button (DICKER und an richtiger Position)
+        -- Minimieren Button (FIXIERT, BLEIBT AN DER STELLE)
         local toggleMinBtn = Instance.new("TextButton")
         toggleMinBtn.Name = "ToggleMinBtn"
-        toggleMinBtn.Size = UDim2.new(0, 24, 0, 20) -- DICKER
-        toggleMinBtn.Position = UDim2.new(1, -8, 0.5, -10)
+        toggleMinBtn.Size = UDim2.new(0, 20, 0, 18)
+        toggleMinBtn.Position = UDim2.new(1, -8, 0.5, -9) -- FIXIERT
         toggleMinBtn.BackgroundColor3 = Color3.fromRGB(30, 60, 100)
         toggleMinBtn.Text = "−"
         toggleMinBtn.TextColor3 = Color3.fromRGB(200, 230, 255)
         toggleMinBtn.Font = Enum.Font.GothamBold
-        toggleMinBtn.TextSize = 16 -- GRÖSSER
+        toggleMinBtn.TextSize = 14
         toggleMinBtn.AutoButtonColor = true
         toggleMinBtn.ZIndex = 10
         toggleMinBtn.Parent = titleBar
@@ -1495,7 +1498,6 @@ local function buildGUI()
             if val and val >= 0 then
                 _delay = val
                 delayBox.Text = tostring(_delay)
-                saveConfig()
             else
                 delayBox.Text = tostring(_delay)
             end
