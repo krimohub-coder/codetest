@@ -989,9 +989,6 @@ local function buildHistoryGUI()
     end)
 end
 
--- ============================================================
--- SETTINGS GUI – JETZT DRAGABLE (Maus + Touch)
--- ============================================================
 local function buildSettingsGUI()
     if SettingsGui then
         SettingsGui:Destroy()
@@ -1100,9 +1097,6 @@ local function buildSettingsGUI()
             applySettingsMinimized(not settingsMinimized)
         end)
         
-        -- ============================================================
-        -- DRAG-LOGIK FÜR SETTINGS (Maus + Touch)
-        -- ============================================================
         local dragging = false
         local dragStart = nil
         local startPos = nil
@@ -1132,13 +1126,11 @@ local function buildSettingsGUI()
         titleBar.InputEnded:Connect(onInputEnded)
         UserInputService.InputChanged:Connect(onInputChanged)
         
-        -- zusätzlich für Touch, falls InputEnded nicht zuverlässig ist
         titleBar.InputEnded:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.Touch then
                 dragging = false
             end
         end)
-        -- ============================================================
         
         local yPos = 8
         
@@ -1291,7 +1283,7 @@ local function buildHelpGUI()
         HelpFrame.Name = "HelpFrame"
         HelpFrame.AnchorPoint = Vector2.new(0.5, 0.5)
         HelpFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
-        HelpFrame.Size = UDim2.new(0, 220, 0, 240)
+        HelpFrame.Size = UDim2.new(0, 220, 0, 200)
         HelpFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 18)
         HelpFrame.BackgroundTransparency = 0.05
         HelpFrame.BorderSizePixel = 0
@@ -1376,10 +1368,15 @@ local function buildHelpGUI()
             return label
         end
         
-        addHelpText("<font color='#66ccff'>🇩🇪 ERKLÄRUNG</font>", Color3.fromRGB(100, 200, 255))
-        addHelpText("1️⃣ Sobald Sammy sagt 'code is here' etc., drücke auf <font color='#00ff66'>Start Scanning</font>.", Color3.fromRGB(200, 220, 255))
-        addHelpText("2️⃣ Bei <font color='#66ccff'>Submit after</font> stellst du ein, ab wie vielen Parts er es submiten soll.", Color3.fromRGB(200, 220, 255))
-        addHelpText("3️⃣ Der Hub sammelt die Codes und submitted automatisch per Levithon Engine.", Color3.fromRGB(200, 220, 255))
+        addHelpText("<font color='#66ccff'>🇩🇪 DEUTSCH</font>", Color3.fromRGB(100, 200, 255))
+        addHelpText("1️⃣ Sobald Sammy etwas sagt, drücke auf <font color='#00ff66'>Start Scanning</font>.", Color3.fromRGB(200, 220, 255))
+        addHelpText("2️⃣ Bei <font color='#66ccff'>Submit after</font> stellst du ein, ab wie vielen Codes er automatisch submiten soll.", Color3.fromRGB(200, 220, 255))
+        
+        addHelpText(" ", Color3.fromRGB(200, 220, 255))
+        
+        addHelpText("<font color='#66ccff'>🇬🇧 ENGLISH</font>", Color3.fromRGB(100, 200, 255))
+        addHelpText("1️⃣ Once Sammy says something, press <font color='#00ff66'>Start Scanning</font>.", Color3.fromRGB(200, 220, 255))
+        addHelpText("2️⃣ With <font color='#66ccff'>Submit after</font> you set how many codes should be collected before auto-submit.", Color3.fromRGB(200, 220, 255))
         
         task.wait(0.1)
         local contentSize = layout.AbsoluteContentSize
