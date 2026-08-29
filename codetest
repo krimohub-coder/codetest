@@ -1,4 +1,4 @@
-_G.ScriptEnabled = false
+_G.ScriptEnabled = true
 _G.RiddleSolverEnabled = false
 _G.SubmitAfterCount = 3
 _G.HistoryEnabled = false
@@ -644,6 +644,12 @@ local delay = 0.5
 local function refreshMainGUI() end
 local onAnnouncement = nil
 
+local function updateTitleCounter()
+    if TitleCounterLabel then
+        TitleCounterLabel.Text = "📊 " .. #buffer .. "/" .. mode
+    end
+end
+
 local function hardReset()
     table.clear(buffer)
     _seen = {}
@@ -666,12 +672,6 @@ local function hookTextBoxClearing()
                 hardReset()
             end
         end)
-    end
-end
-
-local function updateTitleCounter()
-    if TitleCounterLabel then
-        TitleCounterLabel.Text = "📊 " .. #buffer .. "/" .. mode
     end
 end
 
@@ -1414,7 +1414,7 @@ local function buildHelpGUI()
     end)
 end
 
-local scanning = false
+local scanning = true
 
 local function isValidCode(msg)
     return msg:match("^[A-Za-z0-9]+$") ~= nil
