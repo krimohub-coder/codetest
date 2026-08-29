@@ -1709,21 +1709,21 @@ local function updateHistoryContent()
             if entry.fromSammy then
                 count = count + 1
                 local row = Instance.new("Frame")
-                row.Size = UDim2.new(1, 0, 0, 22)
+                row.Size = UDim2.new(1, 0, 0, 18)
                 row.BackgroundColor3 = Color3.fromRGB(24, 26, 38)
                 row.BorderSizePixel = 0
                 row.Parent = HistoryScroll
                 
-                local rCo = Instance.new("UICorner") rCo.CornerRadius = UDim.new(0, 4) rCo.Parent = row
+                local rCo = Instance.new("UICorner") rCo.CornerRadius = UDim.new(0, 3) rCo.Parent = row
                 
                 local label = Instance.new("TextLabel")
                 label.Size = UDim2.new(0.45, 0, 1, 0)
-                label.Position = UDim2.new(0, 6, 0, 0)
+                label.Position = UDim2.new(0, 4, 0, 0)
                 label.BackgroundTransparency = 1
                 label.Text = string.format("#%02d %s", count, entry.word)
                 label.TextColor3 = Color3.fromRGB(230, 230, 245)
                 label.Font = Enum.Font.GothamMedium
-                label.TextSize = 10
+                label.TextSize = 9
                 label.TextXAlignment = Enum.TextXAlignment.Left
                 label.Parent = row
 
@@ -1734,20 +1734,20 @@ local function updateHistoryContent()
                 timeLabel.Text = entry.time or ""
                 timeLabel.TextColor3 = Color3.fromRGB(140, 140, 170)
                 timeLabel.Font = Enum.Font.Gotham
-                timeLabel.TextSize = 8
+                timeLabel.TextSize = 7
                 timeLabel.TextXAlignment = Enum.TextXAlignment.Left
                 timeLabel.Parent = row
                 
                 local writeBtn = Instance.new("TextButton")
-                writeBtn.Size = UDim2.new(0, 22, 0, 16)
-                writeBtn.Position = UDim2.new(1, -26, 0.5, -8)
+                writeBtn.Size = UDim2.new(0, 18, 0, 14)
+                writeBtn.Position = UDim2.new(1, -22, 0.5, -7)
                 writeBtn.BackgroundColor3 = _G.GuiColor
                 writeBtn.Text = "✏️"
                 writeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
                 writeBtn.Font = Enum.Font.GothamBold
-                writeBtn.TextSize = 8
+                writeBtn.TextSize = 7
                 writeBtn.Parent = row
-                local wCo = Instance.new("UICorner") wCo.CornerRadius = UDim.new(0, 4) wCo.Parent = writeBtn
+                local wCo = Instance.new("UICorner") wCo.CornerRadius = UDim.new(0, 3) wCo.Parent = writeBtn
                 
                 local word = entry.word
                 writeBtn.MouseButton1Click:Connect(function()
@@ -1769,7 +1769,7 @@ local function updateHistoryContent()
         
         local layout = HistoryScroll:FindFirstChildOfClass("UIListLayout")
         if layout then
-            HistoryScroll.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 6)
+            HistoryScroll.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 4)
         end
     end)
 end
@@ -1789,24 +1789,24 @@ local function buildHistoryGUI()
     local hFrame = Instance.new("Frame")
     hFrame.Name = "HistoryFrame"
     hFrame.Position = UDim2.new(0, 20, 0.35, 0)
-    hFrame.Size = UDim2.new(0, 210, 0, 180)
+    hFrame.Size = UDim2.new(0, 170, 0, 130)
     hFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 22)
     hFrame.BorderSizePixel = 0
     hFrame.Active = true
     hFrame.Draggable = true
     hFrame.Parent = HistoryGui
     
-    local hCo = Instance.new("UICorner") hCo.CornerRadius = UDim.new(0, 8) hCo.Parent = hFrame
-    local hSt = Instance.new("UIStroke") hSt.Color = _G.GuiColor hSt.Thickness = 1.5 hSt.Transparency = 0.3 hSt.Parent = hFrame
+    local hCo = Instance.new("UICorner") hCo.CornerRadius = UDim.new(0, 6) hCo.Parent = hFrame
+    local hSt = Instance.new("UIStroke") hSt.Color = _G.GuiColor hSt.Thickness = 1.2 hSt.Transparency = 0.3 hSt.Parent = hFrame
 
     local closeBtn = Instance.new("TextButton")
-    closeBtn.Size = UDim2.new(0, 22, 0, 22)
-    closeBtn.Position = UDim2.new(1, -26, 0, 3)
+    closeBtn.Size = UDim2.new(0, 18, 0, 18)
+    closeBtn.Position = UDim2.new(1, -22, 0, 3)
     closeBtn.BackgroundTransparency = 1
     closeBtn.Text = "✕"
     closeBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
     closeBtn.Font = Enum.Font.GothamBold
-    closeBtn.TextSize = 12
+    closeBtn.TextSize = 10
     closeBtn.Parent = hFrame
     closeBtn.MouseButton1Click:Connect(function()
         HistoryGui:Destroy()
@@ -1815,65 +1815,64 @@ local function buildHistoryGUI()
     end)
     
     local Header = Instance.new("Frame")
-    Header.Size = UDim2.new(1, 0, 0, 28)
+    Header.Size = UDim2.new(1, 0, 0, 24)
     Header.BackgroundTransparency = 1
     Header.Parent = hFrame
 
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(0.4, 0, 1, 0)
-    title.Position = UDim2.new(0, 10, 0, 0)
+    title.Position = UDim2.new(0, 8, 0, 0)
     title.BackgroundTransparency = 1
     title.Text = "History"
     title.TextColor3 = Color3.fromRGB(255, 255, 255)
     title.Font = Enum.Font.GothamBold
-    title.TextSize = 11
+    title.TextSize = 10
     title.TextXAlignment = Enum.TextXAlignment.Left
     title.Parent = Header
 
-    -- Clear-Button nach links verschoben (-95px statt -70px)
     local clearBtn = Instance.new("TextButton")
-    clearBtn.Size = UDim2.new(0, 40, 0, 18)
-    clearBtn.Position = UDim2.new(1, -95, 0, 5)
+    clearBtn.Size = UDim2.new(0, 34, 0, 14)
+    clearBtn.Position = UDim2.new(1, -78, 0, 5)
     clearBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
     clearBtn.Text = "Clear"
     clearBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     clearBtn.Font = Enum.Font.GothamBold
-    clearBtn.TextSize = 8
+    clearBtn.TextSize = 7
     clearBtn.Parent = Header
-    local cCo = Instance.new("UICorner") cCo.CornerRadius = UDim.new(0, 4) cCo.Parent = clearBtn
+    local cCo = Instance.new("UICorner") cCo.CornerRadius = UDim.new(0, 3) cCo.Parent = clearBtn
     clearBtn.MouseButton1Click:Connect(function()
         table.clear(history)
         updateHistoryContent()
     end)
     
     local hMinBtn = Instance.new("TextButton")
-    hMinBtn.Size = UDim2.new(0, 20, 0, 20)
-    hMinBtn.Position = UDim2.new(1, -48, 0, 4)
+    hMinBtn.Size = UDim2.new(0, 18, 0, 18)
+    hMinBtn.Position = UDim2.new(1, -40, 0, 3)
     hMinBtn.BackgroundTransparency = 1
     hMinBtn.Text = "−"
     hMinBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
     hMinBtn.Font = Enum.Font.GothamBold
-    hMinBtn.TextSize = 14
+    hMinBtn.TextSize = 12
     hMinBtn.Parent = Header
 
     HistoryScroll = Instance.new("ScrollingFrame")
-    HistoryScroll.Size = UDim2.new(1, -16, 1, -36)
-    HistoryScroll.Position = UDim2.new(0, 8, 0, 30)
+    HistoryScroll.Size = UDim2.new(1, -12, 1, -28)
+    HistoryScroll.Position = UDim2.new(0, 6, 0, 24)
     HistoryScroll.BackgroundTransparency = 1
     HistoryScroll.BorderSizePixel = 0
-    HistoryScroll.ScrollBarThickness = 3
+    HistoryScroll.ScrollBarThickness = 2
     HistoryScroll.ScrollBarImageColor3 = _G.GuiColor
     HistoryScroll.Parent = hFrame
     
     local layout = Instance.new("UIListLayout")
-    layout.Padding = UDim.new(0, 4)
+    layout.Padding = UDim.new(0, 3)
     layout.SortOrder = Enum.SortOrder.LayoutOrder
     layout.Parent = HistoryScroll
     
     hMinBtn.MouseButton1Click:Connect(function()
         isHistoryMinimized = not isHistoryMinimized
         HistoryScroll.Visible = not isHistoryMinimized
-        hFrame.Size = isHistoryMinimized and UDim2.new(0, 210, 0, 28) or UDim2.new(0, 210, 0, 180)
+        hFrame.Size = isHistoryMinimized and UDim2.new(0, 170, 0, 24) or UDim2.new(0, 170, 0, 130)
         hMinBtn.Text = isHistoryMinimized and "+" or "−"
     end)
 
@@ -1893,25 +1892,25 @@ local function buildSettingsGUI()
     SettingsGui.Parent = CoreGui
     
     local sFrame = Instance.new("Frame")
-    sFrame.Size = UDim2.new(0, 220, 0, 140)
-    sFrame.Position = UDim2.new(0.5, -110, 0.4, 0)
+    sFrame.Size = UDim2.new(0, 170, 0, 95)
+    sFrame.Position = UDim2.new(0.5, -85, 0.4, 0)
     sFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 22)
     sFrame.BorderSizePixel = 0
     sFrame.Active = true
     sFrame.Draggable = true
     sFrame.Parent = SettingsGui
     
-    local sCo = Instance.new("UICorner") sCo.CornerRadius = UDim.new(0, 8) sCo.Parent = sFrame
-    local sSt = Instance.new("UIStroke") sSt.Color = _G.GuiColor sSt.Thickness = 1.5 sSt.Transparency = 0.3 sSt.Parent = sFrame
+    local sCo = Instance.new("UICorner") sCo.CornerRadius = UDim.new(0, 6) sCo.Parent = sFrame
+    local sSt = Instance.new("UIStroke") sSt.Color = _G.GuiColor sSt.Thickness = 1.2 sSt.Transparency = 0.3 sSt.Parent = sFrame
 
     local closeBtn = Instance.new("TextButton")
-    closeBtn.Size = UDim2.new(0, 22, 0, 22)
-    closeBtn.Position = UDim2.new(1, -26, 0, 3)
+    closeBtn.Size = UDim2.new(0, 18, 0, 18)
+    closeBtn.Position = UDim2.new(1, -22, 0, 3)
     closeBtn.BackgroundTransparency = 1
     closeBtn.Text = "✕"
     closeBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
     closeBtn.Font = Enum.Font.GothamBold
-    closeBtn.TextSize = 12
+    closeBtn.TextSize = 10
     closeBtn.Parent = sFrame
     closeBtn.MouseButton1Click:Connect(function()
         SettingsGui:Destroy()
@@ -1919,54 +1918,54 @@ local function buildSettingsGUI()
     end)
     
     local Header = Instance.new("Frame")
-    Header.Size = UDim2.new(1, 0, 0, 30)
+    Header.Size = UDim2.new(1, 0, 0, 24)
     Header.BackgroundTransparency = 1
     Header.Parent = sFrame
 
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(0.7, 0, 1, 0)
-    title.Position = UDim2.new(0, 10, 0, 0)
+    title.Position = UDim2.new(0, 8, 0, 0)
     title.BackgroundTransparency = 1
     title.Text = "Settings"
     title.TextColor3 = Color3.fromRGB(255, 255, 255)
     title.Font = Enum.Font.GothamBold
-    title.TextSize = 12
+    title.TextSize = 10
     title.TextXAlignment = Enum.TextXAlignment.Left
     title.Parent = Header
     
     local sMinBtn = Instance.new("TextButton")
-    sMinBtn.Size = UDim2.new(0, 20, 0, 20)
-    sMinBtn.Position = UDim2.new(1, -48, 0, 5)
+    sMinBtn.Size = UDim2.new(0, 18, 0, 18)
+    sMinBtn.Position = UDim2.new(1, -40, 0, 3)
     sMinBtn.BackgroundTransparency = 1
     sMinBtn.Text = "−"
     sMinBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
     sMinBtn.Font = Enum.Font.GothamBold
-    sMinBtn.TextSize = 14
+    sMinBtn.TextSize = 12
     sMinBtn.Parent = Header
 
     local sContent = Instance.new("Frame")
-    sContent.Size = UDim2.new(1, -20, 1, -38)
-    sContent.Position = UDim2.new(0, 10, 0, 34)
+    sContent.Size = UDim2.new(1, -16, 1, -28)
+    sContent.Position = UDim2.new(0, 8, 0, 26)
     sContent.BackgroundTransparency = 1
     sContent.Parent = sFrame
 
     sMinBtn.MouseButton1Click:Connect(function()
         isSettingsMinimized = not isSettingsMinimized
         sContent.Visible = not isSettingsMinimized
-        sFrame.Size = isSettingsMinimized and UDim2.new(0, 220, 0, 30) or UDim2.new(0, 220, 0, 140)
+        sFrame.Size = isSettingsMinimized and UDim2.new(0, 170, 0, 24) or UDim2.new(0, 170, 0, 95)
         sMinBtn.Text = isSettingsMinimized and "+" or "−"
     end)
     
     local abBtn = Instance.new("TextButton")
-    abBtn.Size = UDim2.new(1, 0, 0, 30)
-    abBtn.Position = UDim2.new(0, 0, 0, 4)
+    abBtn.Size = UDim2.new(1, 0, 0, 24)
+    abBtn.Position = UDim2.new(0, 0, 0, 2)
     abBtn.BackgroundColor3 = settings.autoBuy and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(35, 35, 50)
     abBtn.Text = "Auto Buy: " .. (settings.autoBuy and "ON" or "OFF")
     abBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     abBtn.Font = Enum.Font.GothamSemibold
-    abBtn.TextSize = 11
+    abBtn.TextSize = 9
     abBtn.Parent = sContent
-    local abCo = Instance.new("UICorner") abCo.CornerRadius = UDim.new(0, 6) abCo.Parent = abBtn
+    local abCo = Instance.new("UICorner") abCo.CornerRadius = UDim.new(0, 4) abCo.Parent = abBtn
     
     abBtn.MouseButton1Click:Connect(function()
         settings.autoBuy = not settings.autoBuy
@@ -1976,15 +1975,15 @@ local function buildSettingsGUI()
     end)
     
     local acBtn = Instance.new("TextButton")
-    acBtn.Size = UDim2.new(1, 0, 0, 30)
-    acBtn.Position = UDim2.new(0, 0, 0, 42)
+    acBtn.Size = UDim2.new(1, 0, 0, 24)
+    acBtn.Position = UDim2.new(0, 0, 0, 30)
     acBtn.BackgroundColor3 = settings.anchor and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(35, 35, 50)
     acBtn.Text = "Freeze: " .. (settings.anchor and "ON" or "OFF")
     acBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     acBtn.Font = Enum.Font.GothamSemibold
-    acBtn.TextSize = 11
+    acBtn.TextSize = 9
     acBtn.Parent = sContent
-    local acCo = Instance.new("UICorner") acCo.CornerRadius = UDim.new(0, 6) acCo.Parent = acBtn
+    local acCo = Instance.new("UICorner") acCo.CornerRadius = UDim.new(0, 4) acCo.Parent = acBtn
     
     acBtn.MouseButton1Click:Connect(function()
         settings.anchor = not settings.anchor
@@ -2002,7 +2001,6 @@ local function buildMainGUI()
     ScreenGui.ResetOnSpawn = false
     ScreenGui.Parent = CoreGui
 
-    -- Hauptframe verkleinert (200x175 statt 240x200)
     MainFrame = Instance.new("Frame")
     MainFrame.Name = "MainFrame"
     MainFrame.Size = UDim2.new(0, 200, 0, 175)
