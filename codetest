@@ -2,7 +2,7 @@ _G.ScriptEnabled = false
 _G.RiddleSolverEnabled = false
 _G.SubmitAfterCount = 3
 _G.HistoryEnabled = false
-_G.GuiColor = Color3.fromRGB(128, 0, 255)
+_G.GuiColor = Color3.fromRGB(10, 10, 18)
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
@@ -19,10 +19,10 @@ local hasFS = pcall(function() return type(writefile) == "function" end)
 local function loadConfig()
     if not hasFS then return end
     pcall(function()
-        if isfile and isfile("GrimHub_config.json") then
-            local data = HttpService:JSONDecode(readfile("GrimHub_config.json"))
+        if isfile and isfile("KrimoHub_config.json") then
+            local data = HttpService:JSONDecode(readfile("KrimoHub_config.json"))
             if type(data) == "table" and data.guiColor then
-                _G.GuiColor = Color3.fromRGB(data.guiColor.r * 255, data.guiColor.g * 255, data.guiColor.b * 255)
+                _G.GuiColor = data.guiColor
             end
         end
     end)
@@ -32,8 +32,8 @@ local function saveConfig()
     if not hasFS then return end
     pcall(function() 
         if writefile then 
-            writefile("GrimHub_config.json", HttpService:JSONEncode({
-                guiColor = {r = _G.GuiColor.R, g = _G.GuiColor.G, b = _G.GuiColor.B}
+            writefile("KrimoHub_config.json", HttpService:JSONEncode({
+                guiColor = _G.GuiColor
             })) 
         end
     end)
@@ -227,990 +227,54 @@ local function stopAutoBuy()
     end
 end
 
--- ============ RIDDLE DATABASE ============
-local SAB_DB = {
-    ["real name"] = "SAMMY",
-    ["sammy real name"] = "SAMMY",
-    ["sammys real name"] = "SAMMY",
-    ["my real name"] = "SAMMY",
-    ["creator real name"] = "SAMMY",
-    ["owner real name"] = "SAMMY",
-    ["creator name"] = "SAMMY",
-    ["who created sab"] = "SAMMY",
-    ["who made sab"] = "SAMMY",
-    ["who made steal a brainrot"] = "SAMMY",
-    ["who is the owner"] = "SAMMY",
-    ["who owns sab"] = "SAMMY",
-    ["who is the creator"] = "SAMMY",
-    ["who created the game"] = "SAMMY",
-    ["who made the game"] = "SAMMY",
-    ["owner"] = "SAMMY",
-    ["creator"] = "SAMMY",
-    ["who is sammy"] = "SPYDERSAMMY",
-    ["what is my name"] = "SAMMY",
-    ["what is your name"] = "SAMMY",
-    ["whats my name"] = "SAMMY",
-    ["whats your name"] = "SAMMY",
-    ["name"] = "SAMMY",
-    ["roblox username"] = "SPYDERSAMMY",
-    ["my roblox username"] = "SPYDERSAMMY",
-    ["sammy username"] = "SPYDERSAMMY",
-    ["sammy roblox name"] = "SPYDERSAMMY",
-    ["roblox name"] = "SPYDERSAMMY",
-    ["username"] = "SPYDERSAMMY",
-    ["my username"] = "SPYDERSAMMY",
-    ["what is my username"] = "SPYDERSAMMY",
-    ["whats my username"] = "SPYDERSAMMY",
-    ["what is your username"] = "SPYDERSAMMY",
-    ["whats your username"] = "SPYDERSAMMY",
-    ["roblox user"] = "SPYDERSAMMY",
+local function answerQuestion(text)
+    if not _G.RiddleSolverEnabled or not text or text == "" then return nil end
+    
+    local clean = text:lower():gsub("[%?%.%,!']", ""):gsub("^%s+", ""):gsub("%s+$", "")
+    local removedWhat = clean:gsub("^what%s+", ""):gsub("^whats%s+", ""):gsub("^whatwas%s+", ""):gsub("^whatis%s+", "")
+    if removedWhat ~= clean and SLURP_DB[removedWhat] then return SLURP_DB[removedWhat] end
+    
+    local removedWho = clean:gsub("^who%s+", ""):gsub("^whois%s+", ""):gsub("^whowas%s+", "")
+    if removedWho ~= clean and SLURP_DB[removedWho] then return SLURP_DB[removedWho] end
+    
+    if SLURP_DB[clean] then return SLURP_DB[clean] end
+    
+    local noSpace = clean:gsub("%s+", "")
+    if SLURP_DB[noSpace] then return SLURP_DB[noSpace] end
+    
+    local replaced = clean:gsub("fav", "favorite")
+    if SLURP_DB[replaced] then return SLURP_DB[replaced] end
+    
+    local bestMatch = nil
+    local maxMatchLength = 0
+    for key, value in pairs(SLURP_DB) do
+        if clean:find(key, 1, true) then
+            if #key > maxMatchLength then
+                maxMatchLength = #key
+                bestMatch = value
+            end
+        end
+    end
+    
+    if not bestMatch and removedWhat ~= clean then
+        for key, value in pairs(SLURP_DB) do
+            if removedWhat:find(key, 1, true) then
+                if #key > maxMatchLength then
+                    maxMatchLength = #key
+                    bestMatch = value
+                end
+            end
+        end
+    end
+    return bestMatch
+end
+
+local SLURP_DB = {
     ["how old am i"] = "24",
     ["how old is sammy"] = "24",
-    ["how old are you"] = "24",
     ["my age"] = "24",
     ["sammy age"] = "24",
-    ["your age"] = "24",
     ["age"] = "24",
-    ["what is my age"] = "24",
-    ["whats my age"] = "24",
-    ["what is your age"] = "24",
-    ["whats your age"] = "24",
-    ["birth year"] = "2002",
-    ["year born"] = "2002",
-    ["year i was born"] = "2002",
-    ["born year"] = "2002",
-    ["what year was i born"] = "2002",
-    ["what year were you born"] = "2002",
-    ["birth day"] = "FRIDAY",
-    ["day i was born"] = "FRIDAY",
-    ["day born"] = "FRIDAY",
-    ["birthday"] = "FRIDAY",
-    ["born on"] = "FRIDAY",
-    ["what day was i born"] = "FRIDAY",
-    ["what day were you born"] = "FRIDAY",
-    ["birth month"] = "FEBRUARY",
-    ["month born"] = "FEBRUARY",
-    ["month i was born"] = "FEBRUARY",
-    ["what month was i born"] = "FEBRUARY",
-    ["where was i born"] = "ALGERIA",
-    ["where was i born at"] = "ALGERIA",
-    ["birthplace"] = "ALGERIA",
-    ["where i was born"] = "ALGERIA",
-    ["where were you born"] = "ALGERIA",
-    ["place of birth"] = "ALGERIA",
-    ["where am i from"] = "BRAZIL",
-    ["where is sammy from"] = "BRAZIL",
-    ["where are you from"] = "BRAZIL",
-    ["my country"] = "BRAZIL",
-    ["sammy country"] = "BRAZIL",
-    ["your country"] = "BRAZIL",
-    ["country"] = "BRAZIL",
-    ["where do i live"] = "BRAZIL",
-    ["where does sammy live"] = "BRAZIL",
-    ["where do you live"] = "BRAZIL",
-    ["nationality"] = "BRAZILIAN",
-    ["sammy nationality"] = "BRAZILIAN",
-    ["my nationality"] = "BRAZILIAN",
-    ["your nationality"] = "BRAZILIAN",
-    ["state"] = "SAOPAULO",
-    ["my state"] = "SAOPAULO",
-    ["sammy state"] = "SAOPAULO",
-    ["city"] = "SAOPAULO",
-    ["my city"] = "SAOPAULO",
-    ["sammy city"] = "SAOPAULO",
-    ["what city"] = "SAOPAULO",
-    ["what state"] = "SAOPAULO",
-    ["favorite color"] = "BLUE",
-    ["fav color"] = "BLUE",
-    ["my color"] = "BLUE",
-    ["sammy color"] = "BLUE",
-    ["your color"] = "BLUE",
-    ["color"] = "BLUE",
-    ["favourite color"] = "BLUE",
-    ["favorite sport"] = "FOOTBALL",
-    ["fav sport"] = "FOOTBALL",
-    ["sport"] = "FOOTBALL",
-    ["my sport"] = "FOOTBALL",
-    ["your sport"] = "FOOTBALL",
-    ["favorite football player"] = "RONALDO",
-    ["fav football player"] = "RONALDO",
-    ["favorite player"] = "RONALDO",
-    ["fav player"] = "RONALDO",
-    ["football player"] = "RONALDO",
-    ["favorite food"] = "PIZZA",
-    ["fav food"] = "PIZZA",
-    ["food"] = "PIZZA",
-    ["my food"] = "PIZZA",
-    ["your food"] = "PIZZA",
-    ["favorite animal"] = "SPIDER",
-    ["fav animal"] = "SPIDER",
-    ["animal"] = "SPIDER",
-    ["my animal"] = "SPIDER",
-    ["your animal"] = "SPIDER",
-    ["favorite number"] = "SEVEN",
-    ["fav number"] = "SEVEN",
-    ["number"] = "SEVEN",
-    ["my number"] = "SEVEN",
-    ["your number"] = "SEVEN",
-    ["youtube"] = "SPYDERSAMMY",
-    ["twitter"] = "SPYDERSAMMY",
-    ["tiktok"] = "SPYDERSAMMY",
-    ["instagram"] = "SPYDERSAMMY",
-    ["youtube channel"] = "SPYDERSAMMY",
-    ["socials"] = "SPYDERSAMMY",
-    ["social media"] = "SPYDERSAMMY",
-    ["game name"] = "STEALABRAINROT",
-    ["name of the game"] = "STEALABRAINROT",
-    ["sab"] = "STEALABRAINROT",
-    ["sab stands for"] = "STEALABRAINROT",
-    ["full name"] = "STEALABRAINROT",
-    ["full game name"] = "STEALABRAINROT",
-    ["what is the game called"] = "STEALABRAINROT",
-    ["what is this game"] = "STEALABRAINROT",
-    ["game"] = "STEALABRAINROT",
-    ["when was sab created"] = "MAY162025",
-    ["release date"] = "MAY162025",
-    ["when was sab released"] = "MAY162025",
-    ["when was the game released"] = "MAY162025",
-    ["game release date"] = "MAY162025",
-    ["when did sab come out"] = "MAY162025",
-    ["when did the game come out"] = "MAY162025",
-    ["release day"] = "FRIDAY",
-    ["release month"] = "MAY",
-    ["release year"] = "2025",
-    ["year created"] = "2025",
-    ["what year was sab made"] = "2025",
-    ["what year was the game made"] = "2025",
-    ["max server size"] = "EIGHT",
-    ["maximum server size"] = "EIGHT",
-    ["server size"] = "EIGHT",
-    ["how many players"] = "EIGHT",
-    ["max players"] = "EIGHT",
-    ["how many players in a server"] = "EIGHT",
-    ["server player limit"] = "EIGHT",
-    ["player limit"] = "EIGHT",
-    ["first trait"] = "LIGHTNING",
-    ["1st trait"] = "LIGHTNING",
-    ["first trait created"] = "LIGHTNING",
-    ["trait you get when struck by lightning"] = "MATEO",
-    ["struck by lightning"] = "MATEO",
-    ["lightning trait"] = "MATEO",
-    ["trait from lightning"] = "MATEO",
-    ["lightning"] = "MATEO",
-    ["first mutation"] = "GOLD",
-    ["1st mutation"] = "GOLD",
-    ["second mutation"] = "DIAMOND",
-    ["2nd mutation"] = "DIAMOND",
-    ["third mutation"] = "BLOODROT",
-    ["3rd mutation"] = "BLOODROT",
-    ["fourth mutation"] = "RAINBOW",
-    ["4th mutation"] = "RAINBOW",
-    ["fifth mutation"] = "CANDY",
-    ["5th mutation"] = "CANDY",
-    ["sixth mutation"] = "LAVA",
-    ["6th mutation"] = "LAVA",
-    ["seventh mutation"] = "GALAXY",
-    ["7th mutation"] = "GALAXY",
-    ["eighth mutation"] = "YINYANG",
-    ["8th mutation"] = "YINYANG",
-    ["ninth mutation"] = "RADIOACTIVE",
-    ["9th mutation"] = "RADIOACTIVE",
-    ["tenth mutation"] = "CURSED",
-    ["10th mutation"] = "CURSED",
-    ["eleventh mutation"] = "DIVINE",
-    ["11th mutation"] = "DIVINE",
-    ["twelfth mutation"] = "CYBER",
-    ["12th mutation"] = "CYBER",
-    ["thirteenth mutation"] = "PHANTOM",
-    ["13th mutation"] = "PHANTOM",
-    ["fourteenth mutation"] = "CRYSTAL",
-    ["14th mutation"] = "CRYSTAL",
-    ["evil mutation"] = "CURSED",
-    ["cursed mutation"] = "CURSED",
-    ["angelic mutation"] = "DIVINE",
-    ["total mutations"] = "14",
-    ["number of mutations"] = "14",
-    ["how many mutations"] = "14",
-    ["total machines"] = "18",
-    ["number of machines"] = "18",
-    ["how many machines"] = "18",
-    ["highest rarity"] = "OG",
-    ["rarest rarity"] = "OG",
-    ["lowest rarity"] = "COMMON",
-    ["rarest brainrot"] = "HEADLESSHORSEMAN",
-    ["best brainrot"] = "HEADLESSHORSEMAN",
-    ["unobtainable brainrot"] = "HEADLESSHORSEMAN",
-    ["most popular brainrot"] = "SKIBIDITOILET",
-    ["1st og"] = "STRAWBERRYELEPHANT",
-    ["first og"] = "STRAWBERRYELEPHANT",
-    ["2nd og"] = "MEOWL",
-    ["second og"] = "MEOWL",
-    ["3rd og"] = "SKIBIDITOILET",
-    ["third og"] = "SKIBIDITOILET",
-    ["4th og"] = "JOHNPORK",
-    ["fourth og"] = "JOHNPORK",
-    ["fifth og"] = "JOHNPORK",
-    ["5th og"] = "JOHNPORK",
-    ["how many rarities"] = "SIX",
-    ["total rarities"] = "SIX",
-    ["number of rarities"] = "SIX",
-    ["common"] = "COMMON",
-    ["uncommon"] = "UNCOMMON",
-    ["rare"] = "RARE",
-    ["epic"] = "EPIC",
-    ["legendary"] = "LEGENDARY",
-    ["og"] = "OG",
-    ["og rarity"] = "OG",
-    ["skibidi toilet"] = "SKIBIDITOILET",
-    ["skibidi"] = "SKIBIDITOILET",
-    ["headless horseman"] = "HEADLESSHORSEMAN",
-    ["headless"] = "HEADLESSHORSEMAN",
-    ["strawberry elephant"] = "STRAWBERRYELEPHANT",
-    ["meowl"] = "MEOWL",
-    ["john pork"] = "JOHNPORK",
-    ["worst brainrot"] = "SKIBIDITOILET",
-    ["most common brainrot"] = "SKIBIDITOILET",
-    ["best og"] = "HEADLESSHORSEMAN",
-    ["rarest og"] = "HEADLESSHORSEMAN",
-    ["gold mutation"] = "GOLD",
-    ["diamond mutation"] = "DIAMOND",
-    ["bloodrot mutation"] = "BLOODROT",
-    ["rainbow mutation"] = "RAINBOW",
-    ["candy mutation"] = "CANDY",
-    ["lava mutation"] = "LAVA",
-    ["galaxy mutation"] = "GALAXY",
-    ["yinyang mutation"] = "YINYANG",
-    ["yin yang"] = "YINYANG",
-    ["radioactive mutation"] = "RADIOACTIVE",
-    ["phantom mutation"] = "PHANTOM",
-    ["crystal mutation"] = "CRYSTAL",
-    ["cyber mutation"] = "CYBER",
-    ["divine mutation"] = "DIVINE",
-    ["genre"] = "SIMULATOR",
-    ["game genre"] = "SIMULATOR",
-    ["what genre"] = "SIMULATOR",
-    ["type of game"] = "SIMULATOR",
-    ["are you sammy"] = "YES",
-    ["is the owner sammy"] = "YES",
-    ["is sammy the owner"] = "YES",
-    ["do you like pizza"] = "YES",
-    ["do you like football"] = "YES",
-    ["do you like spiders"] = "YES",
-    ["do you like blue"] = "YES",
-    ["how old am i in words"] = "TWENTYFOUR",
-    ["age in words"] = "TWENTYFOUR",
-    ["favorite number in words"] = "SEVEN",
-    ["full real name"] = "SAMMY",
-    ["first name"] = "SAMMY",
-    ["last name"] = "SAMMY",
-    ["display name"] = "SPYDERSAMMY",
-    ["nick name"] = "SAMMY",
-    ["nickname"] = "SAMMY",
-    ["what do people call you"] = "SAMMY",
-    ["what do people call me"] = "SAMMY",
-    ["what day is release"] = "FRIDAY",
-    ["release day of week"] = "FRIDAY",
-    ["born day of week"] = "FRIDAY",
-    ["how many total mutations"] = "14",
-    ["mutation count"] = "14",
-    ["machine count"] = "18",
-    ["how many total machines"] = "18",
-    ["how many og"] = "FIVE",
-    ["how many og brainrots"] = "FIVE",
-    ["total og"] = "FIVE",
-    ["og count"] = "FIVE",
-    ["hi"] = "SAMMY",
-    ["hello"] = "SAMMY",
-    ["hey"] = "SAMMY",
-    ["who"] = "SAMMY",
-    ["name please"] = "SAMMY",
-    ["say your name"] = "SAMMY",
-    ["say my name"] = "SAMMY",
-    ["how old"] = "24",
-    ["age of sammy"] = "24",
-    ["sammys age"] = "24",
-    ["owners age"] = "24",
-    ["creators age"] = "24",
-    ["i am how old"] = "24",
-    ["born in"] = "2002",
-    ["born in year"] = "2002",
-    ["year of birth"] = "2002",
-    ["birthdate"] = "FRIDAY",
-    ["date of birth"] = "FRIDAY",
-    ["dob"] = "FRIDAY",
-    ["live in"] = "BRAZIL",
-    ["from where"] = "BRAZIL",
-    ["origin"] = "BRAZIL",
-    ["home country"] = "BRAZIL",
-    ["i live in"] = "BRAZIL",
-    ["you live in"] = "BRAZIL",
-    ["born in country"] = "ALGERIA",
-    ["born country"] = "ALGERIA",
-    ["sao paulo"] = "SAOPAULO",
-    ["best color"] = "BLUE",
-    ["loved color"] = "BLUE",
-    ["colour"] = "BLUE",
-    ["favourite colour"] = "BLUE",
-    ["best sport"] = "FOOTBALL",
-    ["loved sport"] = "FOOTBALL",
-    ["soccer"] = "FOOTBALL",
-    ["best food"] = "PIZZA",
-    ["loved food"] = "PIZZA",
-    ["best animal"] = "SPIDER",
-    ["loved animal"] = "SPIDER",
-    ["pet"] = "SPIDER",
-    ["best number"] = "SEVEN",
-    ["lucky number"] = "SEVEN",
-    ["loved number"] = "SEVEN",
-    ["best player"] = "RONALDO",
-    ["best footballer"] = "RONALDO",
-    ["cr7"] = "RONALDO",
-    ["cristiano"] = "RONALDO",
-    ["yt"] = "SPYDERSAMMY",
-    ["yt channel"] = "SPYDERSAMMY",
-    ["youtube name"] = "SPYDERSAMMY",
-    ["tt"] = "SPYDERSAMMY",
-    ["tik tok"] = "SPYDERSAMMY",
-    ["ig"] = "SPYDERSAMMY",
-    ["insta"] = "SPYDERSAMMY",
-    ["x"] = "SPYDERSAMMY",
-    ["x account"] = "SPYDERSAMMY",
-    ["twitter account"] = "SPYDERSAMMY",
-    ["steal a brainrot"] = "STEALABRAINROT",
-    ["stealabrainrot"] = "STEALABRAINROT",
-    ["brainrot game"] = "STEALABRAINROT",
-    ["this game name"] = "STEALABRAINROT",
-    ["title of the game"] = "STEALABRAINROT",
-    ["game title"] = "STEALABRAINROT",
-    ["released on"] = "MAY162025",
-    ["came out"] = "MAY162025",
-    ["came out on"] = "MAY162025",
-    ["launched"] = "MAY162025",
-    ["launch date"] = "MAY162025",
-    ["created on"] = "MAY162025",
-    ["made in"] = "2025",
-    ["made in year"] = "2025",
-    ["players per server"] = "EIGHT",
-    ["players in server"] = "EIGHT",
-    ["server capacity"] = "EIGHT",
-    ["max players per server"] = "EIGHT",
-    ["lobby size"] = "EIGHT",
-    ["starting trait"] = "LIGHTNING",
-    ["original trait"] = "LIGHTNING",
-    ["first ever trait"] = "LIGHTNING",
-    ["lightning gives"] = "MATEO",
-    ["get from lightning"] = "MATEO",
-    ["mateo"] = "MATEO",
-    ["mutation 1"] = "GOLD",
-    ["mutation 2"] = "DIAMOND",
-    ["mutation 3"] = "BLOODROT",
-    ["mutation 4"] = "RAINBOW",
-    ["mutation 5"] = "CANDY",
-    ["mutation 6"] = "LAVA",
-    ["mutation 7"] = "GALAXY",
-    ["mutation 8"] = "YINYANG",
-    ["mutation 9"] = "RADIOACTIVE",
-    ["mutation 10"] = "CURSED",
-    ["mutation 11"] = "DIVINE",
-    ["mutation 12"] = "CYBER",
-    ["mutation 13"] = "PHANTOM",
-    ["mutation 14"] = "CRYSTAL",
-    ["1 mutation"] = "GOLD",
-    ["2 mutation"] = "DIAMOND",
-    ["3 mutation"] = "BLOODROT",
-    ["4 mutation"] = "RAINBOW",
-    ["5 mutation"] = "CANDY",
-    ["6 mutation"] = "LAVA",
-    ["7 mutation"] = "GALAXY",
-    ["8 mutation"] = "YINYANG",
-    ["9 mutation"] = "RADIOACTIVE",
-    ["10 mutation"] = "CURSED",
-    ["11 mutation"] = "DIVINE",
-    ["12 mutation"] = "CYBER",
-    ["13 mutation"] = "PHANTOM",
-    ["14 mutation"] = "CRYSTAL",
-    ["lowest to highest rarity"] = "COMMONUNCOMMONRAREEPICLEGENDARYOG",
-    ["rarity order"] = "COMMONUNCOMMONRAREEPICLEGENDARYOG",
-    ["rarest"] = "OG",
-    ["most rare"] = "OG",
-    ["best rarity"] = "OG",
-    ["top rarity"] = "OG",
-    ["worst rarity"] = "COMMON",
-    ["most common rarity"] = "COMMON",
-    ["popular brainrot"] = "SKIBIDITOILET",
-    ["famous brainrot"] = "SKIBIDITOILET",
-    ["top brainrot"] = "HEADLESSHORSEMAN",
-    ["strongest brainrot"] = "HEADLESSHORSEMAN",
-    ["hardest brainrot"] = "HEADLESSHORSEMAN",
-    ["impossible brainrot"] = "HEADLESSHORSEMAN",
-    ["secret brainrot"] = "HEADLESSHORSEMAN",
-    ["og 1"] = "STRAWBERRYELEPHANT",
-    ["og 2"] = "MEOWL",
-    ["og 3"] = "SKIBIDITOILET",
-    ["og 5"] = "JOHNPORK",
-    ["first brainrot og"] = "STRAWBERRYELEPHANT",
-    ["second brainrot og"] = "MEOWL",
-    ["third brainrot og"] = "SKIBIDITOILET",
-    ["favorite color twice"] = "BLUEBLUE",
-    ["fav color twice"] = "BLUEBLUE",
-    ["favorite color 2 times"] = "BLUEBLUE",
-    ["favorite color two times"] = "BLUEBLUE",
-    ["favorite color three times"] = "BLUEBLUEBLUE",
-    ["favorite color 3 times"] = "BLUEBLUEBLUE",
-    ["favorite color four times"] = "BLUEBLUEBLUEBLUE",
-    ["favorite color 4 times"] = "BLUEBLUEBLUEBLUE",
-    ["favorite color 5 times"] = "BLUEBLUEBLUEBLUEBLUE",
-    ["age twice"] = "2424",
-    ["age 2 times"] = "2424",
-    ["username twice"] = "SPYDERSAMMYSPYDERSAMMY",
-    ["owner twice"] = "SAMMYSAMMY",
-    ["creator twice"] = "SAMMYSAMMY",
-    ["favorite food twice"] = "PIZZAPIZZA",
-    ["favorite animal twice"] = "SPIDERSPIDER",
-    ["favorite sport twice"] = "FOOTBALLFOOTBALL",
-    ["favorite number twice"] = "SEVENSEVEN",
-    ["country twice"] = "BRAZILBRAZIL",
-    ["tell me your name"] = "SAMMY",
-    ["tell me my name"] = "SAMMY",
-    ["tell me your age"] = "24",
-    ["tell me my age"] = "24",
-    ["tell me your color"] = "BLUE",
-    ["tell me your favorite color"] = "BLUE",
-    ["tell me where you from"] = "BRAZIL",
-    ["tell me where you live"] = "BRAZIL",
-    ["what country"] = "BRAZIL",
-    ["which country"] = "BRAZIL",
-    ["which color"] = "BLUE",
-    ["which sport"] = "FOOTBALL",
-    ["which food"] = "PIZZA",
-    ["which animal"] = "SPIDER",
-    ["which number"] = "SEVEN",
-    ["which player"] = "RONALDO",
-    ["who owns this game"] = "SAMMY",
-    ["who made this game"] = "SAMMY",
-    ["who created this"] = "SAMMY",
-    ["who is the creator of sab"] = "SAMMY",
-    ["who is the owner of sab"] = "SAMMY",
-    ["color of the sky"] = "BLUE",
-    ["colour of the sky"] = "BLUE",
-    ["sky color"] = "BLUE",
-    ["sky colour"] = "BLUE",
-    ["what color is the sky"] = "BLUE",
-    ["what colour is the sky"] = "BLUE",
-    ["whats the color of the sky"] = "BLUE",
-    ["color of sky"] = "BLUE",
-    ["the sky"] = "BLUE",
-    ["sky"] = "BLUE",
-    ["color of grass"] = "GREEN",
-    ["colour of grass"] = "GREEN",
-    ["grass color"] = "GREEN",
-    ["grass colour"] = "GREEN",
-    ["what color is grass"] = "GREEN",
-    ["what colour is grass"] = "GREEN",
-    ["whats the color of grass"] = "GREEN",
-    ["color of the grass"] = "GREEN",
-    ["grass"] = "GREEN",
-    ["color of the sun"] = "YELLOW",
-    ["colour of the sun"] = "YELLOW",
-    ["sun color"] = "YELLOW",
-    ["what color is the sun"] = "YELLOW",
-    ["color of sun"] = "YELLOW",
-    ["color of the moon"] = "WHITE",
-    ["moon color"] = "WHITE",
-    ["what color is the moon"] = "WHITE",
-    ["color of blood"] = "RED",
-    ["blood color"] = "RED",
-    ["what color is blood"] = "RED",
-    ["color of snow"] = "WHITE",
-    ["snow color"] = "WHITE",
-    ["what color is snow"] = "WHITE",
-    ["color of the ocean"] = "BLUE",
-    ["ocean color"] = "BLUE",
-    ["what color is the ocean"] = "BLUE",
-    ["color of water"] = "BLUE",
-    ["water color"] = "BLUE",
-    ["color of a banana"] = "YELLOW",
-    ["banana color"] = "YELLOW",
-    ["what color is a banana"] = "YELLOW",
-    ["color of an apple"] = "RED",
-    ["apple color"] = "RED",
-    ["what color is an apple"] = "RED",
-    ["color of a leaf"] = "GREEN",
-    ["leaf color"] = "GREEN",
-    ["what color is a leaf"] = "GREEN",
-    ["color of fire"] = "RED",
-    ["fire color"] = "RED",
-    ["what color is fire"] = "RED",
-    ["color of night"] = "BLACK",
-    ["night color"] = "BLACK",
-    ["what color is the night"] = "BLACK",
-    ["color of clouds"] = "WHITE",
-    ["cloud color"] = "WHITE",
-    ["what color are clouds"] = "WHITE",
-    ["what has hands but cannot clap"] = "CLOCK",
-    ["what has a face and two hands"] = "CLOCK",
-    ["what has a neck but no head"] = "BOTTLE",
-    ["what has teeth but cannot bite"] = "COMB",
-    ["what has ears but cannot hear"] = "CORN",
-    ["what has eyes but cannot see"] = "POTATO",
-    ["what has legs but cannot walk"] = "TABLE",
-    ["what can you catch but not throw"] = "COLD",
-    ["what gets wetter the more it dries"] = "TOWEL",
-    ["what has a head and a tail but no body"] = "COIN",
-    ["what goes up but never comes down"] = "AGE",
-    ["what is full of holes but still holds water"] = "SPONGE",
-    ["what has many keys but cannot open a lock"] = "PIANO",
-    ["what has words but never speaks"] = "BOOK",
-    ["what can travel around the world while staying in a corner"] = "STAMP",
-    ["what comes down but never goes up"] = "RAIN",
-    ["what is always in front of you but cannot be seen"] = "FUTURE",
-    ["what breaks when you say it"] = "SILENCE",
-    ["what belongs to you but others use it more"] = "NAME",
-    ["what has cities but no houses"] = "MAP",
-    ["what is black and white and read all over"] = "NEWSPAPER",
-    ["what has four wheels and flies"] = "GARBAGETRUCK",
-    ["what kind of room has no doors or windows"] = "MUSHROOM",
-    ["what starts with e ends with e"] = "ENVELOPE",
-    ["how many months have 28 days"] = "ALL",
-    ["what has a bottom at the top"] = "LEG",
-    ["what building has the most stories"] = "LIBRARY",
-    ["how many days in a week"] = "SEVEN",
-    ["days in a week"] = "SEVEN",
-    ["how many hours in a day"] = "24",
-    ["hours in a day"] = "24",
-    ["how many minutes in an hour"] = "60",
-    ["how many seconds in a minute"] = "60",
-    ["how many colors in a rainbow"] = "SEVEN",
-    ["colors in a rainbow"] = "SEVEN",
-    ["how many sides on a triangle"] = "THREE",
-    ["how many sides on a square"] = "FOUR",
-    ["how many sides on a circle"] = "ZERO",
-    ["how many legs does a spider have"] = "EIGHT",
-    ["spider legs"] = "EIGHT",
-    ["what animal says meow"] = "CAT",
-    ["what animal says woof"] = "DOG",
-    ["what animal says moo"] = "COW",
-    ["what animal says quack"] = "DUCK",
-    ["king of the jungle"] = "LION",
-    ["fastest land animal"] = "CHEETAH",
-    ["largest animal"] = "BLUEWHALE",
-    ["tallest animal"] = "GIRAFFE",
-    ["what do plants need"] = "SUNLIGHT",
-    ["what do we breathe"] = "OXYGEN",
-    ["what is h2o"] = "WATER",
-    ["h2o"] = "WATER",
-    ["closest planet to the sun"] = "MERCURY",
-    ["hottest planet"] = "VENUS",
-    ["red planet"] = "MARS",
-    ["planet we live on"] = "EARTH",
-    ["capital of france"] = "PARIS",
-    ["capital of england"] = "LONDON",
-    ["capital of japan"] = "TOKYO",
-    ["capital of usa"] = "WASHINGTON",
-    ["capital of brazil"] = "BRASILIA",
-    ["largest country"] = "RUSSIA",
-    ["smallest country"] = "VATICAN",
-    ["how many continents"] = "SEVEN",
-    ["how many oceans"] = "FIVE",
-    ["what do bees make"] = "HONEY",
-    ["what do cows drink"] = "WATER",
-    ["what do cats say"] = "MEOW",
-    ["what do dogs say"] = "WOOF",
-    ["opposite of hot"] = "COLD",
-    ["opposite of cold"] = "HOT",
-    ["opposite of up"] = "DOWN",
-    ["opposite of day"] = "NIGHT",
-    ["opposite of black"] = "WHITE",
-    ["opposite of white"] = "BLACK",
-    ["opposite of big"] = "SMALL",
-    ["opposite of fast"] = "SLOW",
-    ["opposite of happy"] = "SAD",
-    ["opposite of left"] = "RIGHT",
-    ["opposite of right"] = "LEFT",
-    ["how many letters in alphabet"] = "26",
-    ["letters in the alphabet"] = "26",
-    ["first letter of alphabet"] = "A",
-    ["last letter of alphabet"] = "Z",
-    ["how many wheels on a car"] = "FOUR",
-    ["how many wheels on a bike"] = "TWO",
-    ["how many eyes do you have"] = "TWO",
-    ["how many fingers on a hand"] = "FIVE",
-    ["how many toes on a foot"] = "FIVE",
-    ["what shape is a ball"] = "SPHERE",
-    ["what shape is a wheel"] = "CIRCLE",
-    ["what freezes water"] = "COLD",
-    ["what melts ice"] = "HEAT",
-    ["what do you use to write"] = "PEN",
-    ["what do you sleep on"] = "BED",
-    ["what do you sit on"] = "CHAIR",
-    ["what do you wear on feet"] = "SHOES",
-    ["what tells time"] = "CLOCK",
-    ["what do you look in"] = "MIRROR",
-    ["primary colors"] = "REDYELLOWBLUE",
-    ["how many primary colors"] = "THREE",
-    ["what is ice"] = "FROZENWATER",
-    ["what is steam"] = "WATER",
-    ["boiling point of water"] = "100",
-    ["freezing point of water"] = "ZERO",
-    ["how many bones in human body"] = "206",
-    ["largest organ"] = "SKIN",
-    ["what pumps blood"] = "HEART",
-    ["what do you think with"] = "BRAIN",
-    ["center of the solar system"] = "SUN",
-    ["how many planets"] = "EIGHT",
-    ["how many planets in solar system"] = "EIGHT",
-    ["gas we need to live"] = "OXYGEN",
-    ["what plants produce"] = "OXYGEN",
-    ["what is the sky made of"] = "AIR",
-    ["why is the sky blue"] = "BLUE",
-    ["grass is"] = "GREEN",
-    ["the sky is"] = "BLUE",
-    ["snow is"] = "WHITE",
-    ["night is"] = "BLACK",
-    ["fire is"] = "HOT",
-    ["ice is"] = "COLD",
-    ["what comes after night"] = "DAY",
-    ["what comes after day"] = "NIGHT",
-    ["what comes after monday"] = "TUESDAY",
-    ["what comes after friday"] = "SATURDAY",
-    ["first day of the week"] = "SUNDAY",
-    ["last day of the week"] = "SATURDAY",
-    ["how many seconds in a day"] = "86400",
-    ["half of 10"] = "FIVE",
-    ["half of 100"] = "50",
-    ["2 plus 2"] = "4",
-    ["2+2"] = "4",
-    ["5 plus 5"] = "10",
-    ["10 plus 10"] = "20",
-    ["what is 1+1"] = "2",
-    ["what is 2+2"] = "4",
-    ["what is 5+5"] = "10",
-    ["what is 10+10"] = "20",
-    ["biggest number"] = "INFINITY",
-    ["smallest number"] = "ZERO",
-    ["color of a rose"] = "RED",
-    ["rose color"] = "RED",
-    ["color of a tree"] = "GREEN",
-    ["tree color"] = "GREEN",
-    ["color of dirt"] = "BROWN",
-    ["dirt color"] = "BROWN",
-    ["color of gold"] = "YELLOW",
-    ["gold color"] = "YELLOW",
-    ["color of silver"] = "GRAY",
-    ["color of a lemon"] = "YELLOW",
-    ["lemon color"] = "YELLOW",
-    ["color of an orange"] = "ORANGE",
-    ["orange color"] = "ORANGE",
-    ["color of a grape"] = "PURPLE",
-    ["grape color"] = "PURPLE",
-    ["color of a strawberry"] = "RED",
-    ["color of chocolate"] = "BROWN",
-    ["color of milk"] = "WHITE",
-    ["milk color"] = "WHITE",
-    ["color of the forest"] = "GREEN",
-    ["color of lava"] = "RED",
-    ["lava color"] = "RED",
-    ["color of ice"] = "WHITE",
-    ["ice color"] = "WHITE",
-    ["color of the stars"] = "WHITE",
-    ["star color"] = "WHITE",
-    ["color of a flamingo"] = "PINK",
-    ["flamingo color"] = "PINK",
-    ["color of a pumpkin"] = "ORANGE",
-    ["pumpkin color"] = "ORANGE",
-    ["color of a carrot"] = "ORANGE",
-    ["carrot color"] = "ORANGE",
-    ["color of a crow"] = "BLACK",
-    ["crow color"] = "BLACK",
-    ["color of a polar bear"] = "WHITE",
-    ["how many colors in rainbow"] = "SEVEN",
-    ["how many hearts does an octopus have"] = "THREE",
-    ["how many legs does a dog have"] = "FOUR",
-    ["how many legs does a cat have"] = "FOUR",
-    ["how many legs does a bird have"] = "TWO",
-    ["how many wings does a bird have"] = "TWO",
-    ["largest land animal"] = "ELEPHANT",
-    ["what animal has a trunk"] = "ELEPHANT",
-    ["what animal has stripes"] = "ZEBRA",
-    ["black and white animal"] = "ZEBRA",
-    ["what animal gives milk"] = "COW",
-    ["what animal lays eggs"] = "CHICKEN",
-    ["farm animal that says oink"] = "PIG",
-    ["farm animal that says baa"] = "SHEEP",
-    ["farm animal that says neigh"] = "HORSE",
-    ["what is made from milk"] = "CHEESE",
-    ["yellow fruit"] = "BANANA",
-    ["red fruit"] = "APPLE",
-    ["italian food"] = "PIZZA",
-    ["sweet food from bees"] = "HONEY",
-    ["liquid from oranges"] = "JUICE",
-    ["what melts in summer"] = "ICE",
-    ["how many sides on a pentagon"] = "FIVE",
-    ["how many sides on a hexagon"] = "SIX",
-    ["how many sides on an octagon"] = "EIGHT",
-    ["shape with 3 sides"] = "TRIANGLE",
-    ["shape with 4 sides"] = "SQUARE",
-    ["round shape"] = "CIRCLE",
-    ["what comes after 9"] = "10",
-    ["what comes before 10"] = "9",
-    ["first month"] = "JANUARY",
-    ["last month"] = "DECEMBER",
-    ["month with 28 days"] = "FEBRUARY",
-    ["how many days in june"] = "30",
-    ["how many days in july"] = "31",
-    ["how many weeks in a year"] = "52",
-    ["how many months in a year"] = "12",
-    ["what year is it"] = "2026",
-    ["current year"] = "2026",
-    ["what has a bed but never sleeps"] = "RIVER",
-    ["what has banks but no money"] = "RIVER",
-    ["what runs but never walks"] = "WATER",
-    ["what can fill a room but takes no space"] = "LIGHT",
-    ["what is light as a feather but hard to hold"] = "BREATH",
-    ["what has one eye but cannot see"] = "NEEDLE",
-    ["what gets bigger the more you take away"] = "HOLE",
-    ["what has a thumb and four fingers but is not alive"] = "GLOVE",
-    ["forward i am heavy backward i am not"] = "TON",
-    ["the more there is the less you see"] = "DARKNESS",
-    ["what is always coming but never arrives"] = "TOMORROW",
-    ["where does today come before yesterday"] = "DICTIONARY",
-    ["what word is always spelled wrong"] = "WRONG",
-    ["what occurs once in a minute"] = "M",
-    ["what has 13 hearts"] = "CARDS",
-    ["what kind of band never plays music"] = "RUBBER",
-    ["what kind of tree can you carry"] = "PALM",
-    ["what has a ring but no finger"] = "TELEPHONE",
-    ["what can you break without touching"] = "PROMISE",
-    ["what goes through cities but never moves"] = "ROAD",
-    ["what has a spine but no bones"] = "BOOK",
-    ["how many players on a soccer team"] = "ELEVEN",
-    ["how many players on a basketball team"] = "FIVE",
-    ["how many bases in baseball"] = "FOUR",
-    ["olympic rings"] = "FIVE",
-    ["how many olympic rings"] = "FIVE",
-    ["sammys favorite color"] = "BLUE",
-    ["sammys age"] = "24",
-    ["sammys country"] = "BRAZIL",
-    ["sammys food"] = "PIZZA",
-    ["sammys animal"] = "SPIDER",
-    ["sammys sport"] = "FOOTBALL",
-    ["sammys number"] = "SEVEN",
-    ["sammys player"] = "RONALDO",
-    ["sammys username"] = "SPYDERSAMMY",
-    ["how old is the owner"] = "24",
-    ["owner age"] = "24",
-    ["owner color"] = "BLUE",
-    ["owner country"] = "BRAZIL",
-    ["owner food"] = "PIZZA",
-    ["owner animal"] = "SPIDER",
-    ["owner sport"] = "FOOTBALL",
-    ["owner number"] = "SEVEN",
-    ["blue or red"] = "BLUE",
-    ["yes or no"] = "YES",
-    ["cat or dog"] = "CAT",
-    ["day or night"] = "DAY",
-    ["hot or cold"] = "HOT",
-    ["true or false"] = "TRUE",
-    ["one"] = "1",
-    ["two"] = "2",
-    ["three"] = "3",
-    ["four"] = "4",
-    ["five"] = "5",
-    ["six"] = "6",
-    ["seven"] = "7",
-    ["eight"] = "8",
-    ["nine"] = "9",
-    ["ten"] = "10",
-    ["twenty"] = "20",
-    ["hundred"] = "100",
-    ["red"] = "RED",
-    ["green"] = "GREEN",
-    ["yellow"] = "YELLOW",
-    ["orange"] = "ORANGE",
-    ["purple"] = "PURPLE",
-    ["pink"] = "PINK",
-    ["brown"] = "BROWN",
-    ["black"] = "BLACK",
-    ["white"] = "WHITE",
-    ["gray"] = "GRAY",
-    ["grey"] = "GRAY",
-    ["blue"] = "BLUE",
-    ["color of a tomato"] = "RED",
-    ["tomato color"] = "RED",
-    ["color of a cucumber"] = "GREEN",
-    ["cucumber color"] = "GREEN",
-    ["color of a blueberry"] = "BLUE",
-    ["blueberry color"] = "BLUE",
-    ["color of a watermelon"] = "GREEN",
-    ["watermelon color"] = "GREEN",
-    ["color of corn"] = "YELLOW",
-    ["corn color"] = "YELLOW",
-    ["color of a frog"] = "GREEN",
-    ["frog color"] = "GREEN",
-    ["color of a tiger"] = "ORANGE",
-    ["tiger color"] = "ORANGE",
-    ["color of a panda"] = "BLACKWHITE",
-    ["panda color"] = "BLACKWHITE",
-    ["color of the earth"] = "BLUE",
-    ["earth color"] = "BLUE",
-    ["color of space"] = "BLACK",
-    ["space color"] = "BLACK",
-    ["color of wood"] = "BROWN",
-    ["wood color"] = "BROWN",
-    ["color of metal"] = "GRAY",
-    ["metal color"] = "GRAY",
-    ["color of a stop sign"] = "RED",
-    ["stop sign color"] = "RED",
-    ["color of go"] = "GREEN",
-    ["color of caution"] = "YELLOW",
-    ["traffic light colors"] = "REDYELLOWGREEN",
-    ["what do you wear on your head"] = "HAT",
-    ["what do you wear on your hands"] = "GLOVES",
-    ["what do you see with"] = "EYES",
-    ["what do you hear with"] = "EARS",
-    ["what do you smell with"] = "NOSE",
-    ["what do you taste with"] = "TONGUE",
-    ["what do you walk with"] = "FEET",
-    ["how many teeth do adults have"] = "32",
-    ["how many bones in a hand"] = "27",
-    ["how many continents are there"] = "SEVEN",
-    ["how many oceans are there"] = "FIVE",
-    ["largest ocean"] = "PACIFIC",
-    ["smallest ocean"] = "ARCTIC",
-    ["longest river"] = "NILE",
-    ["tallest mountain"] = "EVEREST",
-    ["hottest place"] = "DESERT",
-    ["coldest place"] = "ANTARCTICA",
-    ["capital of italy"] = "ROME",
-    ["capital of spain"] = "MADRID",
-    ["capital of germany"] = "BERLIN",
-    ["capital of russia"] = "MOSCOW",
-    ["capital of china"] = "BEIJING",
-    ["capital of canada"] = "OTTAWA",
-    ["capital of australia"] = "CANBERRA",
-    ["capital of mexico"] = "MEXICOCITY",
-    ["capital of india"] = "NEWDELHI",
-    ["who is the president"] = "UNKNOWN",
-    ["fastest animal in water"] = "SAILFISH",
-    ["slowest animal"] = "SLOTH",
-    ["animal that barks"] = "DOG",
-    ["animal that meows"] = "CAT",
-    ["animal that moos"] = "COW",
-    ["animal that roars"] = "LION",
-    ["animal that hisses"] = "SNAKE",
-    ["animal with a shell"] = "TURTLE",
-    ["animal with a pouch"] = "KANGAROO",
-    ["flying mammal"] = "BAT",
-    ["largest fish"] = "WHALESHARK",
-    ["smartest animal"] = "DOLPHIN",
-    ["what do bees collect"] = "NECTAR",
-    ["what do spiders make"] = "WEB",
-    ["what do birds build"] = "NEST",
-    ["what do ants live in"] = "COLONY",
-    ["what grows on trees"] = "LEAVES",
-    ["what falls from trees"] = "LEAVES",
-    ["what do you plant"] = "SEED",
-    ["what becomes a flower"] = "SEED",
-    ["what needs water to grow"] = "PLANT",
-    ["1 plus 1"] = "2",
-    ["3 plus 3"] = "6",
-    ["4 plus 4"] = "8",
-    ["6 plus 6"] = "12",
-    ["7 plus 7"] = "14",
-    ["8 plus 8"] = "16",
-    ["9 plus 9"] = "18",
-    ["what is 3+3"] = "6",
-    ["what is 4+4"] = "8",
-    ["what is 6+6"] = "12",
-    ["what is 7+7"] = "14",
-    ["what is 8+8"] = "16",
-    ["what is 9+9"] = "18",
-    ["10 times 10"] = "100",
-    ["5 times 5"] = "25",
-    ["2 times 2"] = "4",
-    ["square root of 9"] = "3",
-    ["square root of 4"] = "2",
-    ["square root of 16"] = "4",
-    ["square root of 25"] = "5",
-    ["square root of 100"] = "10",
-    ["monday"] = "MONDAY",
-    ["tuesday"] = "TUESDAY",
-    ["wednesday"] = "WEDNESDAY",
-    ["thursday"] = "THURSDAY",
-    ["friday"] = "FRIDAY",
-    ["saturday"] = "SATURDAY",
-    ["sunday"] = "SUNDAY",
-    ["day after sunday"] = "MONDAY",
-    ["day before monday"] = "SUNDAY",
-    ["weekend days"] = "SATURDAYSUNDAY",
-    ["january"] = "JANUARY",
-    ["february"] = "FEBRUARY",
-    ["march"] = "MARCH",
-    ["april"] = "APRIL",
-    ["may"] = "MAY",
-    ["june"] = "JUNE",
-    ["july"] = "JULY",
-    ["august"] = "AUGUST",
-    ["september"] = "SEPTEMBER",
-    ["october"] = "OCTOBER",
-    ["november"] = "NOVEMBER",
-    ["december"] = "DECEMBER",
-    ["month after january"] = "FEBRUARY",
-    ["month before january"] = "DECEMBER",
-    ["what has keys but no locks"] = "PIANO",
-    ["what has a neck but no head"] = "BOTTLE",
-    ["what has hands but no arms"] = "CLOCK",
-    ["what can fly without wings"] = "TIME",
-    ["what is always late"] = "TOMORROW",
-    ["what has ears but cannot hear"] = "CORN",
-    ["what is orange and sounds like a parrot"] = "CARROT",
-    ["what has four legs but cannot walk"] = "TABLE",
-    ["what is full of holes but still holds water"] = "SPONGE",
-    ["what goes up when rain comes down"] = "UMBRELLA",
-    ["what has a face but no eyes"] = "CLOCK",
-    ["what has teeth but no mouth"] = "COMB",
-    ["what can you catch but not throw"] = "COLD",
-    ["what has one head one foot and four legs"] = "BED",
-    ["what is as big as an elephant but weighs nothing"] = "SHADOW",
-    ["sammy favorite"] = "BLUE",
-    ["sammy likes"] = "BLUE",
-    ["owner favorite"] = "BLUE",
-    ["what does sammy like"] = "BLUE",
-    ["spydersammy age"] = "24",
-    ["spydersammy color"] = "BLUE",
-    ["spydersammy country"] = "BRAZIL",
-    ["how old is the creator"] = "24",
-    ["creator age"] = "24",
-    ["creator color"] = "BLUE",
-    ["creator country"] = "BRAZIL",
-    ["creator food"] = "PIZZA",
-    ["creator sport"] = "FOOTBALL",
-    ["creator animal"] = "SPIDER",
-    ["creator number"] = "SEVEN",
-    ["creator player"] = "RONALDO",
-    ["first mutation name"] = "GOLD",
-    ["second mutation name"] = "DIAMOND",
-    ["last mutation"] = "CRYSTAL",
-    ["newest mutation"] = "CRYSTAL",
-    ["best mutation"] = "GALAXY",
-    ["rarest mutation"] = "DIVINE",
-    ["yes"] = "YES",
-    ["no"] = "NO",
-    ["maybe"] = "MAYBE",
-    ["true"] = "TRUE",
-    ["false"] = "FALSE",
-    ["ok"] = "OK",
-    ["hello"] = "HELLO",
-    ["hi"] = "HI",
-    ["bye"] = "BYE",
-    ["67"] = "67",
-    ["420"] = "420",
-    ["69"] = "69",
-    ["100"] = "100",
-    ["1000"] = "1000",
-    ["2024"] = "2024",
-    ["2025"] = "2025",
-    ["2026"] = "2026",
     ["where am i from"] = "BRAZIL",
     ["where is sammy from"] = "BRAZIL",
     ["my country"] = "BRAZIL",
@@ -1320,58 +384,6 @@ local SAB_DB = {
     ["mythic codes"] = "1",
 }
 
-local function normalize(s)
-    if type(s) ~= "string" then return "" end
-    return s:upper():gsub("%s+", ""):gsub("[^%w]", "")
-end
-
-local function cleanQuery(s)
-    if type(s) ~= "string" then return "" end
-    s = s:lower()
-    s = s:gsub("<[^>]->", "")
-    s = s:gsub("[^%w%s]", " ")
-    s = s:gsub("%s+", " "):gsub("^%s+", ""):gsub("%s+$", "")
-    return s
-end
-
-local function answerQuestion(text)
-    if not _G.RiddleSolverEnabled or not text or text == "" then return nil end
-    
-    local raw = text:lower()
-    raw = raw:gsub("<[^>]->", "")
-    local q = cleanQuery(text)
-    if q == "" then q = raw end
-
-    if SAB_DB[q] then return normalize(SAB_DB[q]) end
-
-    local stripped = q
-        :gsub("^what is the ", ""):gsub("^what is a ", ""):gsub("^what is ", "")
-        :gsub("^whats the ", ""):gsub("^whats a ", ""):gsub("^whats ", "")
-        :gsub("^who is the ", ""):gsub("^who is ", ""):gsub("^whos ", "")
-        :gsub("^how old ", ""):gsub("^how many ", "")
-        :gsub("^where is the ", ""):gsub("^where is ", ""):gsub("^where was ", "")
-        :gsub("^when was the ", ""):gsub("^when was ", "")
-        :gsub("^what was the ", ""):gsub("^what was ", "")
-        :gsub("^tell me the ", ""):gsub("^tell me ", "")
-        :gsub("^my ", ""):gsub("^the ", ""):gsub("^a ", ""):gsub("^an ", "")
-
-    if SAB_DB[stripped] then return normalize(SAB_DB[stripped]) end
-
-    local bestKey, bestLen = nil, 0
-    for key, ans in pairs(SAB_DB) do
-        if #key >= 3 and #key > bestLen then
-            if q:find(key, 1, true) or stripped:find(key, 1, true) or raw:find(key, 1, true) then
-                bestKey = key
-                bestLen = #key
-            end
-        end
-    end
-    if bestKey then return normalize(SAB_DB[bestKey]) end
-
-    return nil
-end
-
--- ============ ADVANCED SUBMIT ENGINE ============
 local getupvalues = (debug and debug.getupvalues) or getupvalues
 local getconns    = getconnections or (debug and debug.getconnections)
 local setupv      = (debug and debug.setupvalue) or setupvalue
@@ -1380,7 +392,7 @@ local function isOurGui(instance)
     local p = instance
     for _ = 1, 10 do
         if not p then break end
-        if p.Name:find("Grim") or p.Name == "LevithonCodeRedeemer" then
+        if p.Name == "KrimoHubGui" or p.Name == "KrimoSettingsGui" or p.Name == "KrimoHistoryGui" or p.Name == "KrimoHelpGui" or p.Name == "LevithonCodeRedeemer" then
             return true
         end
         p = p.Parent
@@ -1546,7 +558,7 @@ local function levithonTypeAndSubmit(code)
                 task.wait(0.05)
                 if btn then fireButtonClick(btn) end
                 fireFocusLostSignal(box)
-                return true, "submitted"
+                return true, "submitted via PlayerGui.Codes"
             end
         end
     end
@@ -1604,49 +616,36 @@ local function levithonTypeAndSubmit(code)
 
     if btn then fireButtonClick(btn) end
     fireFocusLostSignal(box)
-    return true, "submitted"
+    return true, "submitted via Levithon dynamic search"
 end
 
--- ============ MAIN LOGIC ============
 local MainFrame = nil
 local ScreenGui = nil
+local HelpGui = nil
 local SettingsGui = nil
 local HistoryGui = nil
+local HistoryFrame = nil
 local HistoryScroll = nil
+local PANEL_W = 240
+local PANEL_H = 250
 local isMinimized = false
-local isHistoryMinimized = false
-local isSettingsMinimized = false
+local settingsMinimized = false
+local historyOpen = false
 local TitleCounterLabel = nil
+local scanBtn = nil
 
 local buffer = {}
 local _seen = {}
-local history = {}
-local mode = _G.SubmitAfterCount or 3
-local delay = 0.5
 local isProcessingSubmit = false
-local refreshMainGUI = nil
+local history = {}
+local mode = 3
+local delay = 0.5
 
-local function updateTitleCounter()
-    if TitleCounterLabel then
-        TitleCounterLabel.Text = #buffer .. "/" .. mode
-    end
-end
-
-local function updatePreview()
-    setupPaths()
-    if #buffer == 0 then
-        if CodeTextBox then CodeTextBox.Text = "" end
-        return
-    end
-    local count = math.min(#buffer, mode)
-    local combined = table.concat(buffer, "", 1, count)
-    if CodeTextBox then
-        CodeTextBox.Text = combined
-    end
-end
+local function refreshMainGUI() end
+local onAnnouncement = nil
 
 local function hardReset()
-    buffer = {}
+    table.clear(buffer)
     _seen = {}
     isProcessingSubmit = false
     
@@ -1654,11 +653,9 @@ local function hardReset()
     if CodeTextBox then 
         pcall(function() CodeTextBox.Text = "" end)
     end
-    
-    updatePreview()
+
+    refreshMainGUI()
     updateTitleCounter()
-    if refreshMainGUI then pcall(refreshMainGUI) end
-    print("[GrimHub] 🔄 Hard Reset - Buffer geleert (0/" .. tostring(mode) .. ").")
 end
 
 local function hookTextBoxClearing()
@@ -1671,29 +668,66 @@ local function hookTextBoxClearing()
         end)
     end
 end
-task.spawn(hookTextBoxClearing)
 
-local function processBuffer()
-    if not _G.ScriptEnabled or isProcessingSubmit then return end
-    
-    while #buffer >= mode do
-        isProcessingSubmit = true
-        local combined = table.concat(buffer, "", 1, mode)
-        
-        local success, msg = levithonTypeAndSubmit(combined)
-        if success then
-            print("[GrimHub] Redeemed: " .. combined)
-        end
-        
-        task.wait(delay)
-        hardReset()
-        break
+local function updateTitleCounter()
+    if TitleCounterLabel then
+        TitleCounterLabel.Text = "📊 " .. #buffer .. "/" .. mode
     end
-    updatePreview()
-    updateTitleCounter()
 end
 
-local onAnnouncement = nil
+refreshMainGUI = function()
+    if not MainFrame then return end
+    pcall(function()
+        updateTitleCounter()
+        
+        local ContentFrame = MainFrame:FindFirstChild("ContentFrame")
+        if not ContentFrame then return end
+        
+        local collectedLabel = ContentFrame:FindFirstChild("CollectedLabel")
+        if collectedLabel then
+            collectedLabel.Text = "🌸 Pasted: " .. #buffer .. "/" .. mode
+        end
+        
+        local listFrame = ContentFrame:FindFirstChild("CodeListFrame")
+        if not listFrame then return end
+        local scroll = listFrame:FindFirstChild("Scrolling")
+        if not scroll then return end
+        
+        for _, child in ipairs(scroll:GetChildren()) do
+            if child:IsA("TextLabel") and child.Name ~= "Placeholder" then
+                child:Destroy()
+            end
+        end
+        
+        local placeholder = scroll:FindFirstChild("Placeholder")
+        if placeholder then
+            placeholder.Visible = (#buffer == 0)
+        end
+        
+        if #buffer > 0 then
+            for i, code in ipairs(buffer) do
+                if code and code ~= "" then
+                    local label = Instance.new("TextLabel")
+                    label.Name = "CodeEntry"
+                    label.Size = UDim2.new(1, -6, 0, 13)
+                    label.BackgroundTransparency = 1
+                    label.Text = "[code] -> " .. code
+                    label.TextColor3 = Color3.fromRGB(0, 200, 80)
+                    label.Font = Enum.Font.Gotham
+                    label.TextSize = 9
+                    label.TextXAlignment = Enum.TextXAlignment.Left
+                    label.TextYAlignment = Enum.TextYAlignment.Top
+                    label.Parent = scroll
+                end
+            end
+        end
+        
+        local layout = scroll:FindFirstChildOfClass("UIListLayout")
+        if layout then
+            scroll.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 6)
+        end
+    end)
+end
 
 local function updateHistoryContent()
     if not HistoryScroll then return end
@@ -1709,62 +743,91 @@ local function updateHistoryContent()
             if entry.fromSammy then
                 count = count + 1
                 local row = Instance.new("Frame")
-                row.Size = UDim2.new(1, 0, 0, 18)
-                row.BackgroundColor3 = Color3.fromRGB(24, 26, 38)
+                row.Name = "HistoryRow"
+                row.Size = UDim2.new(1, 0, 0, 16)
+                row.BackgroundColor3 = Color3.fromRGB(20, 30, 50)
+                row.BackgroundTransparency = 0.3
                 row.BorderSizePixel = 0
+                row.ClipsDescendants = true
                 row.Parent = HistoryScroll
                 
-                local rCo = Instance.new("UICorner") rCo.CornerRadius = UDim.new(0, 3) rCo.Parent = row
+                local rowCorner = Instance.new("UICorner")
+                rowCorner.CornerRadius = UDim.new(0, 2)
+                rowCorner.Parent = row
                 
                 local label = Instance.new("TextLabel")
-                label.Size = UDim2.new(0.45, 0, 1, 0)
+                label.Size = UDim2.new(0, 90, 1, 0)
                 label.Position = UDim2.new(0, 4, 0, 0)
                 label.BackgroundTransparency = 1
-                label.Text = string.format("#%02d %s", count, entry.word)
-                label.TextColor3 = Color3.fromRGB(230, 230, 245)
-                label.Font = Enum.Font.GothamMedium
-                label.TextSize = 9
+                label.Text = string.format("%02d  %s", count, entry.word)
+                label.TextColor3 = Color3.fromRGB(200, 230, 255)
+                label.Font = Enum.Font.Gotham
+                label.TextSize = 7
                 label.TextXAlignment = Enum.TextXAlignment.Left
+                label.TextYAlignment = Enum.TextYAlignment.Center
                 label.Parent = row
-
+                
                 local timeLabel = Instance.new("TextLabel")
-                timeLabel.Size = UDim2.new(0.3, 0, 1, 0)
-                timeLabel.Position = UDim2.new(0.48, 0, 0, 0)
+                timeLabel.Size = UDim2.new(0, 30, 1, 0)
+                timeLabel.Position = UDim2.new(0, 96, 0, 0)
                 timeLabel.BackgroundTransparency = 1
                 timeLabel.Text = entry.time or ""
-                timeLabel.TextColor3 = Color3.fromRGB(140, 140, 170)
+                timeLabel.TextColor3 = Color3.fromRGB(130, 170, 210)
                 timeLabel.Font = Enum.Font.Gotham
-                timeLabel.TextSize = 7
+                timeLabel.TextSize = 5
                 timeLabel.TextXAlignment = Enum.TextXAlignment.Left
+                timeLabel.TextYAlignment = Enum.TextYAlignment.Center
                 timeLabel.Parent = row
                 
                 local writeBtn = Instance.new("TextButton")
-                writeBtn.Size = UDim2.new(0, 18, 0, 14)
-                writeBtn.Position = UDim2.new(1, -22, 0.5, -7)
-                writeBtn.BackgroundColor3 = _G.GuiColor
+                writeBtn.Size = UDim2.new(0, 22, 0, 12)
+                writeBtn.Position = UDim2.new(1, -26, 0.5, -6)
+                writeBtn.BackgroundColor3 = Color3.fromRGB(30, 120, 230)
                 writeBtn.Text = "✏️"
                 writeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
                 writeBtn.Font = Enum.Font.GothamBold
-                writeBtn.TextSize = 7
+                writeBtn.TextSize = 6
+                writeBtn.AutoButtonColor = true
+                writeBtn.ZIndex = 12
                 writeBtn.Parent = row
-                local wCo = Instance.new("UICorner") wCo.CornerRadius = UDim.new(0, 3) wCo.Parent = writeBtn
+                do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 2) co.Parent = writeBtn end
                 
                 local word = entry.word
                 writeBtn.MouseButton1Click:Connect(function()
                     setupPaths()
-                    table.insert(buffer, word)
-                    updatePreview()
-                    updateTitleCounter()
-                    
-                    if #buffer >= mode then
-                        task.spawn(processBuffer)
+                    if CodeTextBox then
+                        CodeTextBox.Text = word
                     end
-                    
-                    writeBtn.BackgroundColor3 = Color3.fromRGB(46, 204, 113)
-                    task.wait(0.2)
-                    writeBtn.BackgroundColor3 = _G.GuiColor
+                    if onAnnouncement then
+                        onAnnouncement(word)
+                    end
+                    writeBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 80)
+                    task.wait(0.15)
+                    writeBtn.BackgroundColor3 = Color3.fromRGB(30, 120, 230)
                 end)
             end
+        end
+        
+        if HistoryGui then
+            local titleLabel = HistoryGui:FindFirstChild("HistoryFrame"):FindFirstChild("TitleBar"):FindFirstChild("TitleLabel")
+            if titleLabel then
+                titleLabel.Text = "📜 History (" .. count .. ")"
+            end
+        end
+        
+        if count == 0 then
+            local empty = Instance.new("TextLabel")
+            empty.Name = "EmptyLabel"
+            empty.Size = UDim2.new(1, 0, 1, 0)
+            empty.BackgroundTransparency = 1
+            empty.Text = "No Sammy words yet"
+            empty.TextColor3 = Color3.fromRGB(100, 140, 180)
+            empty.Font = Enum.Font.Gotham
+            empty.TextSize = 9
+            empty.TextXAlignment = Enum.TextXAlignment.Center
+            empty.TextYAlignment = Enum.TextYAlignment.Center
+            empty.ZIndex = 12
+            empty.Parent = HistoryScroll
         end
         
         local layout = HistoryScroll:FindFirstChildOfClass("UIListLayout")
@@ -1776,107 +839,155 @@ end
 
 local function buildHistoryGUI()
     if HistoryGui then
-        HistoryGui:Destroy()
-        HistoryGui = nil
+        updateHistoryContent()
         return
     end
     
-    HistoryGui = Instance.new("ScreenGui")
-    HistoryGui.Name = "GrimHistoryGui"
-    HistoryGui.ResetOnSpawn = false
-    HistoryGui.Parent = CoreGui
-    
-    local hFrame = Instance.new("Frame")
-    hFrame.Name = "HistoryFrame"
-    hFrame.Position = UDim2.new(0, 20, 0.35, 0)
-    hFrame.Size = UDim2.new(0, 170, 0, 130)
-    hFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 22)
-    hFrame.BorderSizePixel = 0
-    hFrame.Active = true
-    hFrame.Draggable = true
-    hFrame.Parent = HistoryGui
-    
-    local hCo = Instance.new("UICorner") hCo.CornerRadius = UDim.new(0, 6) hCo.Parent = hFrame
-    local hSt = Instance.new("UIStroke") hSt.Color = _G.GuiColor hSt.Thickness = 1.2 hSt.Transparency = 0.3 hSt.Parent = hFrame
-
-    local closeBtn = Instance.new("TextButton")
-    closeBtn.Size = UDim2.new(0, 18, 0, 18)
-    closeBtn.Position = UDim2.new(1, -22, 0, 3)
-    closeBtn.BackgroundTransparency = 1
-    closeBtn.Text = "✕"
-    closeBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
-    closeBtn.Font = Enum.Font.GothamBold
-    closeBtn.TextSize = 10
-    closeBtn.Parent = hFrame
-    closeBtn.MouseButton1Click:Connect(function()
-        HistoryGui:Destroy()
-        HistoryGui = nil
-        _G.HistoryEnabled = false
-    end)
-    
-    local Header = Instance.new("Frame")
-    Header.Size = UDim2.new(1, 0, 0, 24)
-    Header.BackgroundTransparency = 1
-    Header.Parent = hFrame
-
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(0.4, 0, 1, 0)
-    title.Position = UDim2.new(0, 8, 0, 0)
-    title.BackgroundTransparency = 1
-    title.Text = "History"
-    title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    title.Font = Enum.Font.GothamBold
-    title.TextSize = 10
-    title.TextXAlignment = Enum.TextXAlignment.Left
-    title.Parent = Header
-
-    local clearBtn = Instance.new("TextButton")
-    clearBtn.Size = UDim2.new(0, 34, 0, 14)
-    clearBtn.Position = UDim2.new(1, -78, 0, 5)
-    clearBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
-    clearBtn.Text = "Clear"
-    clearBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    clearBtn.Font = Enum.Font.GothamBold
-    clearBtn.TextSize = 7
-    clearBtn.Parent = Header
-    local cCo = Instance.new("UICorner") cCo.CornerRadius = UDim.new(0, 3) cCo.Parent = clearBtn
-    clearBtn.MouseButton1Click:Connect(function()
-        table.clear(history)
+    pcall(function()
+        historyOpen = true
+        HistoryGui = Instance.new("ScreenGui")
+        HistoryGui.Name = "KrimoHistoryGui"
+        HistoryGui.ResetOnSpawn = false
+        HistoryGui.IgnoreGuiInset = true
+        HistoryGui.Parent = CoreGui
+        
+        HistoryFrame = Instance.new("Frame")
+        HistoryFrame.Name = "HistoryFrame"
+        HistoryFrame.AnchorPoint = Vector2.new(0, 0)
+        HistoryFrame.Position = UDim2.new(0, 10, 0.3, 0)
+        HistoryFrame.Size = UDim2.new(0, 180, 0, 150)
+        HistoryFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
+        HistoryFrame.BackgroundTransparency = 0.05
+        HistoryFrame.BorderSizePixel = 0
+        HistoryFrame.ClipsDescendants = true
+        HistoryFrame.Active = true
+        HistoryFrame.Parent = HistoryGui
+        
+        do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 10) co.Parent = HistoryFrame end
+        do local st = Instance.new("UIStroke") st.Color = _G.GuiColor ~= Color3.fromRGB(10, 10, 18) and _G.GuiColor or Color3.fromRGB(80, 180, 255) st.Thickness = 1.5 st.Transparency = 0.3 st.Parent = HistoryFrame end
+        
+        local tb = Instance.new("Frame")
+        tb.Name = "TitleBar"
+        tb.Size = UDim2.new(1, 0, 0, 22)
+        tb.BackgroundColor3 = Color3.fromRGB(20, 30, 50)
+        tb.BackgroundTransparency = 0.5
+        tb.BorderSizePixel = 0
+        tb.ZIndex = 10
+        tb.Parent = HistoryFrame
+        do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 10) co.Parent = tb end
+        
+        local tl = Instance.new("TextLabel")
+        tl.Name = "TitleLabel"
+        tl.Size = UDim2.new(0.6, 0, 1, 0)
+        tl.Position = UDim2.new(0, 8, 0, 0)
+        tl.BackgroundTransparency = 1
+        tl.Text = "📜 History (0)"
+        tl.TextColor3 = Color3.fromRGB(150, 220, 255)
+        tl.Font = Enum.Font.GothamBold
+        tl.TextSize = 10
+        tl.TextXAlignment = Enum.TextXAlignment.Left
+        tl.ZIndex = 10
+        tl.Parent = tb
+        
+        local resetHistoryBtn = Instance.new("TextButton")
+        resetHistoryBtn.Name = "ResetHistoryBtn"
+        resetHistoryBtn.Size = UDim2.new(0, 35, 0, 16)
+        resetHistoryBtn.Position = UDim2.new(1, -55, 0.5, -8)
+        resetHistoryBtn.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+        resetHistoryBtn.Text = "↻ Reset"
+        resetHistoryBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        resetHistoryBtn.Font = Enum.Font.GothamBold
+        resetHistoryBtn.TextSize = 7
+        resetHistoryBtn.AutoButtonColor = true
+        resetHistoryBtn.ZIndex = 10
+        resetHistoryBtn.Parent = tb
+        do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 3) co.Parent = resetHistoryBtn end
+        
+        resetHistoryBtn.MouseButton1Click:Connect(function()
+            table.clear(history)
+            updateHistoryContent()
+        end)
+        
+        local closeBtn = Instance.new("TextButton")
+        closeBtn.Size = UDim2.new(0, 18, 0, 18)
+        closeBtn.Position = UDim2.new(1, -22, 0.5, -9)
+        closeBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+        closeBtn.Text = "✕"
+        closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        closeBtn.Font = Enum.Font.GothamBold
+        closeBtn.TextSize = 10
+        closeBtn.AutoButtonColor = true
+        closeBtn.ZIndex = 10
+        closeBtn.Parent = tb
+        do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 3) co.Parent = closeBtn end
+        
+        closeBtn.MouseButton1Click:Connect(function()
+            if HistoryGui then HistoryGui:Destroy() end
+            HistoryGui = nil
+            HistoryFrame = nil
+            HistoryScroll = nil
+            historyOpen = false
+            _G.HistoryEnabled = false
+            if MainFrame then
+                local ContentFrame = MainFrame:FindFirstChild("ContentFrame")
+                if ContentFrame then
+                    local historyBtn = ContentFrame:FindFirstChild("HistoryBtn")
+                    if historyBtn then
+                        historyBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+                        historyBtn.Text = "OFF"
+                    end
+                end
+            end
+        end)
+        
+        HistoryScroll = Instance.new("ScrollingFrame")
+        HistoryScroll.Name = "HistoryScroll"
+        HistoryScroll.Size = UDim2.new(1, -6, 1, -28)
+        HistoryScroll.Position = UDim2.new(0, 3, 0, 24)
+        HistoryScroll.BackgroundTransparency = 1
+        HistoryScroll.BorderSizePixel = 0
+        HistoryScroll.ScrollBarThickness = 2
+        HistoryScroll.ScrollBarImageColor3 = Color3.fromRGB(80, 180, 255)
+        HistoryScroll.ScrollBarImageTransparency = 0.4
+        HistoryScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+        HistoryScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        HistoryScroll.ClipsDescendants = true
+        HistoryScroll.ZIndex = 11
+        HistoryScroll.Parent = HistoryFrame
+        
+        local layout = Instance.new("UIListLayout")
+        layout.Padding = UDim.new(0, 1)
+        layout.SortOrder = Enum.SortOrder.LayoutOrder
+        layout.Parent = HistoryScroll
+        
         updateHistoryContent()
+        
+        local dragging = false
+        local dragStart = nil
+        local startPos = nil
+        
+        HistoryFrame.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                dragging = true
+                dragStart = input.Position
+                startPos = HistoryFrame.Position
+                input.Changed:Connect(function()
+                    if input.UserInputState == Enum.UserInputState.End then
+                        dragging = false
+                    end
+                end)
+            end
+        end)
+        
+        HistoryFrame.InputChanged:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+                if dragging then
+                    local delta = input.Position - dragStart
+                    HistoryFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+                end
+            end
+        end)
     end)
-    
-    local hMinBtn = Instance.new("TextButton")
-    hMinBtn.Size = UDim2.new(0, 18, 0, 18)
-    hMinBtn.Position = UDim2.new(1, -40, 0, 3)
-    hMinBtn.BackgroundTransparency = 1
-    hMinBtn.Text = "−"
-    hMinBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
-    hMinBtn.Font = Enum.Font.GothamBold
-    hMinBtn.TextSize = 12
-    hMinBtn.Parent = Header
-
-    HistoryScroll = Instance.new("ScrollingFrame")
-    HistoryScroll.Size = UDim2.new(1, -12, 1, -28)
-    HistoryScroll.Position = UDim2.new(0, 6, 0, 24)
-    HistoryScroll.BackgroundTransparency = 1
-    HistoryScroll.BorderSizePixel = 0
-    HistoryScroll.ScrollBarThickness = 2
-    HistoryScroll.ScrollBarImageColor3 = _G.GuiColor
-    HistoryScroll.Parent = hFrame
-    
-    local layout = Instance.new("UIListLayout")
-    layout.Padding = UDim.new(0, 3)
-    layout.SortOrder = Enum.SortOrder.LayoutOrder
-    layout.Parent = HistoryScroll
-    
-    hMinBtn.MouseButton1Click:Connect(function()
-        isHistoryMinimized = not isHistoryMinimized
-        HistoryScroll.Visible = not isHistoryMinimized
-        hFrame.Size = isHistoryMinimized and UDim2.new(0, 170, 0, 24) or UDim2.new(0, 170, 0, 130)
-        hMinBtn.Text = isHistoryMinimized and "+" or "−"
-    end)
-
-    updateHistoryContent()
 end
 
 local function buildSettingsGUI()
@@ -1886,326 +997,496 @@ local function buildSettingsGUI()
         return
     end
     
-    SettingsGui = Instance.new("ScreenGui")
-    SettingsGui.Name = "GrimSettingsGui"
-    SettingsGui.ResetOnSpawn = false
-    SettingsGui.Parent = CoreGui
-    
-    local sFrame = Instance.new("Frame")
-    sFrame.Size = UDim2.new(0, 170, 0, 95)
-    sFrame.Position = UDim2.new(0.5, -85, 0.4, 0)
-    sFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 22)
-    sFrame.BorderSizePixel = 0
-    sFrame.Active = true
-    sFrame.Draggable = true
-    sFrame.Parent = SettingsGui
-    
-    local sCo = Instance.new("UICorner") sCo.CornerRadius = UDim.new(0, 6) sCo.Parent = sFrame
-    local sSt = Instance.new("UIStroke") sSt.Color = _G.GuiColor sSt.Thickness = 1.2 sSt.Transparency = 0.3 sSt.Parent = sFrame
-
-    local closeBtn = Instance.new("TextButton")
-    closeBtn.Size = UDim2.new(0, 18, 0, 18)
-    closeBtn.Position = UDim2.new(1, -22, 0, 3)
-    closeBtn.BackgroundTransparency = 1
-    closeBtn.Text = "✕"
-    closeBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
-    closeBtn.Font = Enum.Font.GothamBold
-    closeBtn.TextSize = 10
-    closeBtn.Parent = sFrame
-    closeBtn.MouseButton1Click:Connect(function()
-        SettingsGui:Destroy()
-        SettingsGui = nil
-    end)
-    
-    local Header = Instance.new("Frame")
-    Header.Size = UDim2.new(1, 0, 0, 24)
-    Header.BackgroundTransparency = 1
-    Header.Parent = sFrame
-
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(0.7, 0, 1, 0)
-    title.Position = UDim2.new(0, 8, 0, 0)
-    title.BackgroundTransparency = 1
-    title.Text = "Settings"
-    title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    title.Font = Enum.Font.GothamBold
-    title.TextSize = 10
-    title.TextXAlignment = Enum.TextXAlignment.Left
-    title.Parent = Header
-    
-    local sMinBtn = Instance.new("TextButton")
-    sMinBtn.Size = UDim2.new(0, 18, 0, 18)
-    sMinBtn.Position = UDim2.new(1, -40, 0, 3)
-    sMinBtn.BackgroundTransparency = 1
-    sMinBtn.Text = "−"
-    sMinBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
-    sMinBtn.Font = Enum.Font.GothamBold
-    sMinBtn.TextSize = 12
-    sMinBtn.Parent = Header
-
-    local sContent = Instance.new("Frame")
-    sContent.Size = UDim2.new(1, -16, 1, -28)
-    sContent.Position = UDim2.new(0, 8, 0, 26)
-    sContent.BackgroundTransparency = 1
-    sContent.Parent = sFrame
-
-    sMinBtn.MouseButton1Click:Connect(function()
-        isSettingsMinimized = not isSettingsMinimized
-        sContent.Visible = not isSettingsMinimized
-        sFrame.Size = isSettingsMinimized and UDim2.new(0, 170, 0, 24) or UDim2.new(0, 170, 0, 95)
-        sMinBtn.Text = isSettingsMinimized and "+" or "−"
-    end)
-    
-    local abBtn = Instance.new("TextButton")
-    abBtn.Size = UDim2.new(1, 0, 0, 24)
-    abBtn.Position = UDim2.new(0, 0, 0, 2)
-    abBtn.BackgroundColor3 = settings.autoBuy and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(35, 35, 50)
-    abBtn.Text = "Auto Buy: " .. (settings.autoBuy and "ON" or "OFF")
-    abBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    abBtn.Font = Enum.Font.GothamSemibold
-    abBtn.TextSize = 9
-    abBtn.Parent = sContent
-    local abCo = Instance.new("UICorner") abCo.CornerRadius = UDim.new(0, 4) abCo.Parent = abBtn
-    
-    abBtn.MouseButton1Click:Connect(function()
-        settings.autoBuy = not settings.autoBuy
-        abBtn.BackgroundColor3 = settings.autoBuy and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(35, 35, 50)
-        abBtn.Text = "Auto Buy: " .. (settings.autoBuy and "ON" or "OFF")
-        if settings.autoBuy then startAutoBuy() else stopAutoBuy() end
-    end)
-    
-    local acBtn = Instance.new("TextButton")
-    acBtn.Size = UDim2.new(1, 0, 0, 24)
-    acBtn.Position = UDim2.new(0, 0, 0, 30)
-    acBtn.BackgroundColor3 = settings.anchor and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(35, 35, 50)
-    acBtn.Text = "Freeze: " .. (settings.anchor and "ON" or "OFF")
-    acBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    acBtn.Font = Enum.Font.GothamSemibold
-    acBtn.TextSize = 9
-    acBtn.Parent = sContent
-    local acCo = Instance.new("UICorner") acCo.CornerRadius = UDim.new(0, 4) acCo.Parent = acBtn
-    
-    acBtn.MouseButton1Click:Connect(function()
-        settings.anchor = not settings.anchor
-        acBtn.BackgroundColor3 = settings.anchor and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(35, 35, 50)
-        acBtn.Text = "Freeze: " .. (settings.anchor and "ON" or "OFF")
-        setCharacterAnchored(settings.anchor)
+    pcall(function()
+        settingsMinimized = false
+        SettingsGui = Instance.new("ScreenGui")
+        SettingsGui.Name = "KrimoSettingsGui"
+        SettingsGui.ResetOnSpawn = false
+        SettingsGui.IgnoreGuiInset = true
+        SettingsGui.Parent = CoreGui
+        
+        local SettingsFrame = Instance.new("Frame")
+        SettingsFrame.Name = "SettingsFrame"
+        SettingsFrame.AnchorPoint = Vector2.new(0.5, 0)
+        SettingsFrame.Position = UDim2.new(0.5, -110, 0.3, 0)
+        SettingsFrame.Size = UDim2.new(0, 220, 0, 120)
+        SettingsFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 18)
+        SettingsFrame.BackgroundTransparency = 0.05
+        SettingsFrame.BorderSizePixel = 0
+        SettingsFrame.ClipsDescendants = true
+        SettingsFrame.Active = true
+        SettingsFrame.Parent = SettingsGui
+        
+        do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 12) co.Parent = SettingsFrame end
+        do local st = Instance.new("UIStroke") st.Color = _G.GuiColor ~= Color3.fromRGB(10, 10, 18) and _G.GuiColor or Color3.fromRGB(100, 200, 255) st.Thickness = 1.5 st.Transparency = 0.3 st.Parent = SettingsFrame end
+        
+        local titleBar = Instance.new("Frame")
+        titleBar.Name = "TitleBar"
+        titleBar.Size = UDim2.new(1, 0, 0, 26)
+        titleBar.BackgroundColor3 = Color3.fromRGB(15, 20, 45)
+        titleBar.BackgroundTransparency = 0.5
+        titleBar.BorderSizePixel = 0
+        titleBar.ZIndex = 10
+        titleBar.Parent = SettingsFrame
+        do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 12) co.Parent = titleBar end
+        
+        local titleLabel = Instance.new("TextLabel")
+        titleLabel.Size = UDim2.new(1, -50, 1, 0)
+        titleLabel.Position = UDim2.new(0, 10, 0, 0)
+        titleLabel.BackgroundTransparency = 1
+        titleLabel.Text = "⚙️ Einstellungen"
+        titleLabel.TextColor3 = Color3.fromRGB(180, 230, 255)
+        titleLabel.Font = Enum.Font.GothamBold
+        titleLabel.TextSize = 11
+        titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+        titleLabel.ZIndex = 10
+        titleLabel.Parent = titleBar
+        
+        local closeSettingsBtn = Instance.new("TextButton")
+        closeSettingsBtn.Size = UDim2.new(0, 20, 0, 20)
+        closeSettingsBtn.Position = UDim2.new(1, -24, 0.5, -10)
+        closeSettingsBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+        closeSettingsBtn.Text = "✕"
+        closeSettingsBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        closeSettingsBtn.Font = Enum.Font.GothamBold
+        closeSettingsBtn.TextSize = 10
+        closeSettingsBtn.AutoButtonColor = true
+        closeSettingsBtn.ZIndex = 10
+        closeSettingsBtn.Parent = titleBar
+        do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = closeSettingsBtn end
+        
+        closeSettingsBtn.MouseButton1Click:Connect(function()
+            if SettingsGui then SettingsGui:Destroy() end
+            SettingsGui = nil
+        end)
+        
+        local toggleMinBtn = Instance.new("TextButton")
+        toggleMinBtn.Size = UDim2.new(0, 20, 0, 20)
+        toggleMinBtn.Position = UDim2.new(1, -46, 0.5, -10)
+        toggleMinBtn.BackgroundColor3 = Color3.fromRGB(30, 60, 110)
+        toggleMinBtn.Text = "−"
+        toggleMinBtn.TextColor3 = Color3.fromRGB(200, 230, 255)
+        toggleMinBtn.Font = Enum.Font.GothamBold
+        toggleMinBtn.TextSize = 14
+        toggleMinBtn.AutoButtonColor = true
+        toggleMinBtn.ZIndex = 10
+        toggleMinBtn.Parent = titleBar
+        do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = toggleMinBtn end
+        
+        local ContentFrame = Instance.new("Frame")
+        ContentFrame.Name = "ContentFrame"
+        ContentFrame.Size = UDim2.new(1, 0, 1, -26)
+        ContentFrame.Position = UDim2.new(0, 0, 0, 26)
+        ContentFrame.BackgroundTransparency = 1
+        ContentFrame.ZIndex = 5
+        ContentFrame.Parent = SettingsFrame
+        
+        local function applySettingsMinimized(state)
+            settingsMinimized = state
+            if state then
+                ContentFrame.Visible = false
+                SettingsFrame.Size = UDim2.new(0, 220, 0, 26)
+                toggleMinBtn.Text = "+"
+            else
+                ContentFrame.Visible = true
+                SettingsFrame.Size = UDim2.new(0, 220, 0, 120)
+                toggleMinBtn.Text = "−"
+            end
+        end
+        
+        toggleMinBtn.MouseButton1Click:Connect(function()
+            applySettingsMinimized(not settingsMinimized)
+        end)
+        
+        local dragging = false
+        local dragStart = nil
+        local startPos = nil
+        
+        local function onInputBegan(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                dragging = true
+                dragStart = input.Position
+                startPos = SettingsFrame.Position
+            end
+        end
+        
+        local function onInputEnded(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                dragging = false
+            end
+        end
+        
+        local function onInputChanged(input)
+            if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+                local delta = input.Position - dragStart
+                SettingsFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            end
+        end
+        
+        titleBar.InputBegan:Connect(onInputBegan)
+        titleBar.InputEnded:Connect(onInputEnded)
+        UserInputService.InputChanged:Connect(onInputChanged)
+        
+        titleBar.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.Touch then
+                dragging = false
+            end
+        end)
+        
+        local yPos = 8
+        
+        local autoBuyLabel = Instance.new("TextLabel")
+        autoBuyLabel.Size = UDim2.new(0, 80, 0, 18)
+        autoBuyLabel.Position = UDim2.new(0, 12, 0, yPos)
+        autoBuyLabel.BackgroundTransparency = 1
+        autoBuyLabel.Text = "🛒 Auto Buy:"
+        autoBuyLabel.TextColor3 = Color3.fromRGB(200, 230, 255)
+        autoBuyLabel.Font = Enum.Font.GothamSemibold
+        autoBuyLabel.TextSize = 10
+        autoBuyLabel.TextXAlignment = Enum.TextXAlignment.Left
+        autoBuyLabel.ZIndex = 10
+        autoBuyLabel.Parent = ContentFrame
+        
+        local autoBuyToggle = Instance.new("TextButton")
+        autoBuyToggle.Size = UDim2.new(0, 44, 0, 18)
+        autoBuyToggle.Position = UDim2.new(1, -56, 0, yPos)
+        autoBuyToggle.BackgroundColor3 = settings.autoBuy and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
+        autoBuyToggle.Text = settings.autoBuy and "ON" or "OFF"
+        autoBuyToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+        autoBuyToggle.Font = Enum.Font.GothamBold
+        autoBuyToggle.TextSize = 9
+        autoBuyToggle.AutoButtonColor = false
+        autoBuyToggle.ZIndex = 10
+        autoBuyToggle.Parent = ContentFrame
+        do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = autoBuyToggle end
+        
+        autoBuyToggle.MouseButton1Click:Connect(function()
+            settings.autoBuy = not settings.autoBuy
+            autoBuyToggle.BackgroundColor3 = settings.autoBuy and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
+            autoBuyToggle.Text = settings.autoBuy and "ON" or "OFF"
+            if settings.autoBuy then startAutoBuy() else stopAutoBuy() end
+        end)
+        
+        yPos = yPos + 24
+        
+        local anchorLabel = Instance.new("TextLabel")
+        anchorLabel.Size = UDim2.new(0, 80, 0, 18)
+        anchorLabel.Position = UDim2.new(0, 12, 0, yPos)
+        anchorLabel.BackgroundTransparency = 1
+        anchorLabel.Text = "⚓ Anchor:"
+        anchorLabel.TextColor3 = Color3.fromRGB(200, 230, 255)
+        anchorLabel.Font = Enum.Font.GothamSemibold
+        anchorLabel.TextSize = 10
+        anchorLabel.TextXAlignment = Enum.TextXAlignment.Left
+        anchorLabel.ZIndex = 10
+        anchorLabel.Parent = ContentFrame
+        
+        local anchorToggle = Instance.new("TextButton")
+        anchorToggle.Size = UDim2.new(0, 44, 0, 18)
+        anchorToggle.Position = UDim2.new(1, -56, 0, yPos)
+        anchorToggle.BackgroundColor3 = settings.anchor and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
+        anchorToggle.Text = settings.anchor and "ON" or "OFF"
+        anchorToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+        anchorToggle.Font = Enum.Font.GothamBold
+        anchorToggle.TextSize = 9
+        anchorToggle.AutoButtonColor = false
+        anchorToggle.ZIndex = 10
+        anchorToggle.Parent = ContentFrame
+        do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = anchorToggle end
+        
+        anchorToggle.MouseButton1Click:Connect(function()
+            settings.anchor = not settings.anchor
+            anchorToggle.BackgroundColor3 = settings.anchor and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
+            anchorToggle.Text = settings.anchor and "ON" or "OFF"
+            setCharacterAnchored(settings.anchor)
+        end)
+        
+        yPos = yPos + 24
+        
+        local colorLabel = Instance.new("TextLabel")
+        colorLabel.Size = UDim2.new(0, 80, 0, 18)
+        colorLabel.Position = UDim2.new(0, 12, 0, yPos)
+        colorLabel.BackgroundTransparency = 1
+        colorLabel.Text = "🎨 Rand-Farbe:"
+        colorLabel.TextColor3 = Color3.fromRGB(200, 230, 255)
+        colorLabel.Font = Enum.Font.GothamSemibold
+        colorLabel.TextSize = 10
+        colorLabel.TextXAlignment = Enum.TextXAlignment.Left
+        colorLabel.ZIndex = 10
+        colorLabel.Parent = ContentFrame
+        
+        local colorFrame = Instance.new("Frame")
+        colorFrame.Size = UDim2.new(0, 110, 0, 22)
+        colorFrame.Position = UDim2.new(0, 95, 0, yPos - 2)
+        colorFrame.BackgroundTransparency = 1
+        colorFrame.ZIndex = 10
+        colorFrame.Parent = ContentFrame
+        
+        local colors = {
+            Color3.fromRGB(100, 200, 255),
+            Color3.fromRGB(255, 100, 100),
+            Color3.fromRGB(100, 255, 100),
+            Color3.fromRGB(255, 200, 100),
+            Color3.fromRGB(200, 100, 255),
+            Color3.fromRGB(255, 105, 180),
+            Color3.fromRGB(0, 255, 255),
+            Color3.fromRGB(255, 255, 255)
+        }
+        
+        for i, color in ipairs(colors) do
+            local btn = Instance.new("TextButton")
+            local xPos = (i - 1) * 13
+            btn.Size = UDim2.new(0, 11, 0, 11)
+            btn.Position = UDim2.new(0, xPos, 0, 4)
+            btn.BackgroundColor3 = color
+            btn.BorderSizePixel = 0
+            btn.Text = ""
+            btn.AutoButtonColor = true
+            btn.ZIndex = 11
+            btn.Parent = colorFrame
+            do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 3) co.Parent = btn end
+            
+            btn.MouseButton1Click:Connect(function()
+                for _, parentGui in ipairs({CoreGui}) do
+                    for _, gName in ipairs({"KrimoHubGui", "KrimoSettingsGui", "KrimoHistoryGui", "KrimoHelpGui"}) do
+                        local guiObj = parentGui:FindFirstChild(gName)
+                        if guiObj then
+                            for _, child in ipairs(guiObj:GetDescendants()) do
+                                if child:IsA("UIStroke") then
+                                    child.Color = color
+                                end
+                            end
+                        end
+                    end
+                end
+                _G.GuiColor = color
+                saveConfig()
+            end)
+        end
     end)
 end
 
-local function buildMainGUI()
-    if ScreenGui then ScreenGui:Destroy() end
+local function buildHelpGUI()
+    if HelpGui then
+        HelpGui:Destroy()
+        HelpGui = nil
+        return
+    end
     
-    ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "GrimHubGui"
-    ScreenGui.ResetOnSpawn = false
-    ScreenGui.Parent = CoreGui
-
-    MainFrame = Instance.new("Frame")
-    MainFrame.Name = "MainFrame"
-    MainFrame.Size = UDim2.new(0, 200, 0, 175)
-    MainFrame.Position = UDim2.new(0.5, -100, 0.2, 0)
-    MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 22)
-    MainFrame.BorderSizePixel = 0
-    MainFrame.Active = true
-    MainFrame.Draggable = true
-    MainFrame.Parent = ScreenGui
-
-    local mCo = Instance.new("UICorner") mCo.CornerRadius = UDim.new(0, 10) mCo.Parent = MainFrame
-    local mSt = Instance.new("UIStroke") mSt.Color = _G.GuiColor mSt.Thickness = 1.5 mSt.Transparency = 0.2 mSt.Parent = MainFrame
-
-    local Header = Instance.new("Frame")
-    Header.Size = UDim2.new(1, 0, 0, 28)
-    Header.BackgroundColor3 = Color3.fromRGB(22, 22, 32)
-    Header.BorderSizePixel = 0
-    Header.Parent = MainFrame
-    local hCo = Instance.new("UICorner") hCo.CornerRadius = UDim.new(0, 10) hCo.Parent = Header
-
-    local Title = Instance.new("TextLabel")
-    Title.Size = UDim2.new(0.45, 0, 1, 0)
-    Title.Position = UDim2.new(0, 10, 0, 0)
-    Title.BackgroundTransparency = 1
-    Title.Text = "GRIM HUB"
-    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Title.Font = Enum.Font.GothamBold
-    Title.TextSize = 11
-    Title.TextXAlignment = Enum.TextXAlignment.Left
-    Title.Parent = Header
-
-    TitleCounterLabel = Instance.new("TextLabel")
-    TitleCounterLabel.Size = UDim2.new(0.25, 0, 1, 0)
-    TitleCounterLabel.Position = UDim2.new(0.45, 0, 0, 0)
-    TitleCounterLabel.BackgroundTransparency = 1
-    TitleCounterLabel.Text = "0/" .. mode
-    TitleCounterLabel.TextColor3 = _G.GuiColor
-    TitleCounterLabel.Font = Enum.Font.GothamBold
-    TitleCounterLabel.TextSize = 10
-    TitleCounterLabel.Parent = Header
-
-    local MinBtn = Instance.new("TextButton")
-    MinBtn.Size = UDim2.new(0, 20, 0, 20)
-    MinBtn.Position = UDim2.new(1, -44, 0, 4)
-    MinBtn.BackgroundTransparency = 1
-    MinBtn.Text = "−"
-    MinBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
-    MinBtn.Font = Enum.Font.GothamBold
-    MinBtn.TextSize = 12
-    MinBtn.Parent = Header
-
-    local closeBtn = Instance.new("TextButton")
-    closeBtn.Size = UDim2.new(0, 20, 0, 20)
-    closeBtn.Position = UDim2.new(1, -22, 0, 4)
-    closeBtn.BackgroundTransparency = 1
-    closeBtn.Text = "✕"
-    closeBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
-    closeBtn.Font = Enum.Font.GothamBold
-    closeBtn.TextSize = 10
-    closeBtn.Parent = Header
-    closeBtn.MouseButton1Click:Connect(function()
-        ScreenGui:Destroy()
-        ScreenGui = nil
+    pcall(function()
+        HelpGui = Instance.new("ScreenGui")
+        HelpGui.Name = "KrimoHelpGui"
+        HelpGui.ResetOnSpawn = false
+        HelpGui.IgnoreGuiInset = true
+        HelpGui.Parent = CoreGui
+        
+        local HelpFrame = Instance.new("Frame")
+        HelpFrame.Name = "HelpFrame"
+        HelpFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+        HelpFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+        HelpFrame.Size = UDim2.new(0, 220, 0, 200)
+        HelpFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 18)
+        HelpFrame.BackgroundTransparency = 0.05
+        HelpFrame.BorderSizePixel = 0
+        HelpFrame.ClipsDescendants = true
+        HelpFrame.Active = true
+        HelpFrame.Parent = HelpGui
+        
+        do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 12) co.Parent = HelpFrame end
+        do local st = Instance.new("UIStroke") st.Color = _G.GuiColor ~= Color3.fromRGB(10, 10, 18) and _G.GuiColor or Color3.fromRGB(100, 200, 255) st.Thickness = 1.5 st.Transparency = 0.3 st.Parent = HelpFrame end
+        
+        local titleBar = Instance.new("Frame")
+        titleBar.Size = UDim2.new(1, 0, 0, 26)
+        titleBar.BackgroundColor3 = Color3.fromRGB(15, 20, 45)
+        titleBar.BackgroundTransparency = 0.5
+        titleBar.BorderSizePixel = 0
+        titleBar.ZIndex = 10
+        titleBar.Parent = HelpFrame
+        do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 12) co.Parent = titleBar end
+        
+        local titleLabel = Instance.new("TextLabel")
+        titleLabel.Size = UDim2.new(1, -30, 1, 0)
+        titleLabel.Position = UDim2.new(0, 10, 0, 0)
+        titleLabel.BackgroundTransparency = 1
+        titleLabel.Text = "❓ Hilfe / Help"
+        titleLabel.TextColor3 = Color3.fromRGB(180, 230, 255)
+        titleLabel.Font = Enum.Font.GothamBold
+        titleLabel.TextSize = 12
+        titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+        titleLabel.ZIndex = 10
+        titleLabel.Parent = titleBar
+        
+        local closeHelpBtn = Instance.new("TextButton")
+        closeHelpBtn.Size = UDim2.new(0, 20, 0, 20)
+        closeHelpBtn.Position = UDim2.new(1, -24, 0.5, -10)
+        closeHelpBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+        closeHelpBtn.Text = "✕"
+        closeHelpBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        closeHelpBtn.Font = Enum.Font.GothamBold
+        closeHelpBtn.TextSize = 11
+        closeHelpBtn.AutoButtonColor = true
+        closeHelpBtn.ZIndex = 10
+        closeHelpBtn.Parent = HelpFrame
+        do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = closeHelpBtn end
+        closeHelpBtn.MouseButton1Click:Connect(function()
+            if HelpGui then HelpGui:Destroy() end
+            HelpGui = nil
+        end)
+        
+        local scroll = Instance.new("ScrollingFrame")
+        scroll.Size = UDim2.new(1, -10, 1, -34)
+        scroll.Position = UDim2.new(0, 5, 0, 28)
+        scroll.BackgroundTransparency = 1
+        scroll.BorderSizePixel = 0
+        scroll.ScrollBarThickness = 3
+        scroll.ScrollBarImageColor3 = Color3.fromRGB(80, 180, 255)
+        scroll.ScrollBarImageTransparency = 0.4
+        scroll.CanvasSize = UDim2.new(0, 0, 0, 400)
+        scroll.ClipsDescendants = true
+        scroll.ZIndex = 5
+        scroll.Parent = HelpFrame
+        
+        local layout = Instance.new("UIListLayout")
+        layout.Padding = UDim.new(0, 6)
+        layout.SortOrder = Enum.SortOrder.LayoutOrder
+        layout.Parent = scroll
+        
+        local function addHelpText(text, color)
+            local label = Instance.new("TextLabel")
+            label.Size = UDim2.new(1, 0, 0, 0)
+            label.BackgroundTransparency = 1
+            label.Text = text
+            label.TextColor3 = color or Color3.fromRGB(200, 220, 255)
+            label.Font = Enum.Font.Gotham
+            label.TextSize = 10
+            label.TextXAlignment = Enum.TextXAlignment.Left
+            label.TextYAlignment = Enum.TextYAlignment.Top
+            label.RichText = true
+            label.TextWrapped = true
+            label.AutomaticSize = Enum.AutomaticSize.Y
+            label.ZIndex = 5
+            label.Parent = scroll
+            return label
+        end
+        
+        addHelpText("<font color='#66ccff'>🇩🇪 DEUTSCH</font>", Color3.fromRGB(100, 200, 255))
+        addHelpText("1️⃣ Sobald Sammy etwas sagt, drücke auf <font color='#00ff66'>Start Scanning</font>.", Color3.fromRGB(200, 220, 255))
+        addHelpText("2️⃣ Bei <font color='#66ccff'>Submit after</font> stellst du ein, ab wie vielen Codes er automatisch submiten soll.", Color3.fromRGB(200, 220, 255))
+        addHelpText("3️⃣ <font color='#ff66cc'>Riddle Solver</font> beantwortet automatisch Fragen aus der Datenbank.", Color3.fromRGB(200, 220, 255))
+        
+        addHelpText(" ", Color3.fromRGB(200, 220, 255))
+        
+        addHelpText("<font color='#66ccff'>🇬🇧 ENGLISH</font>", Color3.fromRGB(100, 200, 255))
+        addHelpText("1️⃣ Once Sammy says something, press <font color='#00ff66'>Start Scanning</font>.", Color3.fromRGB(200, 220, 255))
+        addHelpText("2️⃣ With <font color='#66ccff'>Submit after</font> you set how many codes should be collected before auto-submit.", Color3.fromRGB(200, 220, 255))
+        addHelpText("3️⃣ <font color='#ff66cc'>Riddle Solver</font> automatically answers questions from the database.", Color3.fromRGB(200, 220, 255))
+        
+        task.wait(0.1)
+        local contentSize = layout.AbsoluteContentSize
+        if contentSize then
+            scroll.CanvasSize = UDim2.new(0, 0, 0, contentSize.Y + 10)
+        end
+        
+        local dragging = false
+        local dragStart = nil
+        local startPos = nil
+        
+        HelpFrame.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                dragging = true
+                dragStart = input.Position
+                startPos = HelpFrame.Position
+            end
+        end)
+        
+        HelpFrame.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                dragging = false
+            end
+        end)
+        
+        UserInputService.InputChanged:Connect(function(input)
+            if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+                local delta = input.Position - dragStart
+                HelpFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            end
+        end)
     end)
+end
 
-    local Content = Instance.new("Frame")
-    Content.Name = "ContentFrame"
-    Content.Size = UDim2.new(1, -16, 1, -34)
-    Content.Position = UDim2.new(0, 8, 0, 30)
-    Content.BackgroundTransparency = 1
-    Content.Parent = MainFrame
+local scanning = false
 
-    MinBtn.MouseButton1Click:Connect(function()
-        isMinimized = not isMinimized
-        Content.Visible = not isMinimized
-        MainFrame.Size = isMinimized and UDim2.new(0, 200, 0, 28) or UDim2.new(0, 200, 0, 175)
-        MinBtn.Text = isMinimized and "+" or "−"
-    end)
+local function isValidCode(msg)
+    return msg:match("^[A-Za-z0-9]+$") ~= nil
+end
 
-    local scriptToggle = Instance.new("TextButton")
-    scriptToggle.Size = UDim2.new(1, 0, 0, 24)
-    scriptToggle.Position = UDim2.new(0, 0, 0, 0)
-    scriptToggle.BackgroundColor3 = _G.ScriptEnabled and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(35, 35, 50)
-    scriptToggle.Text = "Start Scanning: " .. (_G.ScriptEnabled and "ON" or "OFF")
-    scriptToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
-    scriptToggle.Font = Enum.Font.GothamSemibold
-    scriptToggle.TextSize = 9
-    scriptToggle.Parent = Content
-    local sCo = Instance.new("UICorner") sCo.CornerRadius = UDim.new(0, 5) sCo.Parent = scriptToggle
+local function updatePreview()
+    setupPaths()
+    if #buffer == 0 then
+        if CodeTextBox then CodeTextBox.Text = "" end
+        return
+    end
+    local count = math.min(#buffer, mode)
+    local combined = table.concat(buffer, "", 1, count)
+    if CodeTextBox then
+        CodeTextBox.Text = combined
+    end
+end
 
-    scriptToggle.MouseButton1Click:Connect(function()
-        _G.ScriptEnabled = not _G.ScriptEnabled
-        scriptToggle.BackgroundColor3 = _G.ScriptEnabled and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(35, 35, 50)
-        scriptToggle.Text = "Start Scanning: " .. (_G.ScriptEnabled and "ON" or "OFF")
+local function processBuffer()
+    if not scanning then return end
+    
+    while #buffer >= mode do
+        local combined = table.concat(buffer, "", 1, mode)
+        
+        buffer = {}
+        updatePreview()
+        refreshMainGUI()
+        
+        local success, msg = levithonTypeAndSubmit(combined)
+        if success then
+            print("[KrimoHub] ✅ Levithon Auto-Redeemed: " .. combined)
+        else
+            print("[KrimoHub] ⚠️ Levithon Submit fehlgeschlagen: " .. tostring(msg))
+        end
+        
+        task.wait(delay)
         hardReset()
-    end)
-
-    local riddleToggle = Instance.new("TextButton")
-    riddleToggle.Size = UDim2.new(1, 0, 0, 24)
-    riddleToggle.Position = UDim2.new(0, 0, 0, 28)
-    riddleToggle.BackgroundColor3 = _G.RiddleSolverEnabled and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(35, 35, 50)
-    riddleToggle.Text = "Riddle Solver: " .. (_G.RiddleSolverEnabled and "ON" or "OFF")
-    riddleToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
-    riddleToggle.Font = Enum.Font.GothamSemibold
-    riddleToggle.TextSize = 9
-    riddleToggle.Parent = Content
-    local rCo = Instance.new("UICorner") rCo.CornerRadius = UDim.new(0, 5) rCo.Parent = riddleToggle
-
-    riddleToggle.MouseButton1Click:Connect(function()
-        _G.RiddleSolverEnabled = not _G.RiddleSolverEnabled
-        riddleToggle.BackgroundColor3 = _G.RiddleSolverEnabled and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(35, 35, 50)
-        riddleToggle.Text = "Riddle Solver: " .. (_G.RiddleSolverEnabled and "ON" or "OFF")
-    end)
-
-    local histBtn = Instance.new("TextButton")
-    histBtn.Size = UDim2.new(0.48, 0, 0, 24)
-    histBtn.Position = UDim2.new(0, 0, 0, 56)
-    histBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
-    histBtn.Text = "📋 History"
-    histBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    histBtn.Font = Enum.Font.GothamSemibold
-    histBtn.TextSize = 9
-    histBtn.Parent = Content
-    local hCo2 = Instance.new("UICorner") hCo2.CornerRadius = UDim.new(0, 5) hCo2.Parent = histBtn
-    histBtn.MouseButton1Click:Connect(function()
-        _G.HistoryEnabled = true
-        buildHistoryGUI()
-    end)
-
-    local setBtn = Instance.new("TextButton")
-    setBtn.Size = UDim2.new(0.48, 0, 0, 24)
-    setBtn.Position = UDim2.new(0.52, 0, 0, 56)
-    setBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
-    setBtn.Text = "⚙️ Settings"
-    setBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    setBtn.Font = Enum.Font.GothamSemibold
-    setBtn.TextSize = 9
-    setBtn.Parent = Content
-    local sCo2 = Instance.new("UICorner") sCo2.CornerRadius = UDim.new(0, 5) sCo2.Parent = setBtn
-    setBtn.MouseButton1Click:Connect(buildSettingsGUI)
-
-    local resetBtn = Instance.new("TextButton")
-    resetBtn.Size = UDim2.new(1, 0, 0, 22)
-    resetBtn.Position = UDim2.new(0, 0, 0, 84)
-    resetBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
-    resetBtn.Text = "Reset Buffer"
-    resetBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    resetBtn.Font = Enum.Font.GothamBold
-    resetBtn.TextSize = 8
-    resetBtn.Parent = Content
-    local rsCo = Instance.new("UICorner") rsCo.CornerRadius = UDim.new(0, 5) rsCo.Parent = resetBtn
-    resetBtn.MouseButton1Click:Connect(hardReset)
-
-    local footer = Instance.new("TextLabel")
-    footer.Size = UDim2.new(1, 0, 0, 14)
-    footer.Position = UDim2.new(0, 0, 0, 110)
-    footer.BackgroundTransparency = 1
-    footer.RichText = true
-    footer.Text = '<font color="#88aaff">discord.gg/</font><font color="#66ccff"><b>grimhub</b></font>'
-    footer.TextColor3 = Color3.fromRGB(180, 200, 255)
-    footer.TextSize = 8
-    footer.Font = Enum.Font.GothamBold
-    footer.TextXAlignment = Enum.TextXAlignment.Center
-    footer.ZIndex = 10
-    footer.Parent = Content
-    
-    local footerBtn = Instance.new("TextButton")
-    footerBtn.Size = UDim2.new(1, 0, 0, 14)
-    footerBtn.Position = UDim2.new(0, 0, 0, 110)
-    footerBtn.BackgroundTransparency = 1
-    footerBtn.Text = ""
-    footerBtn.AutoButtonColor = false
-    footerBtn.ZIndex = 10
-    footerBtn.Parent = Content
-    footerBtn.MouseButton1Click:Connect(function()
-        local link = "https://discord.gg/grimhub"
-        if setclipboard then pcall(function() setclipboard(link) end)
-        elseif toclipboard then pcall(function() toclipboard(link) end) end
-    end)
-
-    local creditLabel = Instance.new("TextLabel")
-    creditLabel.Size = UDim2.new(1, 0, 0, 12)
-    creditLabel.Position = UDim2.new(0, 0, 0, 126)
-    creditLabel.BackgroundTransparency = 1
-    creditLabel.Text = "by momo&fowascend"
-    creditLabel.TextColor3 = Color3.fromRGB(130, 170, 210)
-    creditLabel.Font = Enum.Font.Gotham
-    creditLabel.TextSize = 7
-    creditLabel.TextXAlignment = Enum.TextXAlignment.Center
-    creditLabel.ZIndex = 10
-    creditLabel.Parent = Content
+    end
+    updatePreview()
+    refreshMainGUI()
 end
 
-buildMainGUI()
-
--- ============ ANNOUNCEMENT WATCHER ============
 onAnnouncement = function(txt)
-    if not _G.ScriptEnabled or not txt or txt == "" then return end
+    if not scanning or not txt or txt == "" then return end
     local msg = txt:match("^%s*(.-)%s*$")
-    if msg and #msg > 0 and msg:match("^[A-Za-z0-9]+$") then
+    if msg and #msg > 0 and isValidCode(msg) then
         table.insert(buffer, msg)
         updatePreview()
-        updateTitleCounter()
+        refreshMainGUI()
+        print("[KrimoHub] Captured: " .. msg .. " (buffer: " .. #buffer .. "/" .. mode .. ")")
+        
         if #buffer >= mode then
             task.spawn(processBuffer)
+        end
+    end
+end
+
+local function toggleScan()
+    scanning = not scanning
+    if scanning then
+        _G.ScriptEnabled = true
+        hardReset()
+        if scanBtn then
+            scanBtn.BackgroundColor3 = Color3.fromRGB(34, 197, 94)
+            scanBtn.Text = "ON"
+        end
+    else
+        _G.ScriptEnabled = false
+        hardReset()
+        if scanBtn then
+            scanBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+            scanBtn.Text = "OFF"
         end
     end
 end
@@ -2215,73 +1496,558 @@ local function watchLabel(Label)
         if not Label:IsA("TextLabel") then return end
         local text = Label.Text
         if text == "" then return end
+        if isProcessingSubmit then return end
         
         if _G.RiddleSolverEnabled then
             local answer = answerQuestion(text)
             if answer then
-                if _G.HistoryEnabled then
-                    table.insert(history, 1, {
-                        word = answer,
-                        time = os.date("%H:%M:%S"),
-                        fromSammy = true
-                    })
-                    updateHistoryContent()
-                end
-                if _G.ScriptEnabled then
-                    onAnnouncement(answer)
-                end
+                onAnnouncement(answer)
                 return
             end
         end
         
         if text:find("%s") then return end
+        
         if _seen[text] then return end
         _seen[text] = true
         task.delay(2, function() _seen[text] = nil end)
         
         if _G.HistoryEnabled then
             local time = os.date("%H:%M:%S")
-            table.insert(history, 1, {
-                word = text,
-                time = time,
-                fromSammy = true
-            })
+            table.insert(history, { word = text, time = time, fromSammy = true })
             if #history > 100 then
                 for i = 1, #history - 100 do table.remove(history, 1) end
             end
-            if HistoryGui then
+            if historyOpen and HistoryGui then
                 updateHistoryContent()
             end
         end
         
-        if _G.ScriptEnabled then
-            onAnnouncement(text)
-        end
+        onAnnouncement(text)
     end)
 end
 
 local function startAnnouncementWatcher()
     pcall(function()
         setupPaths()
-        if Announcements then
-            for _, child in ipairs(Announcements:GetDescendants()) do
-                if child:IsA("TextLabel") then
-                    watchLabel(child)
-                    child:GetPropertyChangedSignal("Text"):Connect(function()
-                        watchLabel(child)
-                    end)
-                end
+        if not Announcements then return end
+        for _, v in ipairs(Announcements:GetDescendants()) do
+            watchLabel(v)
+        end
+        Announcements.DescendantAdded:Connect(watchLabel)
+    end)
+end
+
+local function verifySourceIsSammy(TO)
+    pcall(function()
+        if TO:IsDescendantOf(MainFrame) then return false end
+        if TO:IsDescendantOf(HistoryGui) then return false end
+        if TO:IsDescendantOf(HelpGui) then return false end
+        if TO:IsDescendantOf(SettingsGui) then return false end
+        local text = TO.Text or ""
+        if text:lower():find("spydersammy") then return true end
+        
+        local parent = TO.Parent
+        while parent do
+            if parent:IsA("TextLabel") and parent.Text and parent.Text:lower():find("spydersammy") then
+                return true
             end
-            Announcements.DescendantAdded:Connect(function(child)
-                if child:IsA("TextLabel") then
-                    watchLabel(child)
-                    child:GetPropertyChangedSignal("Text"):Connect(function()
-                        watchLabel(child)
-                    end)
-                end
+            parent = parent.Parent
+        end
+    end)
+    return false
+end
+
+local function handleIncomingText(TO)
+    pcall(function()
+        local text = TO.Text
+        if text == "" then return end
+        if verifySourceIsSammy(TO) then
+            task.spawn(function() watchLabel(TO) end)
+        end
+    end)
+end
+
+local function hookUiTextObject(O)
+    pcall(function()
+        if O:IsA("TextLabel") then
+            handleIncomingText(O)
+            O:GetPropertyChangedSignal("Text"):Connect(function()
+                handleIncomingText(O)
             end)
         end
     end)
 end
 
-task.spawn(startAnnouncementWatcher)
+local function startPlayerGuiScanner()
+    pcall(function()
+        local PG = LocalPlayer:FindFirstChild("PlayerGui")
+        if not PG then return end
+        for _, D in ipairs(PG:GetDescendants()) do hookUiTextObject(D) end
+        PG.DescendantAdded:Connect(hookUiTextObject)
+    end)
+end
+
+local function buildGUI()
+    pcall(function()
+        local old = CoreGui:FindFirstChild("KrimoHubGui")
+        if old then old:Destroy() end
+        
+        ScreenGui = Instance.new("ScreenGui")
+        ScreenGui.Name = "KrimoHubGui"
+        ScreenGui.ResetOnSpawn = false
+        ScreenGui.IgnoreGuiInset = true
+        ScreenGui.Parent = CoreGui
+        
+        MainFrame = Instance.new("Frame")
+        MainFrame.Name = "MainFrame"
+        MainFrame.AnchorPoint = Vector2.new(0.5, 0)
+        MainFrame.Position = UDim2.new(0.5, 0, 0.2, 0)
+        MainFrame.Size = UDim2.new(0, PANEL_W, 0, PANEL_H)
+        MainFrame.BackgroundColor3 = Color3.fromRGB(8, 8, 12)
+        MainFrame.BackgroundTransparency = 0.05
+        MainFrame.BorderSizePixel = 0
+        MainFrame.ClipsDescendants = true
+        MainFrame.Active = true
+        MainFrame.Parent = ScreenGui
+        
+        local corner = Instance.new("UICorner")
+        corner.CornerRadius = UDim.new(0, 10)
+        corner.Parent = MainFrame
+        
+        local stroke = Instance.new("UIStroke")
+        stroke.Color = _G.GuiColor ~= Color3.fromRGB(10, 10, 18) and _G.GuiColor or Color3.fromRGB(100, 200, 255)
+        stroke.Thickness = 2
+        stroke.Transparency = 0.3
+        stroke.Parent = MainFrame
+        
+        local titleBar = Instance.new("Frame")
+        titleBar.Size = UDim2.new(1, 0, 0, 24)
+        titleBar.BackgroundColor3 = Color3.fromRGB(12, 15, 30)
+        titleBar.BackgroundTransparency = 0.5
+        titleBar.BorderSizePixel = 0
+        titleBar.ZIndex = 10
+        titleBar.Parent = MainFrame
+        do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 10) co.Parent = titleBar end
+        
+        local titleLabel = Instance.new("TextLabel")
+        titleLabel.Name = "TitleLabel"
+        titleLabel.Size = UDim2.new(0, 50, 1, 0)
+        titleLabel.Position = UDim2.new(0, 8, 0, 0)
+        titleLabel.BackgroundTransparency = 1
+        titleLabel.Text = "🌸 krimo"
+        titleLabel.TextColor3 = Color3.fromRGB(180, 230, 255)
+        titleLabel.Font = Enum.Font.GothamBold
+        titleLabel.TextSize = 10
+        titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+        titleLabel.ZIndex = 10
+        titleLabel.Parent = titleBar
+        
+        TitleCounterLabel = Instance.new("TextLabel")
+        TitleCounterLabel.Name = "TitleCounter"
+        TitleCounterLabel.Size = UDim2.new(0, 40, 1, 0)
+        TitleCounterLabel.Position = UDim2.new(0, 58, 0, 0)
+        TitleCounterLabel.BackgroundTransparency = 1
+        TitleCounterLabel.Text = "📊 0/" .. mode
+        TitleCounterLabel.TextColor3 = Color3.fromRGB(255, 220, 100)
+        TitleCounterLabel.Font = Enum.Font.GothamBold
+        TitleCounterLabel.TextSize = 8
+        TitleCounterLabel.TextXAlignment = Enum.TextXAlignment.Left
+        TitleCounterLabel.ZIndex = 10
+        TitleCounterLabel.Parent = titleBar
+        
+        local helpBtn = Instance.new("TextButton")
+        helpBtn.Name = "HelpBtn"
+        helpBtn.Size = UDim2.new(0, 16, 0, 16)
+        helpBtn.Position = UDim2.new(1, -62, 0.5, -8)
+        helpBtn.BackgroundColor3 = Color3.fromRGB(30, 40, 80)
+        helpBtn.Text = "❓"
+        helpBtn.TextColor3 = Color3.fromRGB(180, 220, 255)
+        helpBtn.Font = Enum.Font.GothamBold
+        helpBtn.TextSize = 9
+        helpBtn.AutoButtonColor = true
+        helpBtn.ZIndex = 10
+        helpBtn.Parent = titleBar
+        do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = helpBtn end
+        helpBtn.MouseButton1Click:Connect(buildHelpGUI)
+        
+        local settingsBtn = Instance.new("TextButton")
+        settingsBtn.Name = "SettingsBtn"
+        settingsBtn.Size = UDim2.new(0, 16, 0, 16)
+        settingsBtn.Position = UDim2.new(1, -42, 0.5, -8)
+        settingsBtn.BackgroundColor3 = Color3.fromRGB(30, 40, 80)
+        settingsBtn.Text = "⚙️"
+        settingsBtn.TextColor3 = Color3.fromRGB(180, 220, 255)
+        settingsBtn.Font = Enum.Font.GothamBold
+        settingsBtn.TextSize = 9
+        settingsBtn.AutoButtonColor = true
+        settingsBtn.ZIndex = 10
+        settingsBtn.Parent = titleBar
+        do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = settingsBtn end
+        settingsBtn.MouseButton1Click:Connect(buildSettingsGUI)
+        
+        local toggleMinBtn = Instance.new("TextButton")
+        toggleMinBtn.Name = "ToggleMinBtn"
+        toggleMinBtn.Size = UDim2.new(0, 18, 0, 16)
+        toggleMinBtn.Position = UDim2.new(1, -22, 0.5, -8)
+        toggleMinBtn.BackgroundColor3 = Color3.fromRGB(30, 60, 110)
+        toggleMinBtn.Text = "−"
+        toggleMinBtn.TextColor3 = Color3.fromRGB(200, 230, 255)
+        toggleMinBtn.Font = Enum.Font.GothamBold
+        toggleMinBtn.TextSize = 12
+        toggleMinBtn.AutoButtonColor = true
+        toggleMinBtn.ZIndex = 10
+        toggleMinBtn.Parent = titleBar
+        do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = toggleMinBtn end
+        
+        local ContentFrame = Instance.new("Frame")
+        ContentFrame.Name = "ContentFrame"
+        ContentFrame.Size = UDim2.new(1, 0, 1, -24)
+        ContentFrame.Position = UDim2.new(0, 0, 0, 24)
+        ContentFrame.BackgroundTransparency = 1
+        ContentFrame.ZIndex = 5
+        ContentFrame.Parent = MainFrame
+        
+        local awLabel = Instance.new("TextLabel")
+        awLabel.Size = UDim2.new(0, 95, 0, 18)
+        awLabel.Position = UDim2.new(0, 8, 0, 2)
+        awLabel.BackgroundTransparency = 1
+        awLabel.Text = "🌸 Start Scanning"
+        awLabel.TextColor3 = Color3.fromRGB(200, 230, 255)
+        awLabel.Font = Enum.Font.GothamSemibold
+        awLabel.TextSize = 9
+        awLabel.TextXAlignment = Enum.TextXAlignment.Left
+        awLabel.ZIndex = 10
+        awLabel.Parent = ContentFrame
+        
+        scanBtn = Instance.new("TextButton")
+        scanBtn.Name = "ScanToggle"
+        scanBtn.Size = UDim2.new(0, 40, 0, 16)
+        scanBtn.Position = UDim2.new(1, -48, 0, 3)
+        scanBtn.BackgroundColor3 = scanning and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
+        scanBtn.Text = scanning and "ON" or "OFF"
+        scanBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        scanBtn.Font = Enum.Font.GothamBold
+        scanBtn.TextSize = 8
+        scanBtn.AutoButtonColor = false
+        scanBtn.ZIndex = 10
+        scanBtn.Parent = ContentFrame
+        do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = scanBtn end
+        scanBtn.MouseButton1Click:Connect(toggleScan)
+        
+        local asLabel = Instance.new("TextLabel")
+        asLabel.Name = "SubmitLabel"
+        asLabel.Size = UDim2.new(0, 95, 0, 18)
+        asLabel.Position = UDim2.new(0, 8, 0, 22)
+        asLabel.BackgroundTransparency = 1
+        asLabel.Text = "🌸 Submit after: " .. mode
+        asLabel.TextColor3 = Color3.fromRGB(200, 230, 255)
+        asLabel.Font = Enum.Font.GothamSemibold
+        asLabel.TextSize = 9
+        asLabel.TextXAlignment = Enum.TextXAlignment.Left
+        asLabel.ZIndex = 10
+        asLabel.Parent = ContentFrame
+        
+        local minusBtn = Instance.new("TextButton")
+        minusBtn.Size = UDim2.new(0, 16, 0, 16)
+        minusBtn.Position = UDim2.new(1, -68, 0, 23)
+        minusBtn.BackgroundColor3 = Color3.fromRGB(40, 60, 100)
+        minusBtn.Text = "−"
+        minusBtn.TextColor3 = Color3.fromRGB(200, 230, 255)
+        minusBtn.Font = Enum.Font.GothamBold
+        minusBtn.TextSize = 12
+        minusBtn.AutoButtonColor = true
+        minusBtn.ZIndex = 10
+        minusBtn.Parent = ContentFrame
+        do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 3) co.Parent = minusBtn end
+        
+        local plusBtn = Instance.new("TextButton")
+        plusBtn.Size = UDim2.new(0, 16, 0, 16)
+        plusBtn.Position = UDim2.new(1, -48, 0, 23)
+        plusBtn.BackgroundColor3 = Color3.fromRGB(40, 60, 100)
+        plusBtn.Text = "+"
+        plusBtn.TextColor3 = Color3.fromRGB(200, 230, 255)
+        plusBtn.Font = Enum.Font.GothamBold
+        plusBtn.TextSize = 12
+        plusBtn.AutoButtonColor = true
+        plusBtn.ZIndex = 10
+        plusBtn.Parent = ContentFrame
+        do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 3) co.Parent = plusBtn end
+        
+        plusBtn.MouseButton1Click:Connect(function()
+            mode = mode + 1
+            asLabel.Text = "🌸 Submit after: " .. mode
+            hardReset()
+        end)
+        
+        minusBtn.MouseButton1Click:Connect(function()
+            if mode > 1 then
+                mode = mode - 1
+                asLabel.Text = "🌸 Submit after: " .. mode
+                hardReset()
+            end
+        end)
+        
+        local rsLabel = Instance.new("TextLabel")
+        rsLabel.Size = UDim2.new(0, 95, 0, 18)
+        rsLabel.Position = UDim2.new(0, 8, 0, 42)
+        rsLabel.BackgroundTransparency = 1
+        rsLabel.Text = "🌸 Riddle Solver"
+        rsLabel.TextColor3 = Color3.fromRGB(200, 230, 255)
+        rsLabel.Font = Enum.Font.GothamSemibold
+        rsLabel.TextSize = 9
+        rsLabel.TextXAlignment = Enum.TextXAlignment.Left
+        rsLabel.ZIndex = 10
+        rsLabel.Parent = ContentFrame
+        
+        local rsToggle = Instance.new("TextButton")
+        rsToggle.Name = "RiddleSolverToggle"
+        rsToggle.Size = UDim2.new(0, 40, 0, 16)
+        rsToggle.Position = UDim2.new(1, -48, 0, 43)
+        rsToggle.BackgroundColor3 = _G.RiddleSolverEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
+        rsToggle.Text = _G.RiddleSolverEnabled and "ON" or "OFF"
+        rsToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+        rsToggle.Font = Enum.Font.GothamBold
+        rsToggle.TextSize = 8
+        rsToggle.AutoButtonColor = false
+        rsToggle.ZIndex = 10
+        rsToggle.Parent = ContentFrame
+        do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = rsToggle end
+        
+        rsToggle.MouseButton1Click:Connect(function()
+            _G.RiddleSolverEnabled = not _G.RiddleSolverEnabled
+            rsToggle.BackgroundColor3 = _G.RiddleSolverEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
+            rsToggle.Text = _G.RiddleSolverEnabled and "ON" or "OFF"
+        end)
+        
+        local historyLabel = Instance.new("TextLabel")
+        historyLabel.Size = UDim2.new(0, 90, 0, 18)
+        historyLabel.Position = UDim2.new(0, 8, 0, 62)
+        historyLabel.BackgroundTransparency = 1
+        historyLabel.Text = "🌸 History 📜"
+        historyLabel.TextColor3 = Color3.fromRGB(200, 230, 255)
+        historyLabel.Font = Enum.Font.GothamSemibold
+        historyLabel.TextSize = 9
+        historyLabel.TextXAlignment = Enum.TextXAlignment.Left
+        historyLabel.ZIndex = 10
+        historyLabel.Parent = ContentFrame
+        
+        local historyBtn = Instance.new("TextButton")
+        historyBtn.Name = "HistoryBtn"
+        historyBtn.Size = UDim2.new(0, 40, 0, 16)
+        historyBtn.Position = UDim2.new(1, -48, 0, 63)
+        historyBtn.BackgroundColor3 = _G.HistoryEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
+        historyBtn.Text = _G.HistoryEnabled and "ON" or "OFF"
+        historyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        historyBtn.Font = Enum.Font.GothamBold
+        historyBtn.TextSize = 8
+        historyBtn.AutoButtonColor = false
+        historyBtn.ZIndex = 10
+        historyBtn.Parent = ContentFrame
+        do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = historyBtn end
+        
+        historyBtn.MouseButton1Click:Connect(function()
+            _G.HistoryEnabled = not _G.HistoryEnabled
+            historyBtn.BackgroundColor3 = _G.HistoryEnabled and Color3.fromRGB(34, 197, 94) or Color3.fromRGB(50, 50, 50)
+            historyBtn.Text = _G.HistoryEnabled and "ON" or "OFF"
+            if _G.HistoryEnabled then
+                buildHistoryGUI()
+            else
+                if HistoryGui then HistoryGui:Destroy() end
+                HistoryGui = nil
+                HistoryFrame = nil
+                HistoryScroll = nil
+                historyOpen = false
+            end
+        end)
+        
+        local collectedLabel = Instance.new("TextLabel")
+        collectedLabel.Name = "CollectedLabel"
+        collectedLabel.Size = UDim2.new(0.5, 0, 0, 15)
+        collectedLabel.Position = UDim2.new(0, 8, 0, 83)
+        collectedLabel.BackgroundTransparency = 1
+        collectedLabel.Text = "🌸 Pasted: 0/" .. mode
+        collectedLabel.TextColor3 = Color3.fromRGB(160, 200, 230)
+        collectedLabel.Font = Enum.Font.Gotham
+        collectedLabel.TextSize = 8
+        collectedLabel.TextXAlignment = Enum.TextXAlignment.Left
+        collectedLabel.ZIndex = 10
+        collectedLabel.Parent = ContentFrame
+        
+        local resetBtn = Instance.new("TextButton")
+        resetBtn.Name = "ResetBtn"
+        resetBtn.Size = UDim2.new(0, 40, 0, 15)
+        resetBtn.Position = UDim2.new(1, -48, 0, 83)
+        resetBtn.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+        resetBtn.Text = "↻ Reset"
+        resetBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        resetBtn.Font = Enum.Font.GothamBold
+        resetBtn.TextSize = 8
+        resetBtn.AutoButtonColor = true
+        resetBtn.ZIndex = 10
+        resetBtn.Parent = ContentFrame
+        do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = resetBtn end
+        resetBtn.MouseButton1Click:Connect(hardReset)
+        
+        local codeListFrame = Instance.new("Frame")
+        codeListFrame.Name = "CodeListFrame"
+        codeListFrame.Size = UDim2.new(1, -16, 0, 65)
+        codeListFrame.Position = UDim2.new(0, 8, 0, 101)
+        codeListFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 18)
+        codeListFrame.BackgroundTransparency = 0.4
+        codeListFrame.BorderSizePixel = 0
+        codeListFrame.ClipsDescendants = true
+        codeListFrame.ZIndex = 10
+        codeListFrame.Parent = ContentFrame
+        do local co = Instance.new("UICorner") co.CornerRadius = UDim.new(0, 4) co.Parent = codeListFrame end
+        do local st = Instance.new("UIStroke") st.Color = Color3.fromRGB(100, 200, 255) st.Thickness = 1 st.Transparency = 0.2 st.Parent = codeListFrame end
+        
+        local scroll = Instance.new("ScrollingFrame")
+        scroll.Name = "Scrolling"
+        scroll.Size = UDim2.new(1, -4, 1, -4)
+        scroll.Position = UDim2.new(0, 2, 0, 2)
+        scroll.BackgroundTransparency = 1
+        scroll.BorderSizePixel = 0
+        scroll.ScrollBarThickness = 2
+        scroll.ScrollBarImageColor3 = Color3.fromRGB(100, 200, 255)
+        scroll.ScrollBarImageTransparency = 0.4
+        scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+        scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        scroll.ClipsDescendants = true
+        scroll.ZIndex = 11
+        scroll.Parent = codeListFrame
+        
+        local layout = Instance.new("UIListLayout")
+        layout.Padding = UDim.new(0, 2)
+        layout.SortOrder = Enum.SortOrder.LayoutOrder
+        layout.Parent = scroll
+        
+        local placeholder = Instance.new("TextLabel")
+        placeholder.Name = "Placeholder"
+        placeholder.Size = UDim2.new(1, 0, 0, 14)
+        placeholder.BackgroundTransparency = 1
+        placeholder.Text = "🌸 no codes yet"
+        placeholder.TextColor3 = Color3.fromRGB(100, 160, 200)
+        placeholder.Font = Enum.Font.Gotham
+        placeholder.TextSize = 8
+        placeholder.TextXAlignment = Enum.TextXAlignment.Center
+        placeholder.TextYAlignment = Enum.TextYAlignment.Top
+        placeholder.ZIndex = 12
+        placeholder.Parent = scroll
+        placeholder.Visible = (#buffer == 0)
+        
+        local sep = Instance.new("Frame")
+        sep.Size = UDim2.new(1, -16, 0, 1)
+        sep.Position = UDim2.new(0, 8, 0, 173)
+        sep.BackgroundColor3 = Color3.fromRGB(100, 200, 255)
+        sep.BackgroundTransparency = 0.4
+        sep.BorderSizePixel = 0
+        sep.ZIndex = 10
+        sep.Parent = ContentFrame
+        
+        local creditLabel = Instance.new("TextLabel")
+        creditLabel.Name = "CreditLabel"
+        creditLabel.Size = UDim2.new(1, -16, 0, 12)
+        creditLabel.Position = UDim2.new(0, 8, 0, 178)
+        creditLabel.BackgroundTransparency = 1
+        creditLabel.Text = "🌸 Credits to momo.1711"
+        creditLabel.TextColor3 = Color3.fromRGB(130, 170, 210)
+        creditLabel.Font = Enum.Font.Gotham
+        creditLabel.TextSize = 7
+        creditLabel.TextXAlignment = Enum.TextXAlignment.Center
+        creditLabel.ZIndex = 10
+        creditLabel.Parent = ContentFrame
+        
+        local footer = Instance.new("TextLabel")
+        footer.Size = UDim2.new(1, -16, 0, 14)
+        footer.Position = UDim2.new(0, 8, 0, 193)
+        footer.BackgroundTransparency = 1
+        footer.RichText = true
+        footer.Text = '<font color="#88aaff">🌸 discord.gg/</font><font color="#66ccff"><b>7Ea7qEsPzP</b></font>'
+        footer.TextColor3 = Color3.fromRGB(180, 200, 255)
+        footer.TextSize = 8
+        footer.Font = Enum.Font.GothamBold
+        footer.TextXAlignment = Enum.TextXAlignment.Center
+        footer.ZIndex = 10
+        footer.Parent = ContentFrame
+        
+        local footerBtn = Instance.new("TextButton")
+        footerBtn.Size = UDim2.new(1, -16, 0, 14)
+        footerBtn.Position = UDim2.new(0, 8, 0, 193)
+        footerBtn.BackgroundTransparency = 1
+        footerBtn.Text = ""
+        footerBtn.AutoButtonColor = false
+        footerBtn.ZIndex = 10
+        footerBtn.Parent = ContentFrame
+        
+        footerBtn.MouseButton1Click:Connect(function()
+            local link = "https://discord.gg/7Ea7qEsPzP"
+            if setclipboard then pcall(function() setclipboard(link) end)
+            elseif toclipboard then pcall(function() toclipboard(link) end) end
+        end)
+        
+        local function applyMinimized(state)
+            isMinimized = state
+            if state then
+                ContentFrame.Visible = false
+                MainFrame.Size = UDim2.new(0, PANEL_W, 0, 24)
+                toggleMinBtn.Text = "+"
+            else
+                ContentFrame.Visible = true
+                MainFrame.Size = UDim2.new(0, PANEL_W, 0, PANEL_H)
+                toggleMinBtn.Text = "−"
+            end
+        end
+        
+        toggleMinBtn.MouseButton1Click:Connect(function()
+            applyMinimized(not isMinimized)
+        end)
+        
+        local dragging = false
+        local dragStart = nil
+        local startPos = nil
+        
+        titleBar.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                dragging = true
+                dragStart = input.Position
+                startPos = MainFrame.Position
+                input.Changed:Connect(function()
+                    if input.UserInputState == Enum.UserInputState.End then
+                        dragging = false
+                    end
+                end)
+            end
+        end)
+        
+        UserInputService.InputChanged:Connect(function(input)
+            if not dragging then return end
+            if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+                local delta = input.Position - dragStart
+                MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            end
+        end)
+        
+        refreshMainGUI()
+        hookTextBoxClearing()
+    end)
+end
+
+print("[KrimoHub V4 - Levithon Edition] Starte...")
+task.wait(1)
+
+local function startAll()
+    pcall(setupPaths)
+    pcall(buildGUI)
+    pcall(startAnnouncementWatcher)
+    pcall(startPlayerGuiScanner)
+end
+
+local success, err = pcall(startAll)
+if success then
+    print("✅ Erfolgreich gestartet!")
+else
+    print("❌ Fehler: " .. tostring(err))
+    task.wait(2)
+    pcall(startAll)
+end
