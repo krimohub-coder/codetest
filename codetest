@@ -1645,7 +1645,6 @@ local function updatePreview()
     end
 end
 
--- VOLLSTÄNDIGER FIX FÜR RESET BUFFER & TEXTFELD CLEARING
 local function hardReset()
     buffer = {}
     _seen = {}
@@ -1821,7 +1820,7 @@ local function buildHistoryGUI()
     Header.Parent = hFrame
 
     local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(0.5, 0, 1, 0)
+    title.Size = UDim2.new(0.4, 0, 1, 0)
     title.Position = UDim2.new(0, 10, 0, 0)
     title.BackgroundTransparency = 1
     title.Text = "History"
@@ -1831,9 +1830,10 @@ local function buildHistoryGUI()
     title.TextXAlignment = Enum.TextXAlignment.Left
     title.Parent = Header
 
+    -- Clear-Button nach links verschoben (-95px statt -70px)
     local clearBtn = Instance.new("TextButton")
     clearBtn.Size = UDim2.new(0, 40, 0, 18)
-    clearBtn.Position = UDim2.new(1, -70, 0, 5)
+    clearBtn.Position = UDim2.new(1, -95, 0, 5)
     clearBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
     clearBtn.Text = "Clear"
     clearBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -2002,10 +2002,11 @@ local function buildMainGUI()
     ScreenGui.ResetOnSpawn = false
     ScreenGui.Parent = CoreGui
 
+    -- Hauptframe verkleinert (200x175 statt 240x200)
     MainFrame = Instance.new("Frame")
     MainFrame.Name = "MainFrame"
-    MainFrame.Size = UDim2.new(0, 240, 0, 200)
-    MainFrame.Position = UDim2.new(0.5, -120, 0.2, 0)
+    MainFrame.Size = UDim2.new(0, 200, 0, 175)
+    MainFrame.Position = UDim2.new(0.5, -100, 0.2, 0)
     MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 22)
     MainFrame.BorderSizePixel = 0
     MainFrame.Active = true
@@ -2016,51 +2017,51 @@ local function buildMainGUI()
     local mSt = Instance.new("UIStroke") mSt.Color = _G.GuiColor mSt.Thickness = 1.5 mSt.Transparency = 0.2 mSt.Parent = MainFrame
 
     local Header = Instance.new("Frame")
-    Header.Size = UDim2.new(1, 0, 0, 32)
+    Header.Size = UDim2.new(1, 0, 0, 28)
     Header.BackgroundColor3 = Color3.fromRGB(22, 22, 32)
     Header.BorderSizePixel = 0
     Header.Parent = MainFrame
     local hCo = Instance.new("UICorner") hCo.CornerRadius = UDim.new(0, 10) hCo.Parent = Header
 
     local Title = Instance.new("TextLabel")
-    Title.Size = UDim2.new(0.5, 0, 1, 0)
-    Title.Position = UDim2.new(0, 12, 0, 0)
+    Title.Size = UDim2.new(0.45, 0, 1, 0)
+    Title.Position = UDim2.new(0, 10, 0, 0)
     Title.BackgroundTransparency = 1
     Title.Text = "GRIM HUB"
     Title.TextColor3 = Color3.fromRGB(255, 255, 255)
     Title.Font = Enum.Font.GothamBold
-    Title.TextSize = 13
+    Title.TextSize = 11
     Title.TextXAlignment = Enum.TextXAlignment.Left
     Title.Parent = Header
 
     TitleCounterLabel = Instance.new("TextLabel")
-    TitleCounterLabel.Size = UDim2.new(0.3, 0, 1, 0)
+    TitleCounterLabel.Size = UDim2.new(0.25, 0, 1, 0)
     TitleCounterLabel.Position = UDim2.new(0.45, 0, 0, 0)
     TitleCounterLabel.BackgroundTransparency = 1
     TitleCounterLabel.Text = "0/" .. mode
     TitleCounterLabel.TextColor3 = _G.GuiColor
     TitleCounterLabel.Font = Enum.Font.GothamBold
-    TitleCounterLabel.TextSize = 11
+    TitleCounterLabel.TextSize = 10
     TitleCounterLabel.Parent = Header
 
     local MinBtn = Instance.new("TextButton")
-    MinBtn.Size = UDim2.new(0, 24, 0, 24)
-    MinBtn.Position = UDim2.new(1, -50, 0, 4)
+    MinBtn.Size = UDim2.new(0, 20, 0, 20)
+    MinBtn.Position = UDim2.new(1, -44, 0, 4)
     MinBtn.BackgroundTransparency = 1
     MinBtn.Text = "−"
     MinBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
     MinBtn.Font = Enum.Font.GothamBold
-    MinBtn.TextSize = 14
+    MinBtn.TextSize = 12
     MinBtn.Parent = Header
 
     local closeBtn = Instance.new("TextButton")
-    closeBtn.Size = UDim2.new(0, 24, 0, 24)
-    closeBtn.Position = UDim2.new(1, -26, 0, 4)
+    closeBtn.Size = UDim2.new(0, 20, 0, 20)
+    closeBtn.Position = UDim2.new(1, -22, 0, 4)
     closeBtn.BackgroundTransparency = 1
     closeBtn.Text = "✕"
     closeBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
     closeBtn.Font = Enum.Font.GothamBold
-    closeBtn.TextSize = 12
+    closeBtn.TextSize = 10
     closeBtn.Parent = Header
     closeBtn.MouseButton1Click:Connect(function()
         ScreenGui:Destroy()
@@ -2069,28 +2070,28 @@ local function buildMainGUI()
 
     local Content = Instance.new("Frame")
     Content.Name = "ContentFrame"
-    Content.Size = UDim2.new(1, -20, 1, -42)
-    Content.Position = UDim2.new(0, 10, 0, 36)
+    Content.Size = UDim2.new(1, -16, 1, -34)
+    Content.Position = UDim2.new(0, 8, 0, 30)
     Content.BackgroundTransparency = 1
     Content.Parent = MainFrame
 
     MinBtn.MouseButton1Click:Connect(function()
         isMinimized = not isMinimized
         Content.Visible = not isMinimized
-        MainFrame.Size = isMinimized and UDim2.new(0, 240, 0, 32) or UDim2.new(0, 240, 0, 200)
+        MainFrame.Size = isMinimized and UDim2.new(0, 200, 0, 28) or UDim2.new(0, 200, 0, 175)
         MinBtn.Text = isMinimized and "+" or "−"
     end)
 
     local scriptToggle = Instance.new("TextButton")
-    scriptToggle.Size = UDim2.new(1, 0, 0, 28)
+    scriptToggle.Size = UDim2.new(1, 0, 0, 24)
     scriptToggle.Position = UDim2.new(0, 0, 0, 0)
     scriptToggle.BackgroundColor3 = _G.ScriptEnabled and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(35, 35, 50)
     scriptToggle.Text = "Start Scanning: " .. (_G.ScriptEnabled and "ON" or "OFF")
     scriptToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
     scriptToggle.Font = Enum.Font.GothamSemibold
-    scriptToggle.TextSize = 10
+    scriptToggle.TextSize = 9
     scriptToggle.Parent = Content
-    local sCo = Instance.new("UICorner") sCo.CornerRadius = UDim.new(0, 6) sCo.Parent = scriptToggle
+    local sCo = Instance.new("UICorner") sCo.CornerRadius = UDim.new(0, 5) sCo.Parent = scriptToggle
 
     scriptToggle.MouseButton1Click:Connect(function()
         _G.ScriptEnabled = not _G.ScriptEnabled
@@ -2100,15 +2101,15 @@ local function buildMainGUI()
     end)
 
     local riddleToggle = Instance.new("TextButton")
-    riddleToggle.Size = UDim2.new(1, 0, 0, 28)
-    riddleToggle.Position = UDim2.new(0, 0, 0, 34)
+    riddleToggle.Size = UDim2.new(1, 0, 0, 24)
+    riddleToggle.Position = UDim2.new(0, 0, 0, 28)
     riddleToggle.BackgroundColor3 = _G.RiddleSolverEnabled and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(35, 35, 50)
     riddleToggle.Text = "Riddle Solver: " .. (_G.RiddleSolverEnabled and "ON" or "OFF")
     riddleToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
     riddleToggle.Font = Enum.Font.GothamSemibold
-    riddleToggle.TextSize = 10
+    riddleToggle.TextSize = 9
     riddleToggle.Parent = Content
-    local rCo = Instance.new("UICorner") rCo.CornerRadius = UDim.new(0, 6) rCo.Parent = riddleToggle
+    local rCo = Instance.new("UICorner") rCo.CornerRadius = UDim.new(0, 5) rCo.Parent = riddleToggle
 
     riddleToggle.MouseButton1Click:Connect(function()
         _G.RiddleSolverEnabled = not _G.RiddleSolverEnabled
@@ -2117,60 +2118,60 @@ local function buildMainGUI()
     end)
 
     local histBtn = Instance.new("TextButton")
-    histBtn.Size = UDim2.new(0.48, 0, 0, 28)
-    histBtn.Position = UDim2.new(0, 0, 0, 68)
+    histBtn.Size = UDim2.new(0.48, 0, 0, 24)
+    histBtn.Position = UDim2.new(0, 0, 0, 56)
     histBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
     histBtn.Text = "📋 History"
     histBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     histBtn.Font = Enum.Font.GothamSemibold
-    histBtn.TextSize = 10
+    histBtn.TextSize = 9
     histBtn.Parent = Content
-    local hCo2 = Instance.new("UICorner") hCo2.CornerRadius = UDim.new(0, 6) hCo2.Parent = histBtn
+    local hCo2 = Instance.new("UICorner") hCo2.CornerRadius = UDim.new(0, 5) hCo2.Parent = histBtn
     histBtn.MouseButton1Click:Connect(function()
         _G.HistoryEnabled = true
         buildHistoryGUI()
     end)
 
     local setBtn = Instance.new("TextButton")
-    setBtn.Size = UDim2.new(0.48, 0, 0, 28)
-    setBtn.Position = UDim2.new(0.52, 0, 0, 68)
+    setBtn.Size = UDim2.new(0.48, 0, 0, 24)
+    setBtn.Position = UDim2.new(0.52, 0, 0, 56)
     setBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
     setBtn.Text = "⚙️ Settings"
     setBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     setBtn.Font = Enum.Font.GothamSemibold
-    setBtn.TextSize = 10
+    setBtn.TextSize = 9
     setBtn.Parent = Content
-    local sCo2 = Instance.new("UICorner") sCo2.CornerRadius = UDim.new(0, 6) sCo2.Parent = setBtn
+    local sCo2 = Instance.new("UICorner") sCo2.CornerRadius = UDim.new(0, 5) sCo2.Parent = setBtn
     setBtn.MouseButton1Click:Connect(buildSettingsGUI)
 
     local resetBtn = Instance.new("TextButton")
-    resetBtn.Size = UDim2.new(1, 0, 0, 24)
-    resetBtn.Position = UDim2.new(0, 0, 0, 102)
+    resetBtn.Size = UDim2.new(1, 0, 0, 22)
+    resetBtn.Position = UDim2.new(0, 0, 0, 84)
     resetBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
     resetBtn.Text = "Reset Buffer"
     resetBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     resetBtn.Font = Enum.Font.GothamBold
-    resetBtn.TextSize = 9
+    resetBtn.TextSize = 8
     resetBtn.Parent = Content
-    local rsCo = Instance.new("UICorner") rsCo.CornerRadius = UDim.new(0, 6) rsCo.Parent = resetBtn
+    local rsCo = Instance.new("UICorner") rsCo.CornerRadius = UDim.new(0, 5) rsCo.Parent = resetBtn
     resetBtn.MouseButton1Click:Connect(hardReset)
 
     local footer = Instance.new("TextLabel")
-    footer.Size = UDim2.new(1, -16, 0, 16)
-    footer.Position = UDim2.new(0, 8, 0, 130)
+    footer.Size = UDim2.new(1, 0, 0, 14)
+    footer.Position = UDim2.new(0, 0, 0, 110)
     footer.BackgroundTransparency = 1
     footer.RichText = true
     footer.Text = '<font color="#88aaff">discord.gg/</font><font color="#66ccff"><b>grimhub</b></font>'
     footer.TextColor3 = Color3.fromRGB(180, 200, 255)
-    footer.TextSize = 9
+    footer.TextSize = 8
     footer.Font = Enum.Font.GothamBold
     footer.TextXAlignment = Enum.TextXAlignment.Center
     footer.ZIndex = 10
     footer.Parent = Content
     
     local footerBtn = Instance.new("TextButton")
-    footerBtn.Size = UDim2.new(1, -16, 0, 16)
-    footerBtn.Position = UDim2.new(0, 8, 0, 130)
+    footerBtn.Size = UDim2.new(1, 0, 0, 14)
+    footerBtn.Position = UDim2.new(0, 0, 0, 110)
     footerBtn.BackgroundTransparency = 1
     footerBtn.Text = ""
     footerBtn.AutoButtonColor = false
@@ -2183,13 +2184,13 @@ local function buildMainGUI()
     end)
 
     local creditLabel = Instance.new("TextLabel")
-    creditLabel.Size = UDim2.new(1, -16, 0, 12)
-    creditLabel.Position = UDim2.new(0, 8, 0, 148)
+    creditLabel.Size = UDim2.new(1, 0, 0, 12)
+    creditLabel.Position = UDim2.new(0, 0, 0, 126)
     creditLabel.BackgroundTransparency = 1
     creditLabel.Text = "by momo&fowascend"
     creditLabel.TextColor3 = Color3.fromRGB(130, 170, 210)
     creditLabel.Font = Enum.Font.Gotham
-    creditLabel.TextSize = 8
+    creditLabel.TextSize = 7
     creditLabel.TextXAlignment = Enum.TextXAlignment.Center
     creditLabel.ZIndex = 10
     creditLabel.Parent = Content
