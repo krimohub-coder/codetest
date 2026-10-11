@@ -1,1992 +1,489 @@
+-- Services
+local TweenService    = game:GetService("TweenService")
+local Players         = game:GetService("Players")
+local RunService      = game:GetService("RunService")
+local SoundService    = game:GetService("SoundService")
+local UserInputService = game:GetService("UserInputService")
+local Lighting        = game:GetService("Lighting")
+local LocalPlayer     = Players.LocalPlayer
+local camera          = workspace.CurrentCamera
 
--- SERVICES --
-local HttpService       = game:GetService("HttpService")
-local Players           = game:GetService("Players")
-local UserInputService  = game:GetService("UserInputService")
-local RunService        = game:GetService("RunService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService      = game:GetService("TweenService")
-local Lighting          = game:GetService("Lighting")
-
-local player    = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
-
--- CONFIGURATION
-local CONFIG_FILE = "traced.vs_config.json"
-local savedConfig = {
-	codeSniper    = true,
-	autoSubmit    = true,
-	submitAfter   = 1,
-	retypeInvalid = false,
-	riddleSolver  = false,
-	windowWidth   = 450,
-	windowHeight  = 730,
-	autoSpam      = false,
-	caseMode      = "EXACT",
-	wordCount     = 1,
-	speedMode     = "FAST",
-	listenEnabled = true,
-	listenKey     = Enum.KeyCode.F,
-	redeemKey     = Enum.KeyCode.G,
-	splitBuffer   = false,
-	optimizer     = false,
+-- Settings
+local settings = {
+    enabled        = false,
+    smoothness     = 0.5,
+    targetPart     = "Head",
+    fovRadius      = 100,
+    fogEnabled     = false,
+    fogColor       = Color3.fromRGB(150, 150, 150),
+    fogEnd         = 100,
+    skyboxColor    = Color3.fromRGB(0, 0, 0),
+    highlightEnabled = false,
+    teamKill       = false,
+    tpwalkEnabled  = false,
+    spinEnabled    = false,
 }
 
-pcall(function()
-	if type(isfile) == "function" and type(readfile) == "function" and isfile(CONFIG_FILE) then
-		local decoded = HttpService:JSONDecode(readfile(CONFIG_FILE))
-		if type(decoded) == "table" then
-			for k, v in pairs(decoded) do
-				if savedConfig[k] ~= nil then
-					if k == "listenKey" or k == "redeemKey" then
-						if type(v) == "string" then
-							local ok, key = pcall(function() return Enum.KeyCode[v] end)
-							if ok and key then savedConfig[k] = key end
-						end
-					elseif type(v) == type(savedConfig[k]) then
-						if type(v) == "number" then
-							if k == "submitAfter" or k == "wordCount" then
-								savedConfig[k] = math.max(1, math.floor(v))
-							elseif k == "windowWidth" then
-								savedConfig[k] = math.clamp(math.floor(v), 300, 800)
-							elseif k == "windowHeight" then
-								savedConfig[k] = math.clamp(math.floor(v), 400, 1000)
-							else
-								savedConfig[k] = v
-							end
-						else
-							savedConfig[k] = v
-						end
-					end
-				end
-			end
-		end
-	end
+-- ── FOV Circle ────────────────────────────────────────────────────────────────
+
+local fovCircle = Drawing.new("Circle")
+fovCircle.Visible   = false
+fovCircle.Radius    = settings.fovRadius
+fovCircle.Thickness = 2
+fovCircle.Filled    = false
+fovCircle.NumSides  = 100
+fovCircle.Color     = Color3.fromRGB(255, 100, 100)
+
+local function updateFOVCircle()
+    fovCircle.Radius = settings.fovRadius
+end
+
+RunService.RenderStepped:Connect(function()
+    if camera then
+        fovCircle.Position = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
+    end
 end)
 
-local function saveConfig()
-	if type(writefile) ~= "function" then return end
-	local toSave = table.clone(savedConfig)
-	toSave.listenKey = savedConfig.listenKey and savedConfig.listenKey.Name or "F"
-	toSave.redeemKey = savedConfig.redeemKey and savedConfig.redeemKey.Name or "G"
-	pcall(writefile, CONFIG_FILE, HttpService:JSONEncode(toSave))
-end
-
--- STATE
-local _enabled               = savedConfig.codeSniper
-local _listenEnabled         = savedConfig.listenEnabled
-local _listenKey             = savedConfig.listenKey or Enum.KeyCode.F
-local _redeemKey             = savedConfig.redeemKey or Enum.KeyCode.G
-local _waitingForListenKey   = false
-local _waitingForRedeemKey   = false
-local _seen                  = {}
-local _focused, _lastBox     = nil, nil
-local _autoAccept            = savedConfig.autoSubmit
-local _submitAfter           = savedConfig.submitAfter
-local _capturedParts         = {}
-local _lastWatchedBox        = nil
-local _boxTextConn, _boxAncestryConn = nil, nil
-local _boxVisibilityConns    = {}
-local _retypeInvalid         = savedConfig.retypeInvalid
-local _riddleSolver          = savedConfig.riddleSolver
-local _autoSpam              = savedConfig.autoSpam
-local _lastNonBlankBoxText   = ""
-local _pendingRejectedText, _pendingRejectedBox = nil, nil
-local _pendingRejectedUntil, _pendingRejectedToken = 0, 0
-local CLOVERX_WORD_COUNT     = savedConfig.wordCount or 1
-
-local _caseMode              = savedConfig.caseMode or "EXACT"
-local _wordCount             = savedConfig.wordCount or 1
-local _speedMode             = savedConfig.speedMode or "FAST"
-local _optimizerEnabled      = savedConfig.optimizer or false
-
-local _splitBufferEnabled    = savedConfig.splitBuffer or false
-local currentCodeBuffer      = ""
-local _splitActive           = false
-local _cachedCodeBox         = nil
-local _lastSplitSubmit       = 0
-
--- Cooldown system for "Please wait before trying to redeem another code"
-local _redeemCooldownUntil   = 0
-local COOLDOWN_TIME          = 2.8
-
-local getupvalues = (debug and debug.getupvalues) or getupvalues
-local getconns    = getconnections or (debug and debug.getconnections)
-local setupv      = (debug and debug.setupvalue) or setupvalue
-
-local httpRequest  = (syn and syn.request) or (http and http.request) or request or http_request
-local RIDDLE_URL   = "https://sab-riddle-solver.xyrcheatz.workers.dev"
-local RIDDLE_TOKEN = "0facce8d7ac3a4b6fc4b6ae068b3b219883009780cb2ca31"
-local RIDDLE_MODEL = "qwen"
-local _solving, _solvedCount, _lastTypedSeq, _riddleSeq = 0, 0, 0, 0
-
-local SPEED_DELAY = {
-	MAX            = 0,
-	FAST           = 0.012,
-	MED            = 0.035,
-	["EVERY WORD"] = 0,
-}
-
-local function getSpeedDelay()
-	return SPEED_DELAY[_speedMode] or 0.012
-end
-
-local function normalizeCode(s)
-	return (tostring(s or "")):match("^%s*(.-)%s*$") or ""
-end
-
-local function applyCase(s)
-	s = tostring(s or "")
-	if _caseMode == "UPPER" then return s:upper()
-	elseif _caseMode == "lower" then return s:lower() end
-	return s
-end
-
-local function aiPost(path, body)
-	if not httpRequest then return nil end
-	local ok, res = pcall(httpRequest, {
-		Url     = RIDDLE_URL .. path,
-		Method  = "POST",
-		Headers = { ["Content-Type"] = "application/json", ["Authorization"] = "Bearer " .. RIDDLE_TOKEN },
-		Body    = HttpService:JSONEncode(body),
-	})
-	if not ok or type(res) ~= "table" then return nil end
-	local raw = res.Body or res.body
-	if type(raw) ~= "string" then return nil end
-	local okd, data = pcall(HttpService.JSONDecode, HttpService, raw)
-	return (okd and type(data) == "table") and data or nil
-end
-
-local setStatus, flashCode, appendToBox
-local rememberPendingSubmission, clearPendingSubmission, handleRedemptionFeedback
-local clearCloverCapture
-local fullShutdown
-local CodeBox
-local wordsRow
-local splitStatusRow
-local typeAndSubmitCode
-local performSubmit
-local cloverCollectBuffer = {}
-local cloverCodeBox
-
-local function resetSplitBuffer()
-	currentCodeBuffer = ""
-	_splitActive = false
-	_lastSplitSubmit = 0
-end
-
-local function fullClearCapture()
-	_capturedParts = {}
-	cloverCollectBuffer = {}
-	resetSplitBuffer()
-	clearPendingSubmission()
-	_lastNonBlankBoxText = ""
-	_lastBox = nil
-	_focused = nil
-	_cachedCodeBox = nil
-	if CodeBox then CodeBox.Text = "" end
-	local box = cloverCodeBox and cloverCodeBox()
-	if box then
-		pcall(function()
-			if box.Parent and isVisibleChain(box) then
-				box.Text = ""
-			end
-		end)
-	end
-	if clearBoxWatchers then clearBoxWatchers() end
-	setStatus("Fully cleared")
-end
-
--- ==================== STRONG OPTIMIZER (Potato Graphics) ====================
-local function applyOptimizer(enabled)
-	_optimizerEnabled = enabled
-	savedConfig.optimizer = enabled
-	saveConfig()
-
-	local Terrain = workspace:FindFirstChildOfClass("Terrain")
-
-	if enabled then
-		pcall(function()
-			settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
-		end)
-		pcall(function()
-			UserSettings():GetService("UserGameSettings").SavedQualityLevel = Enum.SavedQualitySetting.QualityLevel1
-		end)
-
-		pcall(function()
-			Lighting.GlobalShadows = false
-			Lighting.FogEnd = 9e9
-			Lighting.FogStart = 0
-			Lighting.Brightness = 0.6
-			Lighting.Ambient = Color3.fromRGB(40, 40, 40)
-			Lighting.OutdoorAmbient = Color3.fromRGB(40, 40, 40)
-			Lighting.ClockTime = 14
-		end)
-
-		pcall(function()
-			for _, effect in ipairs(Lighting:GetChildren()) do
-				if effect:IsA("PostEffect")
-				or effect:IsA("BloomEffect")
-				or effect:IsA("BlurEffect")
-				or effect:IsA("ColorCorrectionEffect")
-				or effect:IsA("SunRaysEffect")
-				or effect:IsA("DepthOfFieldEffect")
-				or effect:IsA("Atmosphere")
-				or effect:IsA("Sky") then
-					pcall(function() effect.Enabled = false end)
-				end
-			end
-		end)
-
-		if Terrain then
-			pcall(function()
-				Terrain.Decoration = false
-				Terrain.WaterWaveSize = 0
-				Terrain.WaterWaveSpeed = 0
-				Terrain.WaterReflectance = 0
-				Terrain.WaterTransparency = 1
-			end)
-		end
-
-		pcall(function()
-			settings().Rendering.MeshPartDetailLevel = Enum.MeshPartDetailLevel.Level04
-		end)
-
-		setStatus("Optimizer → ON (Potato Graphics)")
-	else
-		pcall(function()
-			settings().Rendering.QualityLevel = Enum.QualityLevel.Automatic
-		end)
-		pcall(function()
-			UserSettings():GetService("UserGameSettings").SavedQualityLevel = Enum.SavedQualitySetting.Automatic
-		end)
-		pcall(function()
-			Lighting.GlobalShadows = true
-			Lighting.Brightness = 2
-			Lighting.Ambient = Color3.fromRGB(128, 128, 128)
-			Lighting.OutdoorAmbient = Color3.fromRGB(128, 128, 128)
-		end)
-		if Terrain then
-			pcall(function() Terrain.Decoration = true end)
-		end
-
-		setStatus("Optimizer → OFF")
-	end
-end
-
--- ==================== SPLIT BUFFER (respects cooldown) ====================
-local function processSplitSnippet(snippet)
-	if not _splitBufferEnabled or not _enabled then return false end
-
-	snippet = normalizeCode(snippet)
-	if snippet == "" then return false end
-
-	if not _splitActive then
-		_splitActive = true
-		currentCodeBuffer = ""
-	end
-
-	currentCodeBuffer = currentCodeBuffer .. snippet
-	local codeToTry = applyCase(currentCodeBuffer)
-
-	if CodeBox then CodeBox.Text = currentCodeBuffer end
-	flashCode(currentCodeBuffer)
-	setStatus("Split: " .. currentCodeBuffer)
-
-	if not _autoAccept then
-		setStatus("Split: " .. currentCodeBuffer .. " (Auto Submit OFF)")
-		return true
-	end
-
-	-- Respect game cooldown
-	if tick() < _redeemCooldownUntil then
-		return true
-	end
-
-	local now = tick()
-	if now - _lastSplitSubmit < 0.15 then
-		return true
-	end
-	_lastSplitSubmit = now
-
-	rememberPendingSubmission(nil, codeToTry, true)
-
-	if _autoSpam then
-		setStatus("SPAM Split: " .. codeToTry)
-		task.spawn(function()
-			local concurrent = 0
-			local maxConcurrent = (_speedMode == "MAX") and 16 or 9
-			local total = 280
-			for i = 1, total do
-				if tick() < _redeemCooldownUntil then break end
-				while concurrent >= maxConcurrent do task.wait() end
-				concurrent += 1
-				task.spawn(function()
-					typeAndSubmitCode(codeToTry)
-					concurrent -= 1
-				end)
-				if i % 25 == 0 then task.wait() end
-			end
-			setStatus("Split spam finished")
-		end)
-	else
-		setStatus("Submitting: " .. codeToTry)
-		task.spawn(function()
-			local ok = typeAndSubmitCode(codeToTry)
-			if ok then
-				setStatus("Redeemed: " .. codeToTry)
-			else
-				task.wait(0.15)
-				if tick() >= _redeemCooldownUntil then
-					ok = typeAndSubmitCode(codeToTry)
-					setStatus(ok and ("Redeemed: " .. codeToTry) or "Failed to redeem")
-				end
-			end
-		end)
-	end
-
-	return true
-end
-
-local function isOurGui(inst)
-	local p = inst
-	for _ = 1, 8 do
-		if not p then break end
-		if p.Name == "TracedVsUI" or p.Name == "BlossomUI" or p.Name == "CloverXUI" then return true end
-		p = p.Parent
-	end
-	return false
-end
-
-local function isVisibleChain(inst)
-	local c = inst
-	while c do
-		if c:IsA("GuiObject") and not c.Visible then return false end
-		if c:IsA("ScreenGui") then return c.Enabled end
-		c = c.Parent
-	end
-	return true
-end
-
-local _cachedBoxes, _cachedBtns, _cacheTick = {}, {}, 0
-
-local function refreshCache()
-	_cachedBoxes, _cachedBtns = {}, {}
-	for _, gui in ipairs(playerGui:GetChildren()) do
-		if gui:IsA("ScreenGui") and gui.Enabled and not isOurGui(gui) then
-			for _, d in ipairs(gui:GetDescendants()) do
-				if d:IsA("TextBox") and not isOurGui(d) then
-					_cachedBoxes[#_cachedBoxes + 1] = d
-				elseif (d:IsA("TextButton") or d:IsA("ImageButton")) and not isOurGui(d) then
-					local n  = d.Name:lower()
-					local pn = (d.Parent and d.Parent.Name or ""):lower()
-					if (n:find("code") or n:find("redeem") or pn:find("code") or pn:find("redeem")) and isVisibleChain(d) then
-						_cachedBtns[#_cachedBtns + 1] = d
-					end
-				end
-			end
-		end
-	end
-	_cacheTick = tick()
-end
-
-local function getBoxes()
-	if tick() - _cacheTick > 0.3 then refreshCache() end
-	return _cachedBoxes
-end
-
-local function getCodeButtons()
-	if tick() - _cacheTick > 0.3 then refreshCache() end
-	return _cachedBtns
-end
-
-local function clickButton(btn)
-	if not btn then return false end
-	local any = false
-	pcall(function() btn.MouseButton1Click:Fire(); any = true end)
-	pcall(function() btn.Activated:Fire(); any = true end)
-	if typeof(firesignal) == "function" then
-		pcall(firesignal, btn.MouseButton1Click)
-		pcall(firesignal, btn.Activated)
-		any = true
-	end
-	if typeof(getconns) == "function" then
-		local ok, cs = pcall(getconns, btn.MouseButton1Click)
-		if ok and type(cs) == "table" then for _, c in ipairs(cs) do pcall(function() c:Fire() end) end end
-		ok, cs = pcall(getconns, btn.Activated)
-		if ok and type(cs) == "table" then for _, c in ipairs(cs) do pcall(function() c:Fire() end) end end
-		any = true
-	end
-	if typeof(fireclick) == "function" then pcall(fireclick, btn); any = true end
-	return any
-end
-
-local function fireBoxFocusLost(box)
-	if not box then return false end
-	local any = false
-	if typeof(firesignal) == "function" then
-		pcall(firesignal, box.FocusLost, true)
-		any = true
-	end
-	if typeof(getconns) == "function" then
-		local ok, cs = pcall(getconns, box.FocusLost)
-		if ok and type(cs) == "table" then
-			for _, c in ipairs(cs) do
-				local fn
-				pcall(function() fn = c.Function end)
-				if fn and typeof(getupvalues) == "function" and typeof(setupv) == "function" then
-					local uOk, ups = pcall(getupvalues, fn)
-					if uOk and type(ups) == "table" then
-						for i, v in pairs(ups) do
-							if type(v) == "boolean" and v == true then pcall(setupv, fn, i, false) end
-						end
-					end
-				end
-				pcall(function() if c.Enabled ~= false then c:Fire(true) end end)
-				any = true
-			end
-		end
-	end
-	return any
-end
-
-typeAndSubmitCode = function(code)
-	code = applyCase(normalizeCode(code))
-	if code == "" then return false, "empty" end
-
-	-- Respect cooldown
-	if tick() < _redeemCooldownUntil then
-		return false, "cooldown"
-	end
-
-	local codesGui = playerGui:FindFirstChild("Codes")
-	if codesGui then
-		pcall(function()
-			if codesGui:IsA("ScreenGui") then codesGui.Enabled = true end
-		end)
-		local codesFrame = codesGui:FindFirstChild("Codes") or codesGui
-		if codesFrame then
-			pcall(function()
-				if codesFrame:IsA("GuiObject") then codesFrame.Visible = true end
-			end)
-			local cur = codesFrame
-			while cur and cur ~= codesGui do
-				if cur:IsA("GuiObject") then cur.Visible = true end
-				cur = cur.Parent
-			end
-
-			local box, submitBtn
-			for _, d in ipairs(codesFrame:GetDescendants()) do
-				if d:IsA("TextBox") and not isOurGui(d) then
-					box = d
-					break
-				end
-			end
-			for _, d in ipairs(codesFrame:GetDescendants()) do
-				if (d:IsA("TextButton") or d:IsA("ImageButton")) and not isOurGui(d) then
-					local n = d.Name:lower()
-					local txt = ""
-					pcall(function() txt = (d.Text or ""):lower() end)
-					if n:find("submit") or txt:find("submit") or n:find("redeem") or txt:find("redeem")
-						or n:find("claim") or txt:find("confirm") or n:find("enter") or n:find("ok") then
-						submitBtn = d
-						break
-					end
-				end
-			end
-			if not submitBtn then
-				for _, d in ipairs(codesFrame:GetDescendants()) do
-					if (d:IsA("TextButton") or d:IsA("ImageButton")) and not isOurGui(d) then
-						local n = d.Name:lower()
-						if not n:find("close") and not n:find("x") and not n:find("toggle") and not n:find("exit") then
-							submitBtn = d
-							break
-						end
-					end
-				end
-			end
-			if box then
-				pcall(function()
-					if box.Parent and isVisibleChain(box) then box.Text = code end
-				end)
-				_cachedCodeBox = box
-				if submitBtn then clickButton(submitBtn) end
-				fireBoxFocusLost(box)
-				return true, "Codes"
-			end
-		end
-	end
-
-	local box = _cachedCodeBox
-	if box and box.Parent and isVisibleChain(box) then
-		pcall(function() box.Text = code end)
-		local p = box.Parent
-		local clicked = false
-		for _ = 1, 4 do
-			if not p then break end
-			for _, d in ipairs(p:GetChildren()) do
-				if (d:IsA("TextButton") or d:IsA("ImageButton")) and d ~= box and isVisibleChain(d) then
-					local n = d.Name:lower()
-					local txt = ""
-					pcall(function() txt = (d.Text or ""):lower() end)
-					if n:find("submit") or n:find("redeem") or n:find("claim") or n:find("confirm")
-						or n:find("enter") or txt:find("submit") or txt:find("redeem") or txt:find("claim") then
-						clickButton(d)
-						clicked = true
-						break
-					end
-				end
-			end
-			if clicked then break end
-			p = p.Parent
-		end
-		fireBoxFocusLost(box)
-		return true, clicked and "cache" or "cache-focus"
-	end
-
-	for _, btn in ipairs(getCodeButtons()) do clickButton(btn) end
-
-	box = nil
-	for _, d in ipairs(getBoxes()) do
-		if isVisibleChain(d) then
-			local n  = d.Name:lower()
-			local pn = (d.Parent and d.Parent.Name or ""):lower()
-			if n:find("code") or pn:find("code") or n:find("redeem") or pn:find("redeem")
-				or n:find("input") or pn:find("textbox") or n:find("enter") then
-				box = d
-				break
-			end
-		end
-	end
-	if not box then
-		for _, d in ipairs(getBoxes()) do
-			if isVisibleChain(d) then box = d; break end
-		end
-	end
-	if not box then return false, "no box" end
-
-	_cachedCodeBox = box
-	pcall(function()
-		if box.Parent and isVisibleChain(box) then box.Text = code end
-	end)
-
-	local redeemBtn
-	local search = {"submit","redeem","claim","confirm","enter","send","apply","ok","use","go","check"}
-	local p = box.Parent
-	for _ = 1, 6 do
-		if not p then break end
-		for _, d in ipairs(p:GetChildren()) do
-			if (d:IsA("TextButton") or d:IsA("ImageButton")) and not isOurGui(d) and d ~= box and isVisibleChain(d) then
-				local n = d.Name:lower()
-				local txt = ""
-				pcall(function() txt = (d.Text or ""):lower() end)
-				for _, sn in ipairs(search) do
-					if n:find(sn) or txt:find(sn) then redeemBtn = d; break end
-				end
-				if redeemBtn then break end
-			end
-		end
-		if redeemBtn then break end
-		for _, d in ipairs(p:GetDescendants()) do
-			if (d:IsA("TextButton") or d:IsA("ImageButton")) and not isOurGui(d) and d ~= box and isVisibleChain(d) then
-				local n = d.Name:lower()
-				local txt = ""
-				pcall(function() txt = (d.Text or ""):lower() end)
-				for _, sn in ipairs(search) do
-					if n:find(sn) or txt:find(sn) then redeemBtn = d; break end
-				end
-				if redeemBtn then break end
-			end
-		end
-		if redeemBtn then break end
-		p = p.Parent
-	end
-	if redeemBtn then clickButton(redeemBtn) end
-	fireBoxFocusLost(box)
-	return true, "dynamic"
-end
-
-cloverCodeBox = function()
-	if _cachedCodeBox and _cachedCodeBox.Parent and isVisibleChain(_cachedCodeBox) then
-		return _cachedCodeBox
-	end
-	for _, box in ipairs(getBoxes()) do
-		if isVisibleChain(box) then
-			_cachedCodeBox = box
-			return box
-		end
-	end
-	return nil
-end
-
--- ==================== TRACED.VS THEME ====================
-local COLORS = {
-	Window  = Color3.fromRGB(0, 0, 0),
-	Row     = Color3.fromRGB(0, 0, 0),
-	Control = Color3.fromRGB(20, 28, 40),
-	Accent  = Color3.fromRGB(255, 105, 180),
-	White   = Color3.fromRGB(255, 255, 255),
-	Text    = Color3.fromRGB(255, 255, 255),
-	Dim     = Color3.fromRGB(150, 150, 150),
-	Green   = Color3.fromRGB(0, 255, 180),
-	Red     = Color3.fromRGB(255, 50, 100),
-	Leaf    = Color3.fromRGB(0, 200, 150),
-	Yellow  = Color3.fromRGB(255, 220, 50),
-	NeonPink= Color3.fromRGB(255, 105, 180),
-	NeonPurple = Color3.fromRGB(150, 50, 255),
-}
-
-local function addCorner(parent, radius)
-	local c = Instance.new("UICorner")
-	c.CornerRadius = UDim.new(0, radius)
-	c.Parent = parent
-	return c
-end
-
-local function addStroke(parent, color, thickness, transparency)
-	local s = Instance.new("UIStroke")
-	s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	s.Color = color
-	s.Thickness = thickness or 1.6
-	s.Transparency = transparency or 0.3
-	s.Parent = parent
-	return s
-end
-
-local function makeLabel(parent, name, text, size, position, textSize, color, font)
-	local l = Instance.new("TextLabel")
-	l.Name = name
-	l.Size = size
-	l.Position = position
-	l.BackgroundTransparency = 1
-	l.Text = text
-	l.TextSize = textSize
-	l.TextColor3 = color
-	l.Font = font or Enum.Font.GothamBold
-	l.TextXAlignment = Enum.TextXAlignment.Left
-	l.TextYAlignment = Enum.TextYAlignment.Center
-	l.Parent = parent
-	return l
-end
-
-pcall(function()
-	for _, name in ipairs({"TracedVsUI", "BlossomUI", "CloverXUI", "ACECodeSniperUI", "AutoTypeCodesUI"}) do
-		local prev = game.CoreGui:FindFirstChild(name)
-		if prev then prev:Destroy() end
-		local prev2 = playerGui:FindFirstChild(name)
-		if prev2 then prev2:Destroy() end
-	end
+task.spawn(function()
+    local hue = 0
+    while true do
+        hue = (hue + 2) % 360
+        fovCircle.Color = Color3.fromHSV(hue / 360, 1, 1)
+        task.wait(0.02)
+    end
 end)
 
-local GUI = Instance.new("ScreenGui")
-GUI.Name = "TracedVsUI"
-GUI.ResetOnSpawn = false
-GUI.IgnoreGuiInset = true
-GUI.DisplayOrder = 999
-if not pcall(function() GUI.Parent = game.CoreGui end) then GUI.Parent = playerGui end
+-- ── Sound ─────────────────────────────────────────────────────────────────────
 
-local Window = Instance.new("Frame")
-Window.Name = "Window"
-Window.Size = UDim2.fromOffset(savedConfig.windowWidth, savedConfig.windowHeight)
-Window.AnchorPoint = Vector2.new(1, 0)
-Window.Position = UDim2.new(1, -8, 0, 8)
-Window.BackgroundColor3 = COLORS.Window
-Window.BorderSizePixel = 0
-Window.ClipsDescendants = true
-Window.Parent = GUI
-addCorner(Window, 14)
-addStroke(Window, COLORS.NeonPink, 2.0, 0.25)
+local sound = Instance.new("Sound", SoundService)
+sound.SoundId = "rbxassetid://9118823102"
+sound.Volume  = 1
 
-local PetalContainer = Instance.new("Frame")
-PetalContainer.Name = "NeonBackground"
-PetalContainer.Size = UDim2.fromScale(1, 1)
-PetalContainer.BackgroundTransparency = 1
-PetalContainer.ZIndex = 0
-PetalContainer.ClipsDescendants = true
-PetalContainer.Parent = Window
+-- ── Self Highlight ────────────────────────────────────────────────────────────
 
-local activePetals, MAX_PETALS = 0, 14
-local function spawnLeaf()
-	if activePetals >= MAX_PETALS then return end
-	activePetals += 1
-	local w = math.random(6, 12)
-	local h = math.random(4, 8)
-	local leaf = Instance.new("Frame")
-	leaf.Size = UDim2.fromOffset(w, h)
-	local colors = {COLORS.NeonPink, COLORS.NeonPurple, COLORS.Accent}
-	leaf.BackgroundColor3 = colors[math.random(#colors)]
-	leaf.BackgroundTransparency = math.random(35, 65) / 100
-	leaf.BorderSizePixel = 0
-	leaf.Rotation = math.random(-30, 30)
-	leaf.ZIndex = 1
-	leaf.Parent = PetalContainer
-	addCorner(leaf, math.floor(h / 2))
-	local winW = math.max(Window.AbsoluteSize.X, 1)
-	local startX = math.random(-10, winW + 10)
-	leaf.Position = UDim2.fromOffset(startX, -15)
-	local duration = math.random(55, 100) / 10
-	local tween = TweenService:Create(leaf, TweenInfo.new(duration, Enum.EasingStyle.Linear), {
-		Position = UDim2.fromOffset(startX + math.random(-50, 50), Window.AbsoluteSize.Y + 20),
-		Rotation = leaf.Rotation + math.random(-180, 180),
-		BackgroundTransparency = 1
-	})
-	tween:Play()
-	tween.Completed:Connect(function()
-		leaf:Destroy()
-		activePetals = math.max(0, activePetals - 1)
-	end)
+local highlightObj = nil
+local highlightHue = 0
+
+local function updateSelfHighlight()
+    if settings.highlightEnabled and LocalPlayer.Character then
+        if not highlightObj then
+            highlightObj = Instance.new("Highlight")
+            highlightObj.Adornee          = LocalPlayer.Character
+            highlightObj.FillTransparency = 0.8
+            highlightObj.OutlineTransparency = 0
+            highlightObj.Parent           = LocalPlayer.Character
+        end
+    else
+        if highlightObj then
+            highlightObj:Destroy()
+            highlightObj = nil
+        end
+    end
 end
 
 task.spawn(function()
-	while Window and Window.Parent do
-		spawnLeaf()
-		task.wait(0.25 + math.random() * 0.25)
-	end
+    while true do
+        if highlightObj then
+            highlightHue = (highlightHue + 2) % 360
+            local color = Color3.fromHSV(highlightHue / 360, 1, 1)
+            highlightObj.OutlineColor = color
+            highlightObj.FillColor    = color
+        end
+        task.wait(0.02)
+    end
 end)
 
-local InterfaceScale = Instance.new("UIScale")
-InterfaceScale.Scale = 0.94
-InterfaceScale.Parent = Window
-
-local viewportConnection
-local function updateInterfaceScale()
-	local camera = workspace.CurrentCamera
-	if not camera then InterfaceScale.Scale = 0.94; return end
-	local viewport = camera.ViewportSize
-	local w = math.max(Window.Size.X.Offset, 1)
-	local h = math.max(Window.Size.Y.Offset, 1)
-	local fit = math.min((viewport.X - 16) / w, (viewport.Y - 16) / h)
-	InterfaceScale.Scale = UserInputService.TouchEnabled and math.clamp(fit, 0.48, 0.8) or 0.94
-end
-workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
-	if viewportConnection then viewportConnection:Disconnect() end
-	local cam = workspace.CurrentCamera
-	if cam then viewportConnection = cam:GetPropertyChangedSignal("ViewportSize"):Connect(updateInterfaceScale) end
-	updateInterfaceScale()
-end)
-updateInterfaceScale()
-
-local Header = Instance.new("Frame")
-Header.Name = "Header"
-Header.Size = UDim2.new(1, 0, 0, 54)
-Header.BackgroundTransparency = 1
-Header.Active = true
-Header.ZIndex = 3
-Header.Parent = Window
-
-local Logo = Instance.new("Frame")
-Logo.Size = UDim2.fromOffset(30, 30)
-Logo.Position = UDim2.fromOffset(14, 12)
-Logo.BackgroundColor3 = COLORS.NeonPink
-Logo.BorderSizePixel = 0
-Logo.ZIndex = 5
-Logo.Parent = Header
-addCorner(Logo, 9)
-addStroke(Logo, COLORS.NeonPink, 1.6, 0.2)
-
-local LogoText = Instance.new("TextLabel")
-LogoText.Size = UDim2.fromScale(1, 1)
-LogoText.BackgroundTransparency = 1
-LogoText.Text = "T"
-LogoText.TextSize = 16
-LogoText.TextColor3 = Color3.fromRGB(8, 12, 20)
-LogoText.Font = Enum.Font.GothamBold
-LogoText.ZIndex = 6
-LogoText.Parent = Logo
-
-makeLabel(Header, "Title", "traced.vs", UDim2.fromOffset(110, 24), UDim2.fromOffset(52, 15), 16, COLORS.NeonPink, Enum.Font.GothamBold)
-
-local function makeNavButton(name, text, xOffset)
-	local btn = Instance.new("TextButton")
-	btn.Name = name
-	btn.Size = UDim2.fromOffset(64, 28)
-	btn.Position = UDim2.new(1, xOffset, 0, 13)
-	btn.BackgroundColor3 = COLORS.Control
-	btn.BorderSizePixel = 0
-	btn.AutoButtonColor = false
-	btn.Text = text
-	btn.TextSize = 12
-	btn.TextColor3 = COLORS.Text
-	btn.Font = Enum.Font.GothamBold
-	btn.ZIndex = 5
-	btn.Parent = Header
-	addCorner(btn, 8)
-	addStroke(btn, COLORS.NeonPink, 1.6, 0.35)
-	return btn
-end
-
-local MenuBtn = makeNavButton("MenuBtn", "Menu", -200)
-local SettingsBtn = makeNavButton("SettingsBtn", "Settings", -128)
-
-local function setNavActive(activeBtn)
-	for _, b in ipairs({MenuBtn, SettingsBtn}) do
-		local isActive = (b == activeBtn)
-		b.BackgroundColor3 = isActive and COLORS.NeonPink or COLORS.Control
-		b.TextColor3 = isActive and Color3.fromRGB(8, 12, 20) or COLORS.Text
-		local stroke = b:FindFirstChildOfClass("UIStroke")
-		if stroke then stroke.Transparency = isActive and 0.1 or 0.35 end
-	end
-end
-setNavActive(MenuBtn)
-
-local AutoWriteButton = Instance.new("TextButton")
-AutoWriteButton.Name             = "AutoWrite"
-AutoWriteButton.Size             = UDim2.fromOffset(50, 28)
-AutoWriteButton.Position         = UDim2.new(1, -60, 0, 13)
-AutoWriteButton.BackgroundColor3 = COLORS.Control
-AutoWriteButton.BorderSizePixel  = 0
-AutoWriteButton.AutoButtonColor  = false
-AutoWriteButton.Text             = ""
-AutoWriteButton.ZIndex           = 5
-AutoWriteButton.Parent           = Header
-addCorner(AutoWriteButton, 14)
-
-local AutoWriteStroke = addStroke(AutoWriteButton, COLORS.NeonPink, 1.7, 0.4)
-local AutoWriteKnob = Instance.new("Frame")
-AutoWriteKnob.Size             = UDim2.fromOffset(22, 22)
-AutoWriteKnob.Position         = UDim2.new(0, 3, 0.5, -11)
-AutoWriteKnob.BackgroundColor3 = COLORS.White
-AutoWriteKnob.BorderSizePixel  = 0
-AutoWriteKnob.ZIndex           = 6
-AutoWriteKnob.Parent           = AutoWriteButton
-addCorner(AutoWriteKnob, 11)
-
-local autoWriteEnabled = _enabled
-_enabled = autoWriteEnabled
-
-local function updateAutoWriteVisual()
-	if autoWriteEnabled then
-		AutoWriteButton.BackgroundColor3 = COLORS.NeonPink
-		AutoWriteStroke.Transparency     = 0.1
-		AutoWriteStroke.Thickness        = 2.1
-		AutoWriteKnob.BackgroundColor3   = Color3.fromRGB(8, 12, 20)
-		AutoWriteKnob.Position           = UDim2.new(1, -25, 0.5, -11)
-	else
-		AutoWriteButton.BackgroundColor3 = COLORS.Control
-		AutoWriteStroke.Transparency     = 0.4
-		AutoWriteStroke.Thickness        = 1.7
-		AutoWriteKnob.BackgroundColor3   = COLORS.White
-		AutoWriteKnob.Position           = UDim2.new(0, 3, 0.5, -11)
-	end
-end
-updateAutoWriteVisual()
-
-local lastToggleTime = 0
-local function toggleAutoWrite()
-	if tick() - lastToggleTime < 0.12 then return end
-	lastToggleTime = tick()
-	autoWriteEnabled = not autoWriteEnabled
-	_enabled = autoWriteEnabled
-	if not autoWriteEnabled then
-		fullClearCapture()
-	end
-	savedConfig.codeSniper = autoWriteEnabled
-	saveConfig()
-	updateAutoWriteVisual()
-	setStatus(autoWriteEnabled and "Auto Redeem → ON" or "Auto Redeem → OFF")
-end
-AutoWriteButton.Activated:Connect(toggleAutoWrite)
-
-local HeaderAccent = Instance.new("Frame")
-HeaderAccent.Size = UDim2.new(1, -28, 0, 1)
-HeaderAccent.Position = UDim2.fromOffset(14, 50)
-HeaderAccent.BackgroundColor3 = COLORS.NeonPink
-HeaderAccent.BackgroundTransparency = 0.3
-HeaderAccent.BorderSizePixel = 0
-HeaderAccent.Parent = Header
-
-local MenuPanel = Instance.new("Frame")
-MenuPanel.Name = "MenuPanel"
-MenuPanel.Size = UDim2.new(1, 0, 1, -76)
-MenuPanel.Position = UDim2.fromOffset(0, 56)
-MenuPanel.BackgroundTransparency = 1
-MenuPanel.ZIndex = 3
-MenuPanel.Visible = true
-MenuPanel.Parent = Window
-
-local function makeCard(name, y, height)
-	local card = Instance.new("Frame")
-	card.Name = name
-	card.Position = UDim2.fromOffset(14, y)
-	card.Size = UDim2.new(1, -28, 0, height)
-	card.BackgroundColor3 = COLORS.Row
-	card.BorderSizePixel = 0
-	card.Parent = MenuPanel
-	addCorner(card, 10)
-	addStroke(card, COLORS.NeonPink, 1.5, 0.35)
-	return card
-end
-
-local function makeSegmentedRow(y, labelText, options, currentValue, onSelect)
-	local row = makeCard(labelText:gsub("%s+", "") .. "Row", y, 38)
-	makeLabel(row, "Label", labelText, UDim2.fromOffset(90, 38), UDim2.fromOffset(12, 0), 13, COLORS.Text, Enum.Font.GothamBold)
-	local btnContainer = Instance.new("Frame")
-	btnContainer.Size = UDim2.new(1, -110, 1, -8)
-	btnContainer.Position = UDim2.fromOffset(100, 4)
-	btnContainer.BackgroundTransparency = 1
-	btnContainer.Parent = row
-	local layout = Instance.new("UIListLayout")
-	layout.FillDirection = Enum.FillDirection.Horizontal
-	layout.HorizontalAlignment = Enum.HorizontalAlignment.Right
-	layout.VerticalAlignment = Enum.VerticalAlignment.Center
-	layout.Padding = UDim.new(0, 5)
-	layout.Parent = btnContainer
-	local buttons = {}
-	local function refresh()
-		for value, btn in pairs(buttons) do
-			local selected = (value == currentValue)
-			btn.BackgroundColor3 = selected and COLORS.NeonPink or COLORS.Control
-			btn.TextColor3 = selected and Color3.fromRGB(8, 12, 20) or COLORS.Text
-			local stroke = btn:FindFirstChildOfClass("UIStroke")
-			if stroke then stroke.Transparency = selected and 0.1 or 0.4 end
-		end
-	end
-	for _, opt in ipairs(options) do
-		local btn = Instance.new("TextButton")
-		btn.Name = tostring(opt)
-		btn.Size = UDim2.fromOffset(math.max(40, #tostring(opt) * 8 + 16), 28)
-		btn.BackgroundColor3 = COLORS.Control
-		btn.BorderSizePixel = 0
-		btn.AutoButtonColor = false
-		btn.Text = tostring(opt)
-		btn.TextSize = 11
-		btn.TextColor3 = COLORS.Text
-		btn.Font = Enum.Font.GothamBold
-		btn.ZIndex = 5
-		btn.Parent = btnContainer
-		addCorner(btn, 8)
-		addStroke(btn, COLORS.NeonPink, 1.4, 0.4)
-		buttons[opt] = btn
-		btn.Activated:Connect(function()
-			if currentValue == opt then return end
-			currentValue = opt
-			refresh()
-			if onSelect then onSelect(opt) end
-		end)
-	end
-	refresh()
-	return row
-end
-
-local StatusCard = makeCard("Status", 6, 36)
-local StatusDot = Instance.new("Frame")
-StatusDot.Size = UDim2.fromOffset(9, 9)
-StatusDot.Position = UDim2.fromOffset(13, 14)
-StatusDot.BackgroundColor3 = COLORS.NeonPink
-StatusDot.BorderSizePixel = 0
-StatusDot.Parent = StatusCard
-addCorner(StatusDot, 5)
-local StatusLabel = makeLabel(StatusCard, "StatusText", "ready", UDim2.new(1, -32, 1, 0), UDim2.fromOffset(30, 0), 13, COLORS.Text, Enum.Font.GothamBold)
-
-local CodeCard = makeCard("Code", 50, 70)
-makeLabel(CodeCard, "Title", "CODE", UDim2.fromOffset(60, 18), UDim2.fromOffset(12, 5), 12, COLORS.NeonPink, Enum.Font.GothamBold)
-local CodeInputShell = Instance.new("Frame")
-CodeInputShell.Size = UDim2.new(1, -24, 0, 32)
-CodeInputShell.Position = UDim2.fromOffset(12, 28)
-CodeInputShell.BackgroundColor3 = COLORS.Control
-CodeInputShell.BorderSizePixel = 0
-CodeInputShell.Parent = CodeCard
-addCorner(CodeInputShell, 9)
-addStroke(CodeInputShell, COLORS.NeonPink, 1.6, 0.25)
-
-CodeBox = Instance.new("TextBox")
-CodeBox.Name = "CodeBox"
-CodeBox.Size = UDim2.new(1, -14, 1, 0)
-CodeBox.Position = UDim2.fromOffset(7, 0)
-CodeBox.BackgroundTransparency = 1
-CodeBox.Text = ""
-CodeBox.PlaceholderText = "type or snipe a code..."
-CodeBox.PlaceholderColor3 = COLORS.Dim
-CodeBox.TextSize = 13
-CodeBox.TextColor3 = COLORS.NeonPink
-CodeBox.Font = Enum.Font.GothamBold
-CodeBox.TextXAlignment = Enum.TextXAlignment.Left
-CodeBox.ClearTextOnFocus = false
-CodeBox.Parent = CodeInputShell
-
-local ActionCard = makeCard("Actions", 128, 44)
-local function makeActionButton(name, text, x, width, isAccent)
-	local btn = Instance.new("TextButton")
-	btn.Name = name
-	btn.Size = UDim2.fromOffset(width, 30)
-	btn.Position = UDim2.fromOffset(x, 7)
-	btn.BackgroundColor3 = isAccent and COLORS.NeonPink or COLORS.Control
-	btn.BorderSizePixel = 0
-	btn.AutoButtonColor = false
-	btn.Text = text
-	btn.TextSize = 12
-	btn.TextColor3 = isAccent and Color3.fromRGB(8, 12, 20) or COLORS.Text
-	btn.Font = Enum.Font.GothamBold
-	btn.ZIndex = 5
-	btn.Parent = ActionCard
-	addCorner(btn, 9)
-	if not isAccent then addStroke(btn, COLORS.NeonPink, 1.5, 0.4) end
-	return btn
-end
-
-local CopyBtn = makeActionButton("Copy", "COPY", 12, 80, false)
-local ClearBtn = makeActionButton("Clear", "CLEAR", 100, 80, false)
-local RedeemBtn = makeActionButton("Redeem", "REDEEM", 188, 100, true)
-
-CopyBtn.Activated:Connect(function()
-	local t = CodeBox.Text
-	if t and t ~= "" then
-		if setclipboard then pcall(setclipboard, t) end
-		setStatus("Copied")
-	end
+LocalPlayer.CharacterAdded:Connect(function(char)
+    if settings.highlightEnabled then
+        if highlightObj then highlightObj:Destroy() end
+        highlightObj = Instance.new("Highlight")
+        highlightObj.Adornee          = char
+        highlightObj.FillTransparency = 0.8
+        highlightObj.OutlineTransparency = 0
+        highlightObj.Parent           = char
+    end
 end)
 
-ClearBtn.Activated:Connect(function()
-	fullClearCapture()
+-- ── TPWalk ────────────────────────────────────────────────────────────────────
+
+local tpwalkConnection = nil
+local tpwalkRoot       = nil
+
+local function tpwalkMove()
+    local char = LocalPlayer.Character
+    if not char then tpwalkRoot = nil return end
+    if not tpwalkRoot or tpwalkRoot.Parent ~= char then
+        tpwalkRoot = char:FindFirstChild("HumanoidRootPart")
+        if not tpwalkRoot then return end
+    end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hum then return end
+    local moveDir = hum.MoveDirection
+    if moveDir.Magnitude <= 0 then return end
+    moveDir = Vector3.new(moveDir.X, 0, moveDir.Z)
+    if moveDir.Magnitude == 0 then return end
+    moveDir = moveDir.Unit
+    local speed = 25
+    local delta = RunService.Heartbeat:Wait()
+    tpwalkRoot.CFrame = tpwalkRoot.CFrame + moveDir * speed * delta
+end
+
+local function startTPWalk()
+    if tpwalkConnection then tpwalkConnection:Disconnect() end
+    tpwalkConnection = RunService.Heartbeat:Connect(tpwalkMove)
+end
+
+local function stopTPWalk()
+    if tpwalkConnection then tpwalkConnection:Disconnect() tpwalkConnection = nil end
+    tpwalkRoot = nil
+end
+
+-- ── Spin ──────────────────────────────────────────────────────────────────────
+
+local spinConnection = nil
+local spinRoot       = nil
+
+local function spinCharacter()
+    local char = LocalPlayer.Character
+    if not char then spinRoot = nil return end
+    if not spinRoot or spinRoot.Parent ~= char then
+        spinRoot = char:FindFirstChild("HumanoidRootPart")
+        if not spinRoot then return end
+    end
+    spinRoot.CFrame = spinRoot.CFrame * CFrame.Angles(0, math.rad(45), 0)
+end
+
+local function startSpin()
+    if spinConnection then spinConnection:Disconnect() end
+    spinConnection = RunService.Heartbeat:Connect(spinCharacter)
+end
+
+local function stopSpin()
+    if spinConnection then spinConnection:Disconnect() spinConnection = nil end
+    spinRoot = nil
+end
+
+-- ── Skybox ────────────────────────────────────────────────────────────────────
+
+local function applySkyboxColor()
+    Lighting.Ambient         = settings.skyboxColor
+    Lighting.OutdoorAmbient  = settings.skyboxColor
+    Lighting.Brightness      = 2
+end
+
+-- ── Aimbot Core ───────────────────────────────────────────────────────────────
+
+local function getClosestTarget()
+    local closestPlayer   = nil
+    local shortestDistance = math.huge
+    local screenCenter    = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
+
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            if not settings.teamKill and player.Team == LocalPlayer.Team then continue end
+            local character = player.Character
+            if character
+                and character:FindFirstChild(settings.targetPart)
+                and character:FindFirstChild("Humanoid")
+                and character.Humanoid.Health > 0
+            then
+                local part = character[settings.targetPart]
+                local screenPos, onScreen = camera:WorldToViewportPoint(part.Position)
+                if onScreen then
+                    local rayParams = RaycastParams.new()
+                    rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
+                    rayParams.FilterType  = Enum.RaycastFilterType.Blacklist
+                    rayParams.IgnoreWater = true
+                    local result = workspace:Raycast(
+                        camera.CFrame.Position,
+                        part.Position - camera.CFrame.Position,
+                        rayParams
+                    )
+                    if result and result.Instance and result.Instance:IsDescendantOf(character) then
+                        local dist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+                        if dist < shortestDistance and dist <= settings.fovRadius then
+                            shortestDistance = dist
+                            closestPlayer    = player
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return closestPlayer
+end
+
+RunService.RenderStepped:Connect(function()
+    if settings.enabled then
+        local target = getClosestTarget()
+        if target and target.Character and target.Character:FindFirstChild(settings.targetPart) then
+            local targetPos = target.Character[settings.targetPart].Position
+            local current   = camera.CFrame
+            local look      = CFrame.new(current.Position, targetPos)
+            camera.CFrame   = current:Lerp(look, settings.smoothness)
+        end
+    end
 end)
 
-RedeemBtn.Activated:Connect(function()
-	local code = normalizeCode(CodeBox.Text)
-	if code == "" then setStatus("No code"); return end
-	local ok = typeAndSubmitCode(code)
-	setStatus(ok and ("Redeemed: " .. applyCase(code)) or "Failed")
-	if ok then flashCode(applyCase(code)) end
+LocalPlayer.CharacterAdded:Connect(function()
+    if settings.spinEnabled    then stopSpin();    startSpin()    end
+    if settings.tpwalkEnabled  then stopTPWalk();  startTPWalk()  end
+    updateSelfHighlight()
 end)
 
-local listenRow = makeCard("Listen", 180, 38)
-makeLabel(listenRow, "Label", "LISTEN", UDim2.fromOffset(90, 38), UDim2.fromOffset(12, 0), 13, COLORS.Text, Enum.Font.GothamBold)
-local ListenSwitch = Instance.new("TextButton")
-ListenSwitch.Name = "ListenSwitch"
-ListenSwitch.Size = UDim2.fromOffset(76, 28)
-ListenSwitch.Position = UDim2.new(1, -90, 0.5, -14)
-ListenSwitch.BackgroundColor3 = _listenEnabled and COLORS.NeonPink or COLORS.Control
-ListenSwitch.BorderSizePixel = 0
-ListenSwitch.AutoButtonColor = false
-ListenSwitch.Text = _listenEnabled and "ON" or "OFF"
-ListenSwitch.TextSize = 12
-ListenSwitch.TextColor3 = _listenEnabled and Color3.fromRGB(8, 12, 20) or COLORS.Text
-ListenSwitch.Font = Enum.Font.GothamBold
-ListenSwitch.ZIndex = 5
-ListenSwitch.Parent = listenRow
-addCorner(ListenSwitch, 9)
-local ListenStroke = addStroke(ListenSwitch, COLORS.NeonPink, 1.5, _listenEnabled and 0.1 or 0.4)
-
-local function updateListenVisual()
-	ListenSwitch.BackgroundColor3 = _listenEnabled and COLORS.NeonPink or COLORS.Control
-	ListenSwitch.Text = _listenEnabled and "ON" or "OFF"
-	ListenSwitch.TextColor3 = _listenEnabled and Color3.fromRGB(8, 12, 20) or COLORS.Text
-	ListenStroke.Transparency = _listenEnabled and 0.1 or 0.4
-	ListenStroke.Thickness = _listenEnabled and 2.0 or 1.5
-end
-updateListenVisual()
-
-local lastListenToggle = 0
-local function toggleListen()
-	if tick() - lastListenToggle < 0.12 then return end
-	lastListenToggle = tick()
-	_listenEnabled = not _listenEnabled
-	savedConfig.listenEnabled = _listenEnabled
-	saveConfig()
-	updateListenVisual()
-	if not _listenEnabled then
-		fullClearCapture()
-		clearPendingSubmission()
-		clearBoxWatchers()
-		_enabled = false
-		updateAutoWriteVisual()
-		setStatus("Listen → OFF (logic killed)")
-	else
-		_enabled = true
-		updateAutoWriteVisual()
-		setStatus("Listen → ON (scanning)")
-	end
-end
-ListenSwitch.Activated:Connect(toggleListen)
-
-local listenKeyRow = makeCard("ListenKey", 226, 38)
-makeLabel(listenKeyRow, "Label", "LISTEN KEY", UDim2.fromOffset(105, 38), UDim2.fromOffset(12, 0), 13, COLORS.Text, Enum.Font.GothamBold)
-local ListenKeyBtn = Instance.new("TextButton")
-ListenKeyBtn.Size = UDim2.fromOffset(52, 28)
-ListenKeyBtn.Position = UDim2.new(1, -112, 0.5, -14)
-ListenKeyBtn.BackgroundColor3 = COLORS.Control
-ListenKeyBtn.BorderSizePixel = 0
-ListenKeyBtn.AutoButtonColor = false
-ListenKeyBtn.Text = _listenKey and _listenKey.Name or "F"
-ListenKeyBtn.TextSize = 12
-ListenKeyBtn.TextColor3 = COLORS.Text
-ListenKeyBtn.Font = Enum.Font.GothamBold
-ListenKeyBtn.ZIndex = 5
-ListenKeyBtn.Parent = listenKeyRow
-addCorner(ListenKeyBtn, 8)
-addStroke(ListenKeyBtn, COLORS.NeonPink, 1.4, 0.4)
-local ListenKeyClear = Instance.new("TextButton")
-ListenKeyClear.Size = UDim2.fromOffset(30, 28)
-ListenKeyClear.Position = UDim2.new(1, -52, 0.5, -14)
-ListenKeyClear.BackgroundColor3 = COLORS.Control
-ListenKeyClear.BorderSizePixel = 0
-ListenKeyClear.AutoButtonColor = false
-ListenKeyClear.Text = "X"
-ListenKeyClear.TextSize = 13
-ListenKeyClear.TextColor3 = COLORS.Red
-ListenKeyClear.Font = Enum.Font.GothamBold
-ListenKeyClear.ZIndex = 5
-ListenKeyClear.Parent = listenKeyRow
-addCorner(ListenKeyClear, 8)
-ListenKeyBtn.Activated:Connect(function()
-	_waitingForListenKey = true
-	_waitingForRedeemKey = false
-	ListenKeyBtn.Text = "..."
-	setStatus("Press a key for Listen...")
-end)
-ListenKeyClear.Activated:Connect(function()
-	_listenKey = nil
-	savedConfig.listenKey = nil
-	saveConfig()
-	ListenKeyBtn.Text = "-"
-	setStatus("Listen key cleared")
-end)
-
-local redeemKeyRow = makeCard("RedeemKey", 272, 38)
-makeLabel(redeemKeyRow, "Label", "REDEEM KEY", UDim2.fromOffset(105, 38), UDim2.fromOffset(12, 0), 13, COLORS.Text, Enum.Font.GothamBold)
-local RedeemKeyBtn = Instance.new("TextButton")
-RedeemKeyBtn.Size = UDim2.fromOffset(52, 28)
-RedeemKeyBtn.Position = UDim2.new(1, -112, 0.5, -14)
-RedeemKeyBtn.BackgroundColor3 = COLORS.Control
-RedeemKeyBtn.BorderSizePixel = 0
-RedeemKeyBtn.AutoButtonColor = false
-RedeemKeyBtn.Text = _redeemKey and _redeemKey.Name or "G"
-RedeemKeyBtn.TextSize = 12
-RedeemKeyBtn.TextColor3 = COLORS.Text
-RedeemKeyBtn.Font = Enum.Font.GothamBold
-RedeemKeyBtn.ZIndex = 5
-RedeemKeyBtn.Parent = redeemKeyRow
-addCorner(RedeemKeyBtn, 8)
-addStroke(RedeemKeyBtn, COLORS.NeonPink, 1.4, 0.4)
-local RedeemKeyClear = Instance.new("TextButton")
-RedeemKeyClear.Size = UDim2.fromOffset(30, 28)
-RedeemKeyClear.Position = UDim2.new(1, -52, 0.5, -14)
-RedeemKeyClear.BackgroundColor3 = COLORS.Control
-RedeemKeyClear.BorderSizePixel = 0
-RedeemKeyClear.AutoButtonColor = false
-RedeemKeyClear.Text = "X"
-RedeemKeyClear.TextSize = 13
-RedeemKeyClear.TextColor3 = COLORS.Red
-RedeemKeyClear.Font = Enum.Font.GothamBold
-RedeemKeyClear.ZIndex = 5
-RedeemKeyClear.Parent = redeemKeyRow
-addCorner(RedeemKeyClear, 8)
-RedeemKeyBtn.Activated:Connect(function()
-	_waitingForRedeemKey = true
-	_waitingForListenKey = false
-	RedeemKeyBtn.Text = "..."
-	setStatus("Press a key for Redeem...")
-end)
-RedeemKeyClear.Activated:Connect(function()
-	_redeemKey = nil
-	savedConfig.redeemKey = nil
-	saveConfig()
-	RedeemKeyBtn.Text = "-"
-	setStatus("Redeem key cleared")
-end)
-
-UserInputService.InputBegan:Connect(function(input, gp)
-	if gp then return end
-	if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
-	if _waitingForListenKey then
-		_waitingForListenKey = false
-		_listenKey = input.KeyCode
-		savedConfig.listenKey = input.KeyCode
-		saveConfig()
-		ListenKeyBtn.Text = input.KeyCode.Name
-		setStatus("Listen key → " .. input.KeyCode.Name)
-		return
-	end
-	if _waitingForRedeemKey then
-		_waitingForRedeemKey = false
-		_redeemKey = input.KeyCode
-		savedConfig.redeemKey = input.KeyCode
-		saveConfig()
-		RedeemKeyBtn.Text = input.KeyCode.Name
-		setStatus("Redeem key → " .. input.KeyCode.Name)
-		return
-	end
-	if _listenKey and input.KeyCode == _listenKey then
-		toggleListen()
-	elseif _redeemKey and input.KeyCode == _redeemKey then
-		local code = normalizeCode(CodeBox.Text)
-		if code ~= "" then
-			typeAndSubmitCode(code)
-			setStatus("Hotkey Redeem: " .. code)
-		end
-	end
-end)
-
-local autoSubmitRow = makeCard("AutoSubmit", 318, 38)
-makeLabel(autoSubmitRow, "Label", "AUTO SUBMIT", UDim2.fromOffset(115, 38), UDim2.fromOffset(12, 0), 13, COLORS.Text, Enum.Font.GothamBold)
-local AutoSubmitBtn = Instance.new("TextButton")
-AutoSubmitBtn.Name = "AutoSubmitBtn"
-AutoSubmitBtn.Size = UDim2.fromOffset(76, 28)
-AutoSubmitBtn.Position = UDim2.new(1, -90, 0.5, -14)
-AutoSubmitBtn.BackgroundColor3 = _autoAccept and COLORS.NeonPink or COLORS.Control
-AutoSubmitBtn.BorderSizePixel = 0
-AutoSubmitBtn.AutoButtonColor = false
-AutoSubmitBtn.Text = _autoAccept and "ON" or "OFF"
-AutoSubmitBtn.TextSize = 12
-AutoSubmitBtn.TextColor3 = _autoAccept and Color3.fromRGB(8, 12, 20) or COLORS.Text
-AutoSubmitBtn.Font = Enum.Font.GothamBold
-AutoSubmitBtn.ZIndex = 5
-AutoSubmitBtn.Parent = autoSubmitRow
-addCorner(AutoSubmitBtn, 9)
-local AutoSubmitStroke = addStroke(AutoSubmitBtn, COLORS.NeonPink, 1.5, _autoAccept and 0.1 or 0.4)
-
-local function updateAutoSubmitVisual()
-	AutoSubmitBtn.BackgroundColor3 = _autoAccept and COLORS.NeonPink or COLORS.Control
-	AutoSubmitBtn.Text = _autoAccept and "ON" or "OFF"
-	AutoSubmitBtn.TextColor3 = _autoAccept and Color3.fromRGB(8, 12, 20) or COLORS.Text
-	AutoSubmitStroke.Transparency = _autoAccept and 0.1 or 0.4
-	AutoSubmitStroke.Thickness = _autoAccept and 2.0 or 1.5
-end
-updateAutoSubmitVisual()
-
-local lastSubmitToggle = 0
-local function toggleAutoSubmit()
-	if tick() - lastSubmitToggle < 0.12 then return end
-	lastSubmitToggle = tick()
-	_autoAccept = not _autoAccept
-	savedConfig.autoSubmit = _autoAccept
-	saveConfig()
-	updateAutoSubmitVisual()
-	setStatus(_autoAccept and "Auto Submit → ON" or "Auto Submit → OFF")
-end
-AutoSubmitBtn.Activated:Connect(toggleAutoSubmit)
-
-local spamRow = makeCard("SpamRedeem", 364, 38)
-makeLabel(spamRow, "Label", "SPAM REDEEM", UDim2.fromOffset(115, 38), UDim2.fromOffset(12, 0), 13, COLORS.Text, Enum.Font.GothamBold)
-local SpamSwitch = Instance.new("TextButton")
-SpamSwitch.Name = "SpamSwitch"
-SpamSwitch.Size = UDim2.fromOffset(76, 28)
-SpamSwitch.Position = UDim2.new(1, -90, 0.5, -14)
-SpamSwitch.BackgroundColor3 = _autoSpam and COLORS.NeonPink or COLORS.Control
-SpamSwitch.BorderSizePixel = 0
-SpamSwitch.AutoButtonColor = false
-SpamSwitch.Text = _autoSpam and "ON" or "OFF"
-SpamSwitch.TextSize = 12
-SpamSwitch.TextColor3 = _autoSpam and Color3.fromRGB(8, 12, 20) or COLORS.Text
-SpamSwitch.Font = Enum.Font.GothamBold
-SpamSwitch.ZIndex = 5
-SpamSwitch.Parent = spamRow
-addCorner(SpamSwitch, 9)
-local SpamStroke = addStroke(SpamSwitch, COLORS.NeonPink, 1.5, _autoSpam and 0.1 or 0.4)
-
-local function updateSpamVisual()
-	SpamSwitch.BackgroundColor3 = _autoSpam and COLORS.NeonPink or COLORS.Control
-	SpamSwitch.Text = _autoSpam and "ON" or "OFF"
-	SpamSwitch.TextColor3 = _autoSpam and Color3.fromRGB(8, 12, 20) or COLORS.Text
-	SpamStroke.Transparency = _autoSpam and 0.1 or 0.4
-	SpamStroke.Thickness = _autoSpam and 2.0 or 1.5
-end
-updateSpamVisual()
-
-local lastSpamToggle = 0
-local function toggleAutoSpam()
-	if tick() - lastSpamToggle < 0.12 then return end
-	lastSpamToggle = tick()
-	_autoSpam = not _autoSpam
-	savedConfig.autoSpam = _autoSpam
-	saveConfig()
-	updateSpamVisual()
-	setStatus(_autoSpam and "Spam Redeem → ON" or "Spam Redeem → OFF")
-end
-SpamSwitch.Activated:Connect(toggleAutoSpam)
-
-makeSegmentedRow(410, "CASE", {"UPPER", "lower", "EXACT"}, _caseMode, function(v)
-	_caseMode = v
-	savedConfig.caseMode = v
-	saveConfig()
-	setStatus("Case → " .. v)
-end)
-
-wordsRow = makeSegmentedRow(456, "WORDS", {"1", "2", "3", "4"}, tostring(_wordCount), function(v)
-	local n = tonumber(v) or 1
-	_wordCount = n
-	CLOVERX_WORD_COUNT = n
-	_submitAfter = n
-	savedConfig.wordCount = n
-	savedConfig.submitAfter = n
-	saveConfig()
-	fullClearCapture()
-	setStatus("Words → " .. n)
-end)
-
-splitStatusRow = makeCard("SplitStatus", 456, 38)
-makeLabel(splitStatusRow, "Label", "SPLIT BUFFER", UDim2.fromOffset(120, 38), UDim2.fromOffset(12, 0), 13, COLORS.Text, Enum.Font.GothamBold)
-makeLabel(splitStatusRow, "Status", "ON – redeem every message", UDim2.new(1, -140, 1, 0), UDim2.fromOffset(130, 0), 12, COLORS.NeonPink, Enum.Font.GothamBold)
-splitStatusRow.Visible = false
-
-makeSegmentedRow(502, "SPEED", {"MAX", "FAST", "MED", "EVERY WORD"}, _speedMode, function(v)
-	_speedMode = v
-	savedConfig.speedMode = v
-	saveConfig()
-	setStatus("Speed → " .. v)
-end)
-
-if _splitBufferEnabled then
-	wordsRow.Visible = false
-	splitStatusRow.Visible = true
-else
-	wordsRow.Visible = true
-	splitStatusRow.Visible = false
-end
-
--- ==================== SETTINGS PANEL ====================
-local SettingsPanel = Instance.new("Frame")
-SettingsPanel.Name = "SettingsPanel"
-SettingsPanel.Size = UDim2.new(1, 0, 1, -76)
-SettingsPanel.Position = UDim2.fromOffset(0, 56)
-SettingsPanel.BackgroundTransparency = 1
-SettingsPanel.ZIndex = 3
-SettingsPanel.Visible = false
-SettingsPanel.Parent = Window
-
-local function makeSizeControl(y, labelText, initialValue, minVal, maxVal, step, onChanged)
-	local card = Instance.new("Frame")
-	card.Position = UDim2.fromOffset(14, y)
-	card.Size = UDim2.new(1, -28, 0, 42)
-	card.BackgroundColor3 = COLORS.Row
-	card.BorderSizePixel = 0
-	card.Parent = SettingsPanel
-	addCorner(card, 10)
-	addStroke(card, COLORS.NeonPink, 1.5, 0.35)
-	makeLabel(card, "Title", labelText, UDim2.fromOffset(80, 42), UDim2.fromOffset(12, 0), 13, COLORS.Text, Enum.Font.GothamBold)
-	local shell = Instance.new("Frame")
-	shell.Size = UDim2.fromOffset(150, 30)
-	shell.Position = UDim2.new(1, -162, 0.5, -15)
-	shell.BackgroundColor3 = COLORS.Control
-	shell.BorderSizePixel = 0
-	shell.Parent = card
-	addCorner(shell, 8)
-	addStroke(shell, COLORS.NeonPink, 1.4, 0.35)
-	local minusBtn = Instance.new("TextButton")
-	minusBtn.Size = UDim2.fromOffset(28, 24)
-	minusBtn.Position = UDim2.fromOffset(3, 3)
-	minusBtn.BackgroundColor3 = COLORS.Row
-	minusBtn.BorderSizePixel = 0
-	minusBtn.Text = "–"
-	minusBtn.TextSize = 16
-	minusBtn.TextColor3 = COLORS.NeonPink
-	minusBtn.Font = Enum.Font.GothamBold
-	minusBtn.Parent = shell
-	addCorner(minusBtn, 6)
-	local valueBox = Instance.new("TextBox")
-	valueBox.Size = UDim2.fromOffset(74, 24)
-	valueBox.Position = UDim2.fromOffset(34, 3)
-	valueBox.BackgroundColor3 = COLORS.Row
-	valueBox.BorderSizePixel = 0
-	valueBox.Text = tostring(initialValue)
-	valueBox.TextSize = 14
-	valueBox.TextColor3 = COLORS.Text
-	valueBox.Font = Enum.Font.GothamBold
-	valueBox.TextXAlignment = Enum.TextXAlignment.Center
-	valueBox.ClearTextOnFocus = false
-	valueBox.Parent = shell
-	addCorner(valueBox, 6)
-	local plusBtn = Instance.new("TextButton")
-	plusBtn.Size = UDim2.fromOffset(28, 24)
-	plusBtn.Position = UDim2.fromOffset(112, 3)
-	plusBtn.BackgroundColor3 = COLORS.Row
-	plusBtn.BorderSizePixel = 0
-	plusBtn.Text = "+"
-	plusBtn.TextSize = 15
-	plusBtn.TextColor3 = COLORS.NeonPink
-	plusBtn.Font = Enum.Font.GothamBold
-	plusBtn.Parent = shell
-	addCorner(plusBtn, 6)
-	local current = initialValue
-	local function apply(newVal)
-		newVal = math.clamp(math.floor(newVal + 0.5), minVal, maxVal)
-		current = newVal
-		valueBox.Text = tostring(current)
-		onChanged(current)
-	end
-	minusBtn.Activated:Connect(function() apply(current - step) end)
-	plusBtn.Activated:Connect(function() apply(current + step) end)
-	valueBox.FocusLost:Connect(function()
-		local n = tonumber(valueBox.Text)
-		if n then apply(n) else valueBox.Text = tostring(current) end
-	end)
-end
-
-makeSizeControl(6, "Width", savedConfig.windowWidth, 300, 800, 10, function(v)
-	savedConfig.windowWidth = v
-	Window.Size = UDim2.fromOffset(v, Window.Size.Y.Offset)
-	saveConfig()
-	updateInterfaceScale()
-end)
-makeSizeControl(56, "Height", savedConfig.windowHeight, 400, 1000, 10, function(v)
-	savedConfig.windowHeight = v
-	Window.Size = UDim2.fromOffset(Window.Size.X.Offset, v)
-	saveConfig()
-	updateInterfaceScale()
-end)
-
-local function makeToggleCard(y, label, enabled, onToggle)
-	local card = Instance.new("Frame")
-	card.Position = UDim2.fromOffset(14, y)
-	card.Size = UDim2.new(1, -28, 0, 38)
-	card.BackgroundColor3 = COLORS.Row
-	card.BorderSizePixel = 0
-	card.Parent = SettingsPanel
-	addCorner(card, 10)
-	addStroke(card, COLORS.NeonPink, 1.5, 0.35)
-	makeLabel(card, "Title", label, UDim2.new(1, -75, 1, 0), UDim2.fromOffset(12, 0), 13, COLORS.Text, Enum.Font.GothamBold)
-	local btn = Instance.new("TextButton")
-	btn.Size = UDim2.fromOffset(52, 26)
-	btn.Position = UDim2.new(1, -64, 0.5, -13)
-	btn.BackgroundColor3 = enabled and COLORS.NeonPink or COLORS.Control
-	btn.BorderSizePixel = 0
-	btn.AutoButtonColor = false
-	btn.Text = enabled and "ON" or "OFF"
-	btn.TextSize = 11
-	btn.TextColor3 = enabled and Color3.fromRGB(8, 12, 20) or COLORS.Text
-	btn.Font = Enum.Font.GothamBold
-	btn.ZIndex = 5
-	btn.Parent = card
-	addCorner(btn, 8)
-	local outline = addStroke(btn, COLORS.NeonPink, 1.4, enabled and 0.15 or 0.4)
-	local state = enabled
-	btn.Activated:Connect(function()
-		state = not state
-		btn.Text = state and "ON" or "OFF"
-		btn.BackgroundColor3 = state and COLORS.NeonPink or COLORS.Control
-		btn.TextColor3 = state and Color3.fromRGB(8, 12, 20) or COLORS.Text
-		outline.Transparency = state and 0.15 or 0.4
-		onToggle(state)
-	end)
-end
-
-makeToggleCard(110, "Retype invalid", _retypeInvalid, function(state)
-	_retypeInvalid = state
-	savedConfig.retypeInvalid = state
-	saveConfig()
-end)
-makeToggleCard(156, "Riddle solver", _riddleSolver, function(state)
-	_riddleSolver = state
-	savedConfig.riddleSolver = state
-	saveConfig()
-end)
-makeToggleCard(202, "Split Buffer", _splitBufferEnabled, function(state)
-	_splitBufferEnabled = state
-	savedConfig.splitBuffer = state
-	saveConfig()
-	if state then
-		if wordsRow then wordsRow.Visible = false end
-		if splitStatusRow then splitStatusRow.Visible = true end
-		setStatus("Split Buffer → ON (every message)")
-	else
-		if wordsRow then wordsRow.Visible = true end
-		if splitStatusRow then splitStatusRow.Visible = false end
-		resetSplitBuffer()
-		setStatus("Split Buffer → OFF")
-	end
-end)
-
-makeToggleCard(248, "Optimizer (FPS)", _optimizerEnabled, function(state)
-	applyOptimizer(state)
-end)
-
-local DiscordCard = Instance.new("Frame")
-DiscordCard.Position = UDim2.fromOffset(14, 294)
-DiscordCard.Size = UDim2.new(1, -28, 0, 44)
-DiscordCard.BackgroundColor3 = COLORS.Row
-DiscordCard.BorderSizePixel = 0
-DiscordCard.Parent = SettingsPanel
-addCorner(DiscordCard, 10)
-addStroke(DiscordCard, COLORS.NeonPink, 1.8, 0.25)
-local DiscordBtn = Instance.new("TextButton")
-DiscordBtn.Name = "DiscordBtn"
-DiscordBtn.Size = UDim2.new(1, -16, 1, -12)
-DiscordBtn.Position = UDim2.fromOffset(8, 6)
-DiscordBtn.BackgroundColor3 = COLORS.NeonPink
-DiscordBtn.BorderSizePixel = 0
-DiscordBtn.AutoButtonColor = false
-DiscordBtn.Text = "DISCORD: discord.gg/traced.vs"
-DiscordBtn.TextSize = 13
-DiscordBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-DiscordBtn.Font = Enum.Font.GothamBold
-DiscordBtn.ZIndex = 5
-DiscordBtn.Parent = DiscordCard
-addCorner(DiscordBtn, 9)
-DiscordBtn.Activated:Connect(function()
-	if setclipboard then
-		pcall(setclipboard, "discord.gg/traced.vs")
-		setStatus("Discord invite copied!")
-	end
-end)
-
-local ShutdownCard = Instance.new("Frame")
-ShutdownCard.Position = UDim2.fromOffset(14, 348)
-ShutdownCard.Size = UDim2.new(1, -28, 0, 44)
-ShutdownCard.BackgroundColor3 = COLORS.Row
-ShutdownCard.BorderSizePixel = 0
-ShutdownCard.Parent = SettingsPanel
-addCorner(ShutdownCard, 10)
-addStroke(ShutdownCard, COLORS.Red, 1.8, 0.25)
-local ShutdownBtn = Instance.new("TextButton")
-ShutdownBtn.Name = "ShutdownBtn"
-ShutdownBtn.Size = UDim2.new(1, -16, 1, -12)
-ShutdownBtn.Position = UDim2.fromOffset(8, 6)
-ShutdownBtn.BackgroundColor3 = COLORS.Red
-ShutdownBtn.BorderSizePixel = 0
-ShutdownBtn.AutoButtonColor = false
-ShutdownBtn.Text = "SHUT DOWN SCRIPT"
-ShutdownBtn.TextSize = 13
-ShutdownBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-ShutdownBtn.Font = Enum.Font.GothamBold
-ShutdownBtn.ZIndex = 5
-ShutdownBtn.Parent = ShutdownCard
-addCorner(ShutdownBtn, 9)
-ShutdownBtn.Activated:Connect(function()
-	setStatus("Shutting down...")
-	task.defer(fullShutdown)
-end)
-
-local function showMenu()
-	MenuPanel.Visible = true
-	SettingsPanel.Visible = false
-	setNavActive(MenuBtn)
-end
-local function showSettings()
-	MenuPanel.Visible = false
-	SettingsPanel.Visible = true
-	setNavActive(SettingsBtn)
-end
-MenuBtn.Activated:Connect(showMenu)
-SettingsBtn.Activated:Connect(showSettings)
-
-makeLabel(Window, "Footer", "traced.vs", UDim2.fromOffset(100, 16), UDim2.new(0.5, -50, 1, -22), 12, COLORS.NeonPink, Enum.Font.GothamBold).TextXAlignment = Enum.TextXAlignment.Center
-
-do
-	local dragging, activeDragInput, dragStart, startPosition, dragMoved
-	local DRAG_THRESHOLD = UserInputService.TouchEnabled and 10 or 3
-	local function isOverHeaderControl(position)
-		local function over(btn)
-			local p, s = btn.AbsolutePosition, btn.AbsoluteSize
-			return position.X >= (p.X - 8) and position.X <= (p.X + s.X + 8)
-				and position.Y >= (p.Y - 8) and position.Y <= (p.Y + s.Y + 8)
-		end
-		return over(AutoWriteButton) or over(MenuBtn) or over(SettingsBtn)
-	end
-	Header.InputBegan:Connect(function(input)
-		if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
-		if dragging or isOverHeaderControl(input.Position) then return end
-		dragging = true
-		activeDragInput = input
-		dragStart = Vector2.new(input.Position.X, input.Position.Y)
-		startPosition = Window.Position
-		dragMoved = false
-		input.Changed:Connect(function()
-			if input.UserInputState == Enum.UserInputState.End or input.UserInputState == Enum.UserInputState.Cancel then
-				dragging = false
-			end
-		end)
-	end)
-	UserInputService.InputChanged:Connect(function(input)
-		if not dragging or not activeDragInput then return end
-		local isTracked = (activeDragInput.UserInputType == Enum.UserInputType.Touch and input == activeDragInput)
-			or (activeDragInput.UserInputType == Enum.UserInputType.MouseButton1 and input.UserInputType == Enum.UserInputType.MouseMovement)
-		if not isTracked then return end
-		local current = Vector2.new(input.Position.X, input.Position.Y)
-		local delta = current - dragStart
-		if not dragMoved then
-			if delta.Magnitude < DRAG_THRESHOLD then return end
-			dragMoved = true
-		end
-		Window.Position = UDim2.new(startPosition.X.Scale, startPosition.X.Offset + delta.X, startPosition.Y.Scale, startPosition.Y.Offset + delta.Y)
-	end)
-end
-
-function setStatus(msg, color)
-	if StatusLabel then StatusLabel.Text = tostring(msg) end
-	if StatusDot then
-		StatusDot.BackgroundColor3 = color or COLORS.NeonPink
-	end
-end
-
-function flashCode(code)
-	if not code or code == "" then return end
-	setStatus("[code] → " .. tostring(code))
-	if CodeBox then CodeBox.Text = tostring(code) end
-end
-
-local function resetPasteCounter() _capturedParts = {} end
-clearCloverCapture = function()
-	_capturedParts = {}
-	cloverCollectBuffer = {}
-	resetSplitBuffer()
-end
-
-local function clearBoxWatchers()
-	if _boxTextConn then pcall(function() _boxTextConn:Disconnect() end) end
-	if _boxAncestryConn then pcall(function() _boxAncestryConn:Disconnect() end) end
-	for _, c in ipairs(_boxVisibilityConns) do pcall(function() c:Disconnect() end) end
-	_boxTextConn, _boxAncestryConn, _boxVisibilityConns, _lastWatchedBox = nil, nil, {}, nil
-end
-
-local function watchBoxForBlankReset(box)
-	if not box or _lastWatchedBox == box then return end
-	clearBoxWatchers()
-	_lastWatchedBox = box
-	if box.Text ~= "" then _lastNonBlankBoxText = box.Text end
-	_boxTextConn = box:GetPropertyChangedSignal("Text"):Connect(function()
-		if box.Text == "" then resetPasteCounter() else _lastNonBlankBoxText = box.Text end
-	end)
-	_boxAncestryConn = box.AncestryChanged:Connect(function(_, parent)
-		if not parent then resetPasteCounter(); clearBoxWatchers() end
-	end)
-	for i = 1, 3 do
-		local conn = box:GetPropertyChangedSignal("Visible"):Connect(function()
-			if not isVisibleChain(box) then resetPasteCounter() end
-		end)
-		_boxVisibilityConns[i] = conn
-	end
-end
-
-local function rememberPendingSubmission_Impl(box, code, explicit)
-	_pendingRejectedBox = box
-	_pendingRejectedText = code
-	_pendingRejectedToken = math.random(1, 999999)
-	_pendingRejectedUntil = tick() + (explicit and 8.0 or 3.0)
-end
-rememberPendingSubmission = rememberPendingSubmission_Impl
-
-clearPendingSubmission = function()
-	_pendingRejectedBox = nil
-	_pendingRejectedText = nil
-	_pendingRejectedToken = 0
-	_pendingRejectedUntil = 0
-end
-
-local function restoreRejectedText(box, fallback)
-	if not _pendingRejectedText or tick() >= _pendingRejectedUntil then
-		clearPendingSubmission()
-		return false
-	end
-	local target = box or _pendingRejectedBox
-	if not target then return false end
-	if target.Parent and isVisibleChain(target) then
-		pcall(function() target.Text = _pendingRejectedText end)
-		return true
-	end
-	return false
-end
-
-handleRedemptionFeedback = function(text, obj)
-	if not text or text == "" then return end
-	local lower = text:lower()
-	if lower:find("successfully") or lower:find("reward") or lower:find("thank") or lower:find("won") or lower:find("success") then
-		setStatus("✓ Reward claimed!", COLORS.Green)
-		_redeemCooldownUntil = tick() + COOLDOWN_TIME
-		clearPendingSubmission()
-	elseif lower:find("invalid") or lower:find("expired") or lower:find("incorrect") or lower:find("not found") or lower:find("error") then
-		if _pendingRejectedText and tick() < _pendingRejectedUntil and obj == _pendingRejectedBox then
-			local ok = restoreRejectedText(nil, _pendingRejectedText)
-			setStatus("✗ Invalid - restored", COLORS.Red)
-			if not ok then
-				clearPendingSubmission()
-				if _redeemCooldownUntil < tick() then
-					local code = _pendingRejectedText
-					_redeemCooldownUntil = tick() + COOLDOWN_TIME
-					local ok = typeAndSubmitCode(code)
-					if ok then
-						setStatus("Redeemed: " .. code)
-					else
-						local restored = restoreRejectedText(nil, code)
-						clearPendingSubmission()
-						if restored then
-							setStatus("Invalid - repasted")
-							flashCode(code)
-						else
-							setStatus("Failed - open Codes UI once")
-						end
-					end
-				end
-			end
-		else
-			setStatus("✗ Invalid code", COLORS.Red)
-			_redeemCooldownUntil = tick() + COOLDOWN_TIME
-			clearPendingSubmission()
-		end
-	elseif lower:find("wait") or lower:find("cooldown") or lower:find("please wait") or lower:find("try again") then
-		setStatus("⏳ Cooldown - please wait", COLORS.Yellow)
-		_redeemCooldownUntil = tick() + COOLDOWN_TIME
-	end
-end
-
-performSubmit = function(code)
-	code = normalizeCode(code)
-	if code == "" then return end
-	_redeemCooldownUntil = tick() + COOLDOWN_TIME
-	local ok = typeAndSubmitCode(code)
-	if ok then
-		setStatus("Redeemed: " .. code)
-	else
-		local restored = restoreRejectedText(nil, code)
-		clearPendingSubmission()
-		if restored then
-			setStatus("Invalid - repasted")
-			flashCode(code)
-		else
-			setStatus("Failed - open Codes UI once")
-		end
-	end
-end
-
-function appendToBox(text)
-	if not text or text == "" then return end
-	text = applyCase(text)
-
-	if _lastWatchedBox and not isVisibleChain(_lastWatchedBox) then
-		resetPasteCounter()
-		clearBoxWatchers()
-	end
-
-	local box = cloverCodeBox()
-	_capturedParts[#_capturedParts + 1] = text
-	local combinedCode = table.concat(_capturedParts)
-	local capturedCount = #_capturedParts
-
-	if CodeBox then CodeBox.Text = combinedCode end
-	if box then
-		_lastBox = box
-		watchBoxForBlankReset(box)
-		pcall(function()
-			if box.Parent and isVisibleChain(box) then box.Text = combinedCode end
-		end)
-	end
-
-	setStatus("Pasted " .. capturedCount .. "/" .. _submitAfter)
-	flashCode(combinedCode)
-
-	if capturedCount >= _submitAfter or _speedMode == "EVERY WORD" then
-		local codeToRedeem = combinedCode
-		_capturedParts = {}
-		if _autoAccept then
-			rememberPendingSubmission(box, codeToRedeem, true)
-			setStatus("Submitting: " .. codeToRedeem)
-			performSubmit(codeToRedeem)
-		else
-			setStatus("Captured: " .. codeToRedeem .. " (Auto Submit OFF)")
-		end
-	end
-end
-
-local function watchRedemptionFeedbackObject(obj)
-	if not (obj:IsA("TextLabel") or obj:IsA("TextButton")) then return end
-	handleRedemptionFeedback(obj.Text or "", obj)
-	obj:GetPropertyChangedSignal("Text"):Connect(function()
-		handleRedemptionFeedback(obj.Text or "", obj)
-	end)
-end
-
-for _, obj in ipairs(playerGui:GetDescendants()) do
-	watchRedemptionFeedbackObject(obj)
-end
-playerGui.DescendantAdded:Connect(watchRedemptionFeedbackObject)
-
-local function resolveNotifyRemote()
-	if _G.PhiNotifyRemote then return _G.PhiNotifyRemote end
-	local Net = ReplicatedStorage:FindFirstChild("Packages") and ReplicatedStorage.Packages:FindFirstChild("Net")
-	if not Net then return nil end
-	local getinfo = debug and (debug.getinfo or debug.info)
-	if getgc and getinfo and getconnections then
-		for _, d in ipairs(Net:GetDescendants()) do
-			if d:IsA("RemoteEvent") then
-				local ok, cs = pcall(getconnections, d.OnClientEvent)
-				if ok then
-					for _, c in ipairs(cs) do
-						local f, fn = pcall(function() return c.Function end)
-						if f and type(fn) == "function" then
-							local i, info = pcall(getinfo, fn)
-							if i and tostring(info.short_src or info.source or ""):find("NotificationController", 1, true) then
-								return d
-							end
-						end
-					end
-				end
-			end
-		end
-	end
-	return nil
-end
-
-local function cloverStripRich(text)
-	if type(text) ~= "string" then return tostring(text) end
-	return (text:gsub("<[^>]->", ""))
-end
-
-local function cloverTokenize(text)
-	local words = {}
-	for word in text:gmatch("[%w_]+") do words[#words + 1] = word end
-	return words
-end
-
-local function onCloverAnnouncement(...)
-	if not _listenEnabled or not _enabled then return end
-
-	local text = cloverStripRich(tostring((...) or ""))
-	text = text:match("^%s*(.-)%s*$") or ""
-	if text == "" then return end
-
-	if _splitBufferEnabled then
-		processSplitSnippet(text)
-		return
-	end
-
-	if _riddleSolver and text:find("%s") then
-		_riddleSeq += 1
-		_solving += 1
-		setStatus("AI solving...")
-		task.spawn(function()
-			local data = aiPost("/solve", { message = text, model = RIDDLE_MODEL, history = {} })
-			_solving = math.max(0, _solving - 1)
-			if not _listenEnabled then return end
-			local top = (data and data.riddle == true and type(data.answers) == "table" and data.answers[1])
-				and normalizeCode(data.answers[1]) or nil
-			if top and #top > 0 and _riddleSolver and _riddleSeq >= _lastTypedSeq then
-				_lastTypedSeq = _riddleSeq
-				_solvedCount += 1
-				setStatus("AI: " .. top)
-				flashCode(applyCase(top))
-				if _autoAccept then
-					rememberPendingSubmission(nil, top, true)
-					performSubmit(top)
-				else
-					typeAndSubmitCode(top)
-				end
-			else
-				setStatus("AI: no answer")
-			end
-		end)
-		return
-	end
-
-	local lower = text:lower()
-	local codeFromAnnouncement = nil
-	if lower:find("code%s*is") or lower:find("codeis") then
-		local after = text:match("[Cc]ode%s*[Ii]s%s*[:%s]*(.+)$") or text:match("[Cc]ode%s*[Ii]s%s*(.+)$")
-		if after then
-			after = after:match("^%s*(.-)%s*$") or ""
-			after = after:gsub("[%.…]+$", ""):gsub("[%s%p]+$", "")
-			if after ~= "" and not after:find("%s") then
-				codeFromAnnouncement = after
-			end
-		end
-	end
-
-	if codeFromAnnouncement then
-		local processed = applyCase(codeFromAnnouncement)
-		if not _seen[processed] then
-			_seen[processed] = true
-			task.delay(1.2, function() _seen[processed] = nil end)
-			flashCode(processed)
-			setStatus("Announcement code: " .. processed)
-			if _autoAccept then
-				rememberPendingSubmission(nil, processed, true)
-				performSubmit(processed)
-			else
-				appendToBox(processed)
-			end
-		end
-		return
-	end
-
-	if text:find("%s") then return end
-
-	for _, word in ipairs(cloverTokenize(text)) do
-		local processed = applyCase(word)
-		if _speedMode == "EVERY WORD" then
-			appendToBox(processed)
-		else
-			cloverCollectBuffer[#cloverCollectBuffer + 1] = processed
-		end
-	end
-
-	if _speedMode == "EVERY WORD" then return end
-	if #cloverCollectBuffer < CLOVERX_WORD_COUNT then return end
-
-	local parts = {}
-	for index = 1, CLOVERX_WORD_COUNT do
-		parts[index] = cloverCollectBuffer[index]
-	end
-	cloverCollectBuffer = {}
-
-	local captured = table.concat(parts)
-	if captured == "" or _seen[captured] then return end
-	_seen[captured] = true
-	task.delay(0.8, function() _seen[captured] = nil end)
-
-	local delay = getSpeedDelay()
-	if delay > 0 then
-		task.delay(delay, function()
-			for _, part in ipairs(parts) do
-				appendToBox(part)
-			end
-		end)
-	else
-		for _, part in ipairs(parts) do
-			appendToBox(part)
-		end
-	end
-end
-
-local cloverNotifyRemote = resolveNotifyRemote()
-local cloverListenConnection
-if cloverNotifyRemote then
-	if getgenv then
-		local previous = getgenv().CloverXNotifyConnection
-		if previous then pcall(function() previous:Disconnect() end) end
-	end
-	cloverListenConnection = cloverNotifyRemote.OnClientEvent:Connect(function(...)
-		pcall(onCloverAnnouncement, ...)
-	end)
-	if getgenv then getgenv().CloverXNotifyConnection = cloverListenConnection end
-end
-
-fullShutdown = function()
-	_enabled = false
-	_listenEnabled = false
-	_autoAccept = false
-	_autoSpam = false
-	_riddleSolver = false
-	_splitBufferEnabled = false
-	resetSplitBuffer()
-	if cloverListenConnection then
-		pcall(function() cloverListenConnection:Disconnect() end)
-		cloverListenConnection = nil
-	end
-	if getgenv and getgenv().CloverXNotifyConnection then
-		pcall(function() getgenv().CloverXNotifyConnection:Disconnect() end)
-		getgenv().CloverXNotifyConnection = nil
-	end
-	clearBoxWatchers()
-	clearPendingSubmission()
-	clearCloverCapture()
-	if GUI then
-		pcall(function() GUI:Destroy() end)
-		GUI = nil
-	end
-	if getgenv then
-		getgenv().StopTracedVs = nil
-		getgenv().CloverXNotifyConnection = nil
-	end
-	print("[traced.vs] Script fully shut down.")
-end
-
-if getgenv then
-	getgenv().StopTracedVs = fullShutdown
-end
-
--- Apply optimizer on load if previously enabled
-if _optimizerEnabled then
-	task.defer(function()
-		applyOptimizer(true)
-	end)
-end
-
-print("[traced.vs] Loaded - traced.vs Theme + Potato Optimizer + Cooldown protection + Split auto-redeem")
-print ("leaked by https://discord.gg/PW5fmHj5hE")
+-- ── WindUI ────────────────────────────────────────────────────────────────────
+
+local WindUI = loadstring(
+    game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua")
+)()
+
+local Window = WindUI:CreateWindow({
+    Title  = "AIMBOT v2",
+    Folder = "AimbotHub",
+    Icon   = "solar:target-bold-duotone",
+    NewElements = true,
+    HideSearchBar = true,
+    Topbar = {
+        Height      = 44,
+        ButtonsType = "Mac",
+    },
+    OpenButton = {
+        Title        = "Open Aimbot",
+        CornerRadius = UDim.new(1, 0),
+        StrokeThickness = 2,
+        Enabled  = true,
+        Draggable = true,
+        OnlyMobile = false,
+        Scale    = 0.5,
+        Color    = ColorSequence.new(
+            Color3.fromHex("#ff3c3c"),
+            Color3.fromHex("#ff8c00")
+        ),
+    },
+})
+
+-- ── Aimbot Tab ────────────────────────────────────────────────────────────────
+
+local AimbotTab = Window:Tab({
+    Title     = "Aimbot",
+    Icon      = "solar:target-bold-duotone",
+    IconColor = Color3.fromHex("#EF4F1D"),
+    IconShape = "Square",
+    Border    = true,
+})
+
+-- Aimbot toggle
+AimbotTab:Toggle({
+    Title = "Aimbot Enabled",
+    Desc  = "Enable / disable the aimbot",
+    Default = settings.enabled,
+    Callback = function(v)
+        settings.enabled = v
+        sound:Play()
+    end,
+})
+
+AimbotTab:Space()
+
+-- Smoothness slider
+AimbotTab:Slider({
+    Title = "Smoothness",
+    Desc  = "Camera lerp speed (lower = smoother)",
+    Step  = 0.05,
+    Value = {
+        Min     = 0.05,
+        Max     = 1.0,
+        Default = settings.smoothness,
+    },
+    IsTooltip = true,
+    Callback = function(v)
+        settings.smoothness = v
+    end,
+})
+
+AimbotTab:Space()
+
+-- FOV slider
+AimbotTab:Slider({
+    Title = "FOV Size",
+    Desc  = "Aimbot field-of-view radius (px)",
+    Step  = 5,
+    Value = {
+        Min     = 50,
+        Max     = 300,
+        Default = settings.fovRadius,
+    },
+    IsTooltip = true,
+    Icons = {
+        From = "sfsymbols:sunMinFill",
+        To   = "sfsymbols:sunMaxFill",
+    },
+    Callback = function(v)
+        settings.fovRadius = v
+        updateFOVCircle()
+    end,
+})
+
+AimbotTab:Space()
+
+-- Aim part dropdown
+local partMap = {
+    Head            = "Head",
+    Root            = "HumanoidRootPart",
+    ["Upper Torso"] = "UpperTorso",
+    ["Lower Torso"] = "LowerTorso",
+}
+local partNames = { "Head", "Root", "Upper Torso", "Lower Torso" }
+
+AimbotTab:Dropdown({
+    Title  = "Aim Part",
+    Desc   = "Body part to aim at",
+    Values = partNames,
+    Value  = 1,
+    Callback = function(chosen)
+        settings.targetPart = partMap[chosen] or "Head"
+    end,
+})
+
+AimbotTab:Space()
+
+-- Team kill toggle
+AimbotTab:Toggle({
+    Title = "Team Kill",
+    Desc  = "Include teammates as targets",
+    Default = settings.teamKill,
+    Callback = function(v)
+        settings.teamKill = v
+    end,
+})
+
+-- ── Visuals Tab ───────────────────────────────────────────────────────────────
+
+local VisualsTab = Window:Tab({
+    Title     = "Visuals",
+    Icon      = "solar:eye-bold-duotone",
+    IconColor = Color3.fromHex("#257AF7"),
+    IconShape = "Square",
+    Border    = true,
+})
+
+-- Self Rainbow
+VisualsTab:Toggle({
+    Title = "Self Rainbow",
+    Desc  = "Rainbow highlight on your character",
+    Default = settings.highlightEnabled,
+    Callback = function(v)
+        settings.highlightEnabled = v
+        updateSelfHighlight()
+    end,
+})
+
+VisualsTab:Space()
+
+-- Spin
+VisualsTab:Toggle({
+    Title = "Spin",
+    Desc  = "Spin your character continuously",
+    Default = settings.spinEnabled,
+    Callback = function(v)
+        settings.spinEnabled = v
+        if v then startSpin() else stopSpin() end
+    end,
+})
+
+VisualsTab:Space()
+
+-- TPWalk
+VisualsTab:Toggle({
+    Title = "TPWalk (25 studs/s)",
+    Desc  = "Teleport-based movement speed boost",
+    Default = settings.tpwalkEnabled,
+    Callback = function(v)
+        settings.tpwalkEnabled = v
+        if v then startTPWalk() else stopTPWalk() end
+    end,
+})
+
+VisualsTab:Space()
+
+-- Fog toggle
+VisualsTab:Toggle({
+    Title = "Fog",
+    Desc  = "Enable custom lighting fog",
+    Default = settings.fogEnabled,
+    Callback = function(v)
+        settings.fogEnabled = v
+        Lighting.FogEnd   = v and settings.fogEnd  or 100000
+        Lighting.FogColor = v and settings.fogColor or Color3.fromRGB(255, 255, 255)
+    end,
+})
+
+VisualsTab:Space()
+
+-- Fog Color dropdown
+local fogColorMap = {
+    Grey   = Color3.fromRGB(150, 150, 150),
+    Red    = Color3.fromRGB(255,   0,   0),
+    Green  = Color3.fromRGB(  0, 255,   0),
+    Blue   = Color3.fromRGB(  0,   0, 255),
+    Yellow = Color3.fromRGB(255, 255,   0),
+}
+local fogColorNames = { "Grey", "Red", "Green", "Blue", "Yellow" }
+
+VisualsTab:Dropdown({
+    Title  = "Fog Color",
+    Values = fogColorNames,
+    Value  = 1,
+    Callback = function(chosen)
+        settings.fogColor = fogColorMap[chosen] or Color3.fromRGB(150, 150, 150)
+        if settings.fogEnabled then Lighting.FogColor = settings.fogColor end
+    end,
+})
+
+VisualsTab:Space()
+
+-- Fog End slider
+VisualsTab:Slider({
+    Title = "Fog End",
+    Desc  = "How far the fog extends",
+    Step  = 10,
+    Value = {
+        Min     = 10,
+        Max     = 500,
+        Default = settings.fogEnd,
+    },
+    IsTooltip = true,
+    Callback = function(v)
+        settings.fogEnd = v
+        if settings.fogEnabled then Lighting.FogEnd = v end
+    end,
+})
+
+VisualsTab:Space()
+
+-- Skybox Color dropdown
+local skyColorMap = {
+    Black = Color3.fromRGB(  0,   0,   0),
+    Pink  = Color3.fromRGB(255, 200, 200),
+    Green = Color3.fromRGB(200, 255, 200),
+    Blue  = Color3.fromRGB(200, 200, 255),
+}
+local skyColorNames = { "Black", "Pink", "Green", "Blue" }
+
+VisualsTab:Dropdown({
+    Title  = "Skybox Color",
+    Desc   = "Ambient lighting tint",
+    Values = skyColorNames,
+    Value  = 1,
+    Callback = function(chosen)
+        settings.skyboxColor = skyColorMap[chosen] or Color3.fromRGB(0, 0, 0)
+        applySkyboxColor()
+    end,
+})
+
+-- ── Init ──────────────────────────────────────────────────────────────────────
+
+applySkyboxColor()
+fovCircle.Visible = true
+
+print("Aimbot GUI loaded (WindUI) | Made by saintsint on dc")
